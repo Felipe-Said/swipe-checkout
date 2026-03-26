@@ -282,7 +282,7 @@ export default function WhopPage() {
             accounts={accounts}
             selectedAccountId={selectedAccountId}
             onAccountChange={setSelectedAccountId}
-            apiKey={currentAccount.whopKey}
+            apiKey={currentAccount.whopKey || ""}
             onKeyChange={handleKeyChange}
             onSave={handleSave}
             isAdmin={sessionRole === "admin"}
