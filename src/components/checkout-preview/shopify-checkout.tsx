@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import { ChevronDown, Info, ShieldCheck, ShoppingBag } from "lucide-react"
+import { WhopCheckoutEmbed } from "@whop/checkout/react"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -1130,26 +1131,42 @@ function ShippingSection({
 function PaymentSection({ config, copy }: { config: CheckoutConfig; copy: Copy }) {
   const hasRealWhopCheckout = Boolean(config.whop?.purchaseUrl)
   const hasSelectedWhopAccount = Boolean(config.selectedWhopAccountId)
+  const hasEmbeddedPlan = Boolean(config.whop?.planId)
 
   return (
     <section className="space-y-4 pt-4">
       <h2 className="text-lg font-medium" style={{ color: config.checkoutTextColor }}>{copy.payment}</h2>
       <p className="text-sm" style={{ color: config.checkoutMutedColor }}>{copy.paymentSafe}</p>
-      <div className="rounded-md border p-8 text-center" style={{ borderColor: config.checkoutMutedColor, backgroundColor: config.checkoutSurfaceColor, color: config.checkoutMutedColor }}>
-        <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full border bg-white" style={{ borderColor: config.checkoutMutedColor }}>
-          <ShieldCheck className="h-8 w-8" />
+      {hasEmbeddedPlan ? (
+        <div
+          className="overflow-hidden rounded-md border bg-white"
+          style={{ borderColor: config.checkoutMutedColor }}
+        >
+          <WhopCheckoutEmbed
+            planId={config.whop?.planId ?? ""}
+            theme="light"
+            skipRedirect
+            hideEmail={false}
+            hideAddressForm={false}
+          />
         </div>
-        <p className="text-sm font-semibold uppercase tracking-wider" style={{ color: config.checkoutTextColor }}>
-          {config.layoutStyle === "one-page" ? copy.integratedPayment : copy.embeddedGateway}
-        </p>
-        <p className="mt-2 text-xs">
-          {hasRealWhopCheckout
-            ? copy.realGatewayReady
-            : hasSelectedWhopAccount
-              ? copy.realGatewayPending
-              : copy.gatewayPlaceholder}
-        </p>
-      </div>
+      ) : (
+        <div className="rounded-md border p-8 text-center" style={{ borderColor: config.checkoutMutedColor, backgroundColor: config.checkoutSurfaceColor, color: config.checkoutMutedColor }}>
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full border bg-white" style={{ borderColor: config.checkoutMutedColor }}>
+            <ShieldCheck className="h-8 w-8" />
+          </div>
+          <p className="text-sm font-semibold uppercase tracking-wider" style={{ color: config.checkoutTextColor }}>
+            {config.layoutStyle === "one-page" ? copy.integratedPayment : copy.embeddedGateway}
+          </p>
+          <p className="mt-2 text-xs">
+            {hasRealWhopCheckout
+              ? copy.realGatewayReady
+              : hasSelectedWhopAccount
+                ? copy.realGatewayPending
+                : copy.gatewayPlaceholder}
+          </p>
+        </div>
+      )}
     </section>
   )
 }
