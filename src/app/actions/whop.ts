@@ -471,32 +471,24 @@ export async function saveCheckoutFromEditor(input: {
         : { data: null }
 
       const redirectUrl = buildThankYouRedirectUrl(checkoutId, selectedDomain?.host)
+      const sourceUrl = selectedDomain?.host
+        ? `https://${selectedDomain.host.replace(/^https?:\/\//, "")}`
+        : `${getAppBaseUrl()}/app/checkouts/${checkoutId}/editor`
       const client = new Whop({ apiKey: whopAccount.whop_key })
       const checkoutConfiguration = await client.checkoutConfigurations.create({
+        company_id: whopAccount.whop_company_id,
         redirect_url: redirectUrl,
-        source_url: redirectUrl,
+        source_url: sourceUrl,
         metadata: {
           swipeCheckoutId: checkoutId,
           swipeAccountId: input.accountId,
           swipeCheckoutName: cleanName,
         },
         plan: {
-          company_id: whopAccount.whop_company_id,
           currency: normalizeWhopCurrency(input.config.currency),
           plan_type: "one_time",
-          release_method: "buy_now",
           initial_price: DEFAULT_CHECKOUT_AMOUNT,
-          renewal_price: 0,
-          visibility: "hidden",
           title: cleanName.slice(0, 30),
-          product: {
-            external_identifier: `swipe-checkout:${checkoutId}`,
-            title: cleanName.slice(0, 40),
-            description: `${cleanName} publicado pelo Swipe.`,
-            headline: cleanName.slice(0, 80),
-            redirect_purchase_url: redirectUrl,
-            visibility: "hidden",
-          },
         },
       } as any)
 

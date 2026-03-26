@@ -1240,6 +1240,7 @@ function PaymentSection({
     }),
     [contactData.email, deliveryData.address, deliveryData.city, deliveryData.state, deliveryData.zip, inferredFullName, locale]
   )
+  const embedReturnUrl = config.whop?.purchaseUrl ?? undefined
 
   return (
     <section className="space-y-4 pt-4">
@@ -1259,6 +1260,7 @@ function PaymentSection({
               disableEmail={shouldHideEmbedEmail}
               hideAddressForm={false}
               prefill={embedPrefill}
+              returnUrl={embedReturnUrl}
             />
           ) : (
             <WhopCheckoutEmbed
@@ -1269,6 +1271,7 @@ function PaymentSection({
               disableEmail={shouldHideEmbedEmail}
               hideAddressForm={false}
               prefill={embedPrefill}
+              returnUrl={embedReturnUrl}
             />
           )}
         </div>
