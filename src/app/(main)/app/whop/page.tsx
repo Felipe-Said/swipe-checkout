@@ -39,6 +39,14 @@ const READY_STATUS: NonNullable<ManagedAccount["whopIntegrationStatus"]> = "Pron
 const PENDING_STATUS: NonNullable<ManagedAccount["whopIntegrationStatus"]> = "Pendente"
 const SANDBOX_ENV: NonNullable<ManagedAccount["whopEnvironment"]> = "Sandbox"
 
+function getWhopWebhookEndpoint() {
+  if (typeof window !== "undefined") {
+    return `${window.location.origin}/api/webhooks/whop`
+  }
+
+  return "https://seu-dominio.com/api/webhooks/whop"
+}
+
 export default function WhopPage() {
   const [sessionRole, setSessionRole] = React.useState<"admin" | "user">("user")
   const [accounts, setAccounts] = React.useState<ManagedAccount[]>([])
@@ -108,6 +116,16 @@ export default function WhopPage() {
     )
   }
 
+  const handleCompanyIdChange = (value: string) => {
+    if (!currentAccount) return
+
+    setAccounts((current) =>
+      current.map((account) =>
+        account.id === currentAccount.id ? { ...account, whopCompanyId: value } : account
+      )
+    )
+  }
+
   const handleSave = async () => {
     if (!currentAccount) return
 
@@ -115,6 +133,7 @@ export default function WhopPage() {
       const result = await saveWhopAccountCredentials({
         accountId: currentAccount.id,
         apiKey: currentAccount.whopKey || "",
+        companyId: currentAccount.whopCompanyId || "",
       })
 
       if (result?.error) {
@@ -172,6 +191,7 @@ export default function WhopPage() {
       const result = await validateWhopAccount({
         accountId: currentAccount.id,
         apiKey: currentAccount.whopKey || "",
+        companyId: currentAccount.whopCompanyId || "",
       })
 
       if (result?.error) {
@@ -378,7 +398,13 @@ export default function WhopPage() {
 
           <WhopDiagnosticsPanel events={events} onRetry={handleValidate} />
           <WhopSetupTutorial />
-          <WhopAdvancedSettings />
+          <WhopAdvancedSettings
+            companyId={currentAccount.whopCompanyId || ""}
+            onCompanyIdChange={handleCompanyIdChange}
+            webhookEndpoint={getWhopWebhookEndpoint()}
+            successUrl={`${typeof window !== "undefined" ? window.location.origin : "https://seu-dominio.com"}/app`}
+            cancelUrl={`${typeof window !== "undefined" ? window.location.origin : "https://seu-dominio.com"}/app/whop`}
+          />
         </div>
       </div>
     </div>

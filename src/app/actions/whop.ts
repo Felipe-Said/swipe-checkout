@@ -77,6 +77,7 @@ async function ensureWebhook(client: Whop, companyId?: string | null) {
 
   const createdWebhook = await client.webhooks.create({
     url: webhookUrl,
+    resource_id: companyId || undefined,
     enabled: true,
     api_version: "v1",
     events: ["payment.succeeded", "payment.pending", "payment.failed", "invoice.paid"],
@@ -104,8 +105,13 @@ function mapCheckoutRecord(row: any): CheckoutRecord {
   }
 }
 
-export async function validateWhopAccount(input: { accountId: string; apiKey: string }) {
+export async function validateWhopAccount(input: {
+  accountId: string
+  apiKey: string
+  companyId?: string
+}) {
   const apiKey = input.apiKey.trim()
+  const manualCompanyId = input.companyId?.trim() || null
   if (!input.accountId || !apiKey) {
     return { error: "Conta e API key sao obrigatorias." }
   }
@@ -124,13 +130,13 @@ export async function validateWhopAccount(input: { accountId: string; apiKey: st
 
   try {
     const client = new Whop({ apiKey })
-    const webhook = await ensureWebhook(client, account.whop_company_id)
+    const webhook = await ensureWebhook(client, manualCompanyId || account.whop_company_id)
 
     const { error: updateError } = await supabaseAdmin
       .from("managed_accounts")
       .update({
         whop_key: apiKey,
-        whop_company_id: webhook.companyId,
+        whop_company_id: webhook.companyId || manualCompanyId,
         whop_integration_status: "Pronto",
         whop_last_validation: new Date().toISOString(),
         whop_permissions_valid: true,
@@ -147,7 +153,7 @@ export async function validateWhopAccount(input: { accountId: string; apiKey: st
     return {
       success: true,
       company: {
-        id: webhook.companyId,
+        id: webhook.companyId || manualCompanyId,
         title: null,
         route: null,
       },
@@ -159,9 +165,14 @@ export async function validateWhopAccount(input: { accountId: string; apiKey: st
         ? error.message
         : "Nao foi possivel validar a API key da Whop."
 
-    const normalizedMessage = message.includes("company:basic:read")
-      ? "A integracao tentou ler a empresa antes do necessario. O fluxo foi ajustado para validar pela criacao do webhook da empresa atual. Tente validar novamente."
-      : message
+    let normalizedMessage = message
+    if (message.includes("company:basic:read")) {
+      normalizedMessage =
+        "A API key ainda esta sem permissao para ler a empresa na Whop. Se essa permissao nao aparecer para voce, preencha manualmente o Company ID no modo avancado e valide novamente."
+    } else if (message.includes("Please provide a resource id or have a current company in context")) {
+      normalizedMessage =
+        "A Whop nao identificou automaticamente a empresa desta API key. Preencha o Company ID no modo avancado e valide novamente."
+    }
 
     await supabaseAdmin
       .from("managed_accounts")
@@ -181,8 +192,13 @@ export async function validateWhopAccount(input: { accountId: string; apiKey: st
   }
 }
 
-export async function saveWhopAccountCredentials(input: { accountId: string; apiKey: string }) {
+export async function saveWhopAccountCredentials(input: {
+  accountId: string
+  apiKey: string
+  companyId?: string
+}) {
   const apiKey = input.apiKey.trim()
+  const companyId = input.companyId?.trim() || null
   if (!input.accountId) {
     return { error: "Conta operacional nao encontrada." }
   }
@@ -203,6 +219,7 @@ export async function saveWhopAccountCredentials(input: { accountId: string; api
     .from("managed_accounts")
     .update({
       whop_key: apiKey,
+      whop_company_id: companyId,
       whop_integration_status: "Pendente",
       whop_permissions_valid: false,
       whop_checkout_ready: false,

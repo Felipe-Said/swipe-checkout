@@ -1,14 +1,28 @@
 "use client"
 
 import * as React from "react"
-import { Settings2, Code, Terminal, Globe, ChevronDown, ChevronUp } from "lucide-react"
+import { Settings2, Code, Terminal } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 
-export function WhopAdvancedSettings() {
+interface WhopAdvancedSettingsProps {
+  companyId: string
+  onCompanyIdChange: (value: string) => void
+  webhookEndpoint: string
+  successUrl: string
+  cancelUrl: string
+}
+
+export function WhopAdvancedSettings({
+  companyId,
+  onCompanyIdChange,
+  webhookEndpoint,
+  successUrl,
+  cancelUrl,
+}: WhopAdvancedSettingsProps) {
   return (
     <Card className="border-primary/10 bg-card/40 backdrop-blur-sm shadow-xl overflow-hidden mt-6">
        <Accordion type="single" collapsible>
@@ -25,8 +39,9 @@ export function WhopAdvancedSettings() {
                       <div className="space-y-2">
                          <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">Company ID</Label>
                          <Input 
-                           value="comp_823904823" 
-                           readOnly 
+                           value={companyId}
+                           onChange={(event) => onCompanyIdChange(event.target.value)}
+                           placeholder="biz_xxxxxxxxxxxxxx"
                            className="h-10 bg-muted/20 border-primary/5 rounded-lg font-mono text-xs" 
                          />
                       </div>
@@ -34,7 +49,7 @@ export function WhopAdvancedSettings() {
                          <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">Webhook Endpoint</Label>
                          <div className="relative">
                             <Input 
-                              value="https://api.swipe.com/hooks/whop/84920" 
+                              value={webhookEndpoint} 
                               readOnly 
                               className="h-10 bg-muted/20 border-primary/5 rounded-lg font-mono text-[10px] pr-10" 
                             />
@@ -49,7 +64,7 @@ export function WhopAdvancedSettings() {
                       <div className="space-y-2">
                          <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">Success URL</Label>
                          <Input 
-                           value="https://checkout.swipe.com/success" 
+                           value={successUrl} 
                            readOnly 
                            className="h-10 bg-muted/20 border-primary/5 rounded-lg text-xs" 
                          />
@@ -57,7 +72,7 @@ export function WhopAdvancedSettings() {
                       <div className="space-y-2">
                          <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">Cancel URL</Label>
                          <Input 
-                           value="https://checkout.swipe.com/cancel" 
+                           value={cancelUrl} 
                            readOnly 
                            className="h-10 bg-muted/20 border-primary/5 rounded-lg text-xs" 
                          />
@@ -73,7 +88,7 @@ export function WhopAdvancedSettings() {
                    <pre>
 {`{
   "company": {
-    "id": "comp_823904823",
+    "id": "${companyId || "biz_xxxxxxxxxxxxxx"}",
     "name": "Swipe Enterprise",
     "plan": "Whop Business"
   },
