@@ -6,8 +6,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { readDemoSession } from "@/lib/demo-auth"
-import { readManagedAccounts, type ManagedAccount } from "@/lib/account-metrics"
+import { supabase } from "@/lib/supabase"
+import { getManagedAccounts, type ManagedAccount } from "@/lib/account-metrics"
 import {
   createWithdrawal,
   getBankAccount,
@@ -48,19 +48,26 @@ export default function WithdrawalsPage() {
   const [requestAmount, setRequestAmount] = React.useState("1500")
 
   React.useEffect(() => {
-    const session = readDemoSession()
-    const accounts = readManagedAccounts()
-    setAccounts(accounts)
-    setSessionRole(session?.role ?? "user")
-    const currentAccount = accounts.find((account) => account.email === session?.email) ?? accounts[0]
-    if (!currentAccount) {
-      return
+    async function load() {
+      const { data: { user } } = await supabase.auth.getUser()
+      const accs = await getManagedAccounts()
+      setAccounts(accs)
+      
+      if (user) {
+        // Find role from profiles or metadata
+        const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
+        setSessionRole(profile?.role || "user")
+        
+        const currentAccount = accs.find((account) => account.email === user.email) ?? accs[0]
+        if (currentAccount) {
+          setAccountId(currentAccount.id)
+          setAccount(currentAccount)
+          setBankAccount(getBankAccount(currentAccount.id, "BRL") ?? emptyBankAccount)
+          setWithdrawals(getWithdrawalsByAccount(currentAccount.id))
+        }
+      }
     }
-
-    setAccountId(currentAccount.id)
-    setAccount(currentAccount)
-    setBankAccount(getBankAccount(currentAccount.id, "BRL") ?? emptyBankAccount)
-    setWithdrawals(getWithdrawalsByAccount(currentAccount.id))
+    load()
   }, [])
 
   React.useEffect(() => {
@@ -95,7 +102,7 @@ export default function WithdrawalsPage() {
     .filter((item) => item.role === "user")
     .reduce(
       (sum, item) =>
-        sum + ((item.estimatedDailyRevenueByCurrency.BRL ?? 0) * item.feeRate) / 100,
+        sum + (((item.estimatedDailyRevenueByCurrency?.BRL || 0) ?? 0) * (item.feeRate || 0)) / 100,
       0
     )
 
@@ -389,7 +396,7 @@ function calculateAvailableWithdrawalAmount({
   currency: SupportedWithdrawalCurrency
   withdrawals: WithdrawalRecord[]
 }) {
-  const startDate = new Date(account.settlementStartedAt)
+  const startDate = new Date(account.settlementStartedAt || new Date())
   const now = new Date()
   const startTimestamp = Number.isFinite(startDate.getTime())
     ? startDate.getTime()
