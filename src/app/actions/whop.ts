@@ -60,37 +60,23 @@ function buildThankYouRedirectUrl(checkoutId: string, domainHost?: string | null
   return `${getAppBaseUrl()}/app/checkouts/${checkoutId}/editor?mode=preview`
 }
 
-async function getWhopCompany(client: Whop, companyId?: string | null) {
-  if (companyId) {
-    try {
-      return await client.companies.retrieve(companyId)
-    } catch {
-      // Fall back to listing companies if the stored id no longer works.
-    }
-  }
-
-  for await (const company of client.companies.list()) {
-    return company
-  }
-
-  throw new Error("Nenhuma empresa Whop foi encontrada para esta API key.")
-}
-
-async function ensureWebhook(client: Whop, companyId: string) {
+async function ensureWebhook(client: Whop, companyId?: string | null) {
   const webhookUrl = `${getAppBaseUrl()}/api/webhooks/whop`
 
-  for await (const webhook of client.webhooks.list({ company_id: companyId, first: 100 })) {
-    if (webhook.url === webhookUrl) {
-      return {
-        id: webhook.id,
-        active: webhook.enabled,
+  if (companyId) {
+    for await (const webhook of client.webhooks.list({ company_id: companyId, first: 100 })) {
+      if (webhook.url === webhookUrl) {
+        return {
+          id: webhook.id,
+          active: webhook.enabled,
+          companyId,
+        }
       }
     }
   }
 
   const createdWebhook = await client.webhooks.create({
     url: webhookUrl,
-    resource_id: companyId,
     enabled: true,
     api_version: "v1",
     events: ["payment.succeeded", "payment.pending", "payment.failed", "invoice.paid"],
@@ -99,6 +85,7 @@ async function ensureWebhook(client: Whop, companyId: string) {
   return {
     id: createdWebhook.id,
     active: createdWebhook.enabled,
+    companyId: createdWebhook.resource_id,
   }
 }
 
@@ -137,14 +124,13 @@ export async function validateWhopAccount(input: { accountId: string; apiKey: st
 
   try {
     const client = new Whop({ apiKey })
-    const company = await getWhopCompany(client, account.whop_company_id)
-    const webhook = await ensureWebhook(client, company.id)
+    const webhook = await ensureWebhook(client, account.whop_company_id)
 
     const { error: updateError } = await supabaseAdmin
       .from("managed_accounts")
       .update({
         whop_key: apiKey,
-        whop_company_id: company.id,
+        whop_company_id: webhook.companyId,
         whop_integration_status: "Pronto",
         whop_last_validation: new Date().toISOString(),
         whop_permissions_valid: true,
@@ -161,9 +147,9 @@ export async function validateWhopAccount(input: { accountId: string; apiKey: st
     return {
       success: true,
       company: {
-        id: company.id,
-        title: company.title,
-        route: company.route,
+        id: webhook.companyId,
+        title: null,
+        route: null,
       },
       webhookId: webhook.id,
     }
@@ -174,7 +160,7 @@ export async function validateWhopAccount(input: { accountId: string; apiKey: st
         : "Nao foi possivel validar a API key da Whop."
 
     const normalizedMessage = message.includes("company:basic:read")
-      ? "A API key foi aceita pela Whop, mas esta sem permissao para ler a empresa (company:basic:read). Gere uma Company API key com leitura de informacoes da empresa e tente novamente."
+      ? "A integracao tentou ler a empresa antes do necessario. O fluxo foi ajustado para validar pela criacao do webhook da empresa atual. Tente validar novamente."
       : message
 
     await supabaseAdmin
