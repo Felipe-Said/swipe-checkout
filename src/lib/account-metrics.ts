@@ -31,14 +31,7 @@ const DEFAULT_USER_FEE_RATE = 15
 export async function getManagedAccounts(): Promise<ManagedAccount[]> {
   const { data, error } = await supabase
     .from('managed_accounts')
-    .select(`
-      *,
-      profiles:profile_id (
-        email,
-        role,
-        status
-      )
-    `)
+    .select('*')
     .order('created_at', { ascending: false })
 
   if (error) {
@@ -46,7 +39,29 @@ export async function getManagedAccounts(): Promise<ManagedAccount[]> {
     return []
   }
 
-  return (data || []).map(mapDbToAccount)
+  const accounts = data || []
+  const profileIds = accounts
+    .map((account) => account.profile_id)
+    .filter((value): value is string => Boolean(value))
+
+  const profileMap = new Map<string, { email?: string; role?: "admin" | "user"; status?: string }>()
+
+  if (profileIds.length > 0) {
+    const { data: profiles, error: profilesError } = await supabase
+      .from("profiles")
+      .select("id, email, role, status")
+      .in("id", profileIds)
+
+    if (profilesError) {
+      console.error("Error fetching profiles:", profilesError)
+    } else {
+      for (const profile of profiles || []) {
+        profileMap.set(profile.id, profile)
+      }
+    }
+  }
+
+  return accounts.map((account) => mapDbToAccount(account, profileMap.get(account.profile_id)))
 }
 
 export async function updateManagedAccount(id: string, updates: Partial<ManagedAccount>) {
@@ -61,9 +76,10 @@ export async function updateManagedAccount(id: string, updates: Partial<ManagedA
   }
 }
 
-function mapDbToAccount(db: any): ManagedAccount {
-  const profile = Array.isArray(db.profiles) ? db.profiles[0] : db.profiles
-
+function mapDbToAccount(
+  db: any,
+  profile?: { email?: string; role?: "admin" | "user"; status?: string }
+): ManagedAccount {
   return {
     id: db.id,
     profile_id: db.profile_id,

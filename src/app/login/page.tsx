@@ -6,7 +6,8 @@ import { useRouter } from "next/navigation"
 import { CreditCard, Loader2, AlertCircle } from "lucide-react"
 import { resolveLoginProfile } from "@/app/auth/actions"
 import { useSearchParams } from "next/navigation"
-import { writeAppSession } from "@/lib/app-session"
+import { clearAppSession, writeAppSession } from "@/lib/app-session"
+import { clearDemoSession } from "@/lib/demo-auth"
 import { supabase } from "@/lib/supabase"
 import { Button } from "@/components/ui/button"
 import {
@@ -44,6 +45,8 @@ function LoginContent() {
     event.preventDefault()
     setIsLoading(true)
     setError("")
+    clearDemoSession()
+    clearAppSession()
 
     const formData = new FormData(event.currentTarget)
     const email = String(formData.get("email") || "")

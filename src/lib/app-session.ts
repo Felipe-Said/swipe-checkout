@@ -51,23 +51,23 @@ export function clearAppSession() {
 }
 
 export async function getCurrentAppSession(): Promise<AppSession | null> {
-  const demoSession = readDemoSession()
-  if (demoSession) {
-    return {
-      userId: demoSession.email,
-      name: demoSession.name,
-      email: demoSession.email,
-      role: demoSession.role,
-      accountId: null,
-      keyFrozen: false,
-    }
-  }
-
   const {
     data: { user },
   } = await supabase.auth.getUser()
 
   if (!user) {
+    const demoSession = readDemoSession()
+    if (demoSession) {
+      return {
+        userId: demoSession.email,
+        name: demoSession.name,
+        email: demoSession.email,
+        role: demoSession.role,
+        accountId: null,
+        keyFrozen: false,
+      }
+    }
+
     return null
   }
 
