@@ -1223,8 +1223,9 @@ function PaymentSection({
 }) {
   const hasRealWhopCheckout = Boolean(config.whop?.purchaseUrl)
   const hasSelectedWhopAccount = Boolean(config.selectedWhopAccountId)
-  const hasEmbeddedPlan = Boolean(config.whop?.planId)
+  const hasEmbeddedSession = Boolean(config.whop?.checkoutConfigurationId || config.whop?.planId)
   const inferredFullName = contactData.fullName.trim() || `${deliveryData.firstName} ${deliveryData.lastName}`.trim()
+  const shouldHideEmbedEmail = Boolean(contactData.email.trim())
   const embedPrefill = React.useMemo(
     () => ({
       email: contactData.email.trim() || undefined,
@@ -1244,20 +1245,32 @@ function PaymentSection({
     <section className="space-y-4 pt-4">
       <h2 className="text-lg font-medium" style={{ color: config.checkoutTextColor }}>{copy.payment}</h2>
       <p className="text-sm" style={{ color: config.checkoutMutedColor }}>{copy.paymentSafe}</p>
-      {hasEmbeddedPlan ? (
+      {hasEmbeddedSession ? (
         <div
           className="overflow-hidden rounded-md border bg-white"
           style={{ borderColor: config.checkoutMutedColor }}
         >
-          <WhopCheckoutEmbed
-            planId={config.whop?.planId ?? ""}
-            theme="light"
-            skipRedirect
-            hideEmail={false}
-            disableEmail={Boolean(embedPrefill.email)}
-            hideAddressForm={false}
-            prefill={embedPrefill}
-          />
+          {config.whop?.checkoutConfigurationId ? (
+            <WhopCheckoutEmbed
+              sessionId={config.whop.checkoutConfigurationId}
+              theme="light"
+              skipRedirect
+              hideEmail={shouldHideEmbedEmail}
+              disableEmail={shouldHideEmbedEmail}
+              hideAddressForm={false}
+              prefill={embedPrefill}
+            />
+          ) : (
+            <WhopCheckoutEmbed
+              planId={config.whop?.planId ?? ""}
+              theme="light"
+              skipRedirect
+              hideEmail={shouldHideEmbedEmail}
+              disableEmail={shouldHideEmbedEmail}
+              hideAddressForm={false}
+              prefill={embedPrefill}
+            />
+          )}
         </div>
       ) : (
         <div className="rounded-md border p-8 text-center" style={{ borderColor: config.checkoutMutedColor, backgroundColor: config.checkoutSurfaceColor, color: config.checkoutMutedColor }}>
