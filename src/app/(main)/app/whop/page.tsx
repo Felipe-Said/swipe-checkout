@@ -2,7 +2,7 @@
 
 import * as React from "react"
 
-import { supabase } from "@/lib/supabase"
+import { getCurrentAppSession } from "@/lib/app-session"
 import {
   getManagedAccounts,
   updateManagedAccount,
@@ -45,30 +45,54 @@ export default function WhopPage() {
   const [selectedAccountId, setSelectedAccountId] = React.useState("")
   const [isValidating, setIsValidating] = React.useState(false)
   const [events, setEvents] = React.useState<DiagnosticEvent[]>([])
+  const [loaded, setLoaded] = React.useState(false)
 
   React.useEffect(() => {
+    let cancelled = false
+
     async function loadData() {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (user) {
-        // Simple role check based on metadata or profile
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('role')
-          .eq('id', user.id)
-          .single()
-        
-        setSessionRole(profile?.role || "user")
+      const session = await getCurrentAppSession()
+      if (session && !cancelled) {
+        setSessionRole(session.role === "admin" ? "admin" : "user")
       }
 
-      const loadedAccounts = await getManagedAccounts()
-      setAccounts(loadedAccounts)
+      let loadedAccounts = await getManagedAccounts()
 
-      if (loadedAccounts.length > 0) {
-        setSelectedAccountId(loadedAccounts[0].id)
+      if (loadedAccounts.length === 0 && session) {
+        loadedAccounts = [
+          {
+            id: session.accountId ?? session.userId,
+            profile_id: session.userId,
+            name: session.name,
+            email: session.email,
+            role: session.role,
+            status: "Ativa",
+            orders: 0,
+            conversionRate: 0,
+            revenue: 0,
+            feeRate: session.role === "admin" ? 0 : 15,
+            keyFrozen: session.keyFrozen,
+            billingCycleDays: 2,
+            paymentMode: "manual",
+            settlementStartedAt: new Date().toISOString(),
+            whopIntegrationStatus: PENDING_STATUS,
+            estimatedDailyRevenueByCurrency: { BRL: 0, USD: 0, EUR: 0, GBP: 0 },
+          },
+        ]
+      }
+
+      if (!cancelled) {
+        setAccounts(loadedAccounts)
+        setSelectedAccountId(loadedAccounts[0]?.id ?? "")
+        setLoaded(true)
       }
     }
-    
+
     loadData()
+
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   const currentAccount =
@@ -213,7 +237,31 @@ export default function WhopPage() {
     }, 4000)
   }
 
-  if (!currentAccount) return null
+  if (!loaded) {
+    return <div className="min-h-[320px]" />
+  }
+
+  if (!currentAccount) {
+    return (
+      <div className="flex flex-col gap-6">
+        <div className="flex flex-col gap-1">
+          <h1 className="text-3xl font-bold tracking-tight">Whop</h1>
+          <p className="text-muted-foreground">
+            Configure as chaves da Whop e acompanhe a saude da integracao.
+          </p>
+        </div>
+
+        <Card className="p-6">
+          <h4 className="mb-2 text-sm font-black uppercase tracking-tight">
+            Nenhuma conta carregada
+          </h4>
+          <p className="text-sm text-muted-foreground">
+            Assim que a conta operacional estiver disponivel, as configuracoes da Whop aparecerao aqui.
+          </p>
+        </Card>
+      </div>
+    )
+  }
 
   const isFrozenForUser = sessionRole === "user" && currentAccount.keyFrozen
 
