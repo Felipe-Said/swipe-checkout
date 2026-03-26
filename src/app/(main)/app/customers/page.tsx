@@ -10,9 +10,9 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import {
   calculateFeeValue,
-  readManagedAccounts,
+  getManagedAccounts,
+  updateManagedAccount,
   type ManagedAccount,
-  writeManagedAccounts,
 } from "@/lib/account-metrics"
 import {
   appendSupportChatMessage,
@@ -43,10 +43,13 @@ export default function CustomersAdminPage() {
   const [withdrawals, setWithdrawals] = React.useState<WithdrawalRecord[]>([])
 
   React.useEffect(() => {
-    const loaded = readManagedAccounts()
-    setAccounts(loaded)
-    setSelectedAccountId(loaded[0]?.id ?? "")
-    setMessages(readSupportChatMessages())
+    async function load() {
+      const loaded = await getManagedAccounts()
+      setAccounts(loaded)
+      setSelectedAccountId(loaded[0]?.id ?? "")
+      setMessages(readSupportChatMessages())
+    }
+    load()
   }, [])
 
   const selectedAccount =
@@ -59,26 +62,27 @@ export default function CustomersAdminPage() {
     setWithdrawals(getWithdrawalsByAccount(selectedAccountId))
   }, [selectedAccountId])
 
-  const updateAccounts = (updater: (current: ManagedAccount[]) => ManagedAccount[]) => {
-    setAccounts((current) => {
-      const next = updater(current)
-      writeManagedAccounts(next)
-      return next
-    })
+  const updateAccountInDb = async (id: string, patch: Partial<ManagedAccount>) => {
+    const account = accounts.find(a => a.id === id)
+    if (!account) return
+
+    const next = { ...account, ...patch }
+    setAccounts(prev => prev.map(a => a.id === id ? next : a))
+    
+    try {
+      await updateManagedAccount(id, next)
+    } catch (error) {
+      console.error("Failed to update account:", error)
+    }
   }
 
   const handleDecision = (id: string) => {
     setSignupQueue((current) => current.filter((item) => item.id !== id))
   }
 
-  const handleAccountPatch = (patch: Partial<ManagedAccount>) => {
+  const handleAccountPatch = async (patch: Partial<ManagedAccount>) => {
     if (!selectedAccount) return
-
-    updateAccounts((current) =>
-      current.map((account) =>
-        account.id === selectedAccount.id ? { ...account, ...patch } : account
-      )
-    )
+    await updateAccountInDb(selectedAccount.id, patch)
   }
 
   const handleChatImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -164,10 +168,10 @@ export default function CustomersAdminPage() {
 
         <div className="grid gap-6">
           <div className="grid gap-4 md:grid-cols-4">
-            <MetricCard title="Pedidos" value={selectedAccount.orders.toString()} icon={<Users className="h-4 w-4" />} />
-            <MetricCard title="Conversao" value={`${selectedAccount.conversionRate.toFixed(1)}%`} icon={<ShieldCheck className="h-4 w-4" />} />
-            <MetricCard title="Receita" value={formatCurrency(selectedAccount.revenue)} icon={<KeyRound className="h-4 w-4" />} />
-            <MetricCard title="Taxa" value={`${selectedAccount.feeRate.toFixed(2)}%`} icon={<Percent className="h-4 w-4" />} />
+            <MetricCard title="Pedidos" value={(selectedAccount.orders || 0).toString()} icon={<Users className="h-4 w-4" />} />
+            <MetricCard title="Conversao" value={`${(selectedAccount.conversionRate || 0).toFixed(1)}%`} icon={<ShieldCheck className="h-4 w-4" />} />
+            <MetricCard title="Receita" value={formatCurrency(selectedAccount.revenue || 0)} icon={<KeyRound className="h-4 w-4" />} />
+            <MetricCard title="Taxa" value={`${(selectedAccount.feeRate || 0).toFixed(2)}%`} icon={<Percent className="h-4 w-4" />} />
           </div>
 
           <Card>

@@ -13,11 +13,11 @@ import {
   Megaphone,
 } from "lucide-react"
 
-import { readDemoSession } from "@/lib/demo-auth"
+import { supabase } from "@/lib/supabase"
 import { useI18n } from "@/lib/i18n"
 import {
   calculateFeeValue,
-  readManagedAccounts,
+  getManagedAccounts,
   type ManagedAccount,
 } from "@/lib/account-metrics"
 import { readCampaignPerformance } from "@/lib/pixels-data"
@@ -49,13 +49,20 @@ export default function DashboardPage() {
   const [date, setDate] = React.useState("2026-03-24")
 
   React.useEffect(() => {
-    const session = readDemoSession()
-    if (session) {
-      setSessionEmail(session.email)
-      setSessionRole(session.role)
+    async function load() {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        setSessionEmail(user.email || "")
+        // Role check could be better but let's stick to this for now
+        const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
+        setSessionRole(profile?.role || "user")
+      }
+      
+      const accs = await getManagedAccounts()
+      setAccounts(accs)
+      setCampaigns(readCampaignPerformance())
     }
-    setAccounts(readManagedAccounts())
-    setCampaigns(readCampaignPerformance())
+    load()
   }, [])
 
   const currentAccount =
@@ -66,8 +73,8 @@ export default function DashboardPage() {
   }
 
   const factor = periodFactors[period]
-  const scopedRevenue = currentAccount.revenue * factor
-  const scopedOrders = Math.round(currentAccount.orders * factor)
+  const scopedRevenue = (currentAccount.revenue || 0) * factor
+  const scopedOrders = Math.round((currentAccount.orders || 0) * factor)
   const scopedFeeValue = calculateFeeValue({
     ...currentAccount,
     revenue: scopedRevenue,
@@ -76,13 +83,13 @@ export default function DashboardPage() {
   const userAccounts = accounts.filter((account) => account.role === "user")
   const adminAccount =
     accounts.find((account) => account.role === "admin") ?? currentAccount
-  const adminRevenue = adminAccount.revenue * factor
+  const adminRevenue = (adminAccount.revenue || 0) * factor
   const totalFeeRevenue = userAccounts.reduce(
     (sum, account) =>
       sum +
       calculateFeeValue({
         ...account,
-        revenue: account.revenue * factor,
+        revenue: (account.revenue || 0) * factor,
       }),
     0
   )
@@ -128,13 +135,13 @@ export default function DashboardPage() {
         </div>
       ) : null}
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5">
-        <SummaryCard title={t("dash.total_checkouts")} value="12" icon={<MousePointerClick className="h-4 w-4 text-muted-foreground" />} detail="+2 desde o mes passado" />
-        <SummaryCard title={t("dash.avg_conversion")} value={`${currentAccount.conversionRate.toFixed(1)}%`} icon={<TrendingUp className="h-4 w-4 text-muted-foreground" />} detail="+0.4% em relacao a ontem" />
-        <SummaryCard title={t("dash.total_orders")} value={scopedOrders.toString()} icon={<ShoppingCart className="h-4 w-4 text-muted-foreground" />} detail="volume do periodo selecionado" />
-        <SummaryCard title={t("dash.revenue")} value={formatCurrency(scopedRevenue)} icon={<Users className="h-4 w-4 text-muted-foreground" />} detail="faturamento bruto do periodo" />
-        <SummaryCard title={t("dash.fee_rate")} value={`${currentAccount.feeRate.toFixed(2)}%`} icon={<Percent className="h-4 w-4 text-muted-foreground" />} detail={`Total cobrado: ${formatCurrency(scopedFeeValue)}`} />
-      </div>
+  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5">
+    <SummaryCard title={t("dash.total_checkouts")} value="12" icon={<MousePointerClick className="h-4 w-4 text-muted-foreground" />} detail="+2 desde o mes passado" />
+    <SummaryCard title={t("dash.avg_conversion")} value={`${(currentAccount.conversionRate || 0).toFixed(1)}%`} icon={<TrendingUp className="h-4 w-4 text-muted-foreground" />} detail="+0.4% em relacao a ontem" />
+    <SummaryCard title={t("dash.total_orders")} value={scopedOrders.toString()} icon={<ShoppingCart className="h-4 w-4 text-muted-foreground" />} detail="volume do periodo selecionado" />
+    <SummaryCard title={t("dash.revenue")} value={formatCurrency(scopedRevenue)} icon={<Users className="h-4 w-4 text-muted-foreground" />} detail="faturamento bruto do periodo" />
+    <SummaryCard title={t("dash.fee_rate")} value={`${(currentAccount.feeRate || 0).toFixed(2)}%`} icon={<Percent className="h-4 w-4 text-muted-foreground" />} detail={`Total cobrado: ${formatCurrency(scopedFeeValue)}`} />
+  </div>
 
       <Card>
         <CardContent className="flex flex-col gap-2 p-5 text-sm text-muted-foreground md:flex-row md:items-center md:justify-between">
@@ -160,7 +167,7 @@ export default function DashboardPage() {
             <CardContent className="space-y-4">
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                 {userAccounts.map((account) => {
-                const scopedAccountRevenue = account.revenue * factor
+                const scopedAccountRevenue = (account.revenue || 0) * factor
                 const scopedAccountFee = calculateFeeValue({
                   ...account,
                   revenue: scopedAccountRevenue,
@@ -173,7 +180,7 @@ export default function DashboardPage() {
                       <div className="text-sm text-muted-foreground">{account.email}</div>
                     </div>
                     <div className="mt-4 text-left">
-                      <div className="font-medium">{account.feeRate.toFixed(2)}%</div>
+                      <div className="font-medium">{(account.feeRate || 0).toFixed(2)}%</div>
                       <div className="text-sm text-muted-foreground">{formatCurrency(scopedAccountFee)}</div>
                     </div>
                   </div>
