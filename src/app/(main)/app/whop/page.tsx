@@ -2,11 +2,10 @@
 
 import * as React from "react"
 
-import { validateWhopAccount } from "@/app/actions/whop"
+import { saveWhopAccountCredentials, validateWhopAccount } from "@/app/actions/whop"
 import { getCurrentAppSession } from "@/lib/app-session"
 import {
   getManagedAccounts,
-  updateManagedAccount,
   type ManagedAccount,
 } from "@/lib/account-metrics"
 import { toast } from "sonner"
@@ -113,13 +112,15 @@ export default function WhopPage() {
     if (!currentAccount) return
 
     try {
-      await updateManagedAccount(currentAccount.id, {
-        whopKey: currentAccount.whopKey || "",
-        whopIntegrationStatus: PENDING_STATUS,
-        whopPermissionsValid: false,
-        whopCheckoutReady: false,
-        whopWebhookActive: false,
+      const result = await saveWhopAccountCredentials({
+        accountId: currentAccount.id,
+        apiKey: currentAccount.whopKey || "",
       })
+
+      if (result?.error) {
+        toast.error(result.error)
+        return
+      }
 
       setAccounts((current) =>
         current.map((account) =>
