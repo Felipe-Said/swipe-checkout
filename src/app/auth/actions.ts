@@ -64,6 +64,39 @@ export async function login(formData: FormData) {
   return { success: true }
 }
 
+export async function resolveLoginProfile(userId: string) {
+  const supabaseAdmin = getSupabaseAdmin()
+
+  const { data: profile, error: profileError } = await supabaseAdmin
+    .from("profiles")
+    .select("id, name, email, role, status")
+    .eq("id", userId)
+    .single()
+
+  if (profileError || !profile) {
+    return { error: "Perfil não encontrado." }
+  }
+
+  const { data: managedAccount } = await supabaseAdmin
+    .from("managed_accounts")
+    .select("id, whop_key")
+    .eq("profile_id", userId)
+    .maybeSingle()
+
+  return {
+    success: true,
+    session: {
+      userId: profile.id,
+      name: profile.name || profile.email?.split("@")[0] || "Usuário",
+      email: profile.email,
+      role: profile.role === "admin" ? "admin" : "user",
+      accountId: managedAccount?.id ?? null,
+      keyFrozen: false,
+      status: profile.status,
+    },
+  }
+}
+
 export async function logout() {
   await supabase.auth.signOut()
   redirect('/login')

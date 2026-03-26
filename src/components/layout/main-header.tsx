@@ -24,7 +24,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { clearDemoSession } from "@/lib/demo-auth"
-import type { AppSession } from "@/lib/app-session"
+import { clearAppSession, type AppSession } from "@/lib/app-session"
 import { supabase } from "@/lib/supabase"
 
 export function MainHeader({ session }: { session: AppSession }) {
@@ -32,6 +32,7 @@ export function MainHeader({ session }: { session: AppSession }) {
 
   const handleLogout = async () => {
     clearDemoSession()
+    clearAppSession()
     await supabase.auth.signOut()
     router.replace("/login")
   }

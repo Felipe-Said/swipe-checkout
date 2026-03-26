@@ -10,7 +10,52 @@ export type AppSession = {
   keyFrozen: boolean
 }
 
+const APP_SESSION_STORAGE_KEY = "swipe-app-session"
+
+export function readAppSession(): AppSession | null {
+  if (typeof window === "undefined") {
+    return null
+  }
+
+  try {
+    const raw = window.localStorage.getItem(APP_SESSION_STORAGE_KEY)
+    if (!raw) {
+      return null
+    }
+
+    const session = JSON.parse(raw) as AppSession
+    if (!session?.userId || !session?.email || !session?.role) {
+      return null
+    }
+
+    return session
+  } catch {
+    return null
+  }
+}
+
+export function writeAppSession(session: AppSession) {
+  if (typeof window === "undefined") {
+    return
+  }
+
+  window.localStorage.setItem(APP_SESSION_STORAGE_KEY, JSON.stringify(session))
+}
+
+export function clearAppSession() {
+  if (typeof window === "undefined") {
+    return
+  }
+
+  window.localStorage.removeItem(APP_SESSION_STORAGE_KEY)
+}
+
 export async function getCurrentAppSession(): Promise<AppSession | null> {
+  const storedSession = readAppSession()
+  if (storedSession) {
+    return storedSession
+  }
+
   const demoSession = readDemoSession()
   if (demoSession) {
     return {

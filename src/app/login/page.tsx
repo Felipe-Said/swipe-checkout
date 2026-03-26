@@ -4,7 +4,9 @@ import * as React from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { CreditCard, Loader2, AlertCircle } from "lucide-react"
+import { resolveLoginProfile } from "@/app/auth/actions"
 import { useSearchParams } from "next/navigation"
+import { writeAppSession } from "@/lib/app-session"
 import { supabase } from "@/lib/supabase"
 import { Button } from "@/components/ui/button"
 import {
@@ -58,25 +60,33 @@ function LoginContent() {
       return
     }
 
-    const { data: profile, error: profileError } = await supabase
-      .from("profiles")
-      .select("status, role")
-      .eq("id", data.user.id)
-      .single()
+    const profileResult = await resolveLoginProfile(data.user.id)
 
-    if (profileError || !profile) {
+    if (profileResult?.error || !profileResult?.session) {
       await supabase.auth.signOut()
-      setError("Perfil nao encontrado.")
+      setError(profileResult?.error || "Perfil nao encontrado.")
       setIsLoading(false)
       return
     }
 
-    if (profile.status !== "approved" && profile.role !== "admin") {
+    if (
+      profileResult.session.status !== "approved" &&
+      profileResult.session.role !== "admin"
+    ) {
       await supabase.auth.signOut()
       setError("Sua conta esta aguardando aprovacao administrativa.")
       setIsLoading(false)
       return
     }
+
+    writeAppSession({
+      userId: profileResult.session.userId,
+      name: profileResult.session.name,
+      email: profileResult.session.email,
+      role: profileResult.session.role === "admin" ? "admin" : "user",
+      accountId: profileResult.session.accountId,
+      keyFrozen: profileResult.session.keyFrozen,
+    })
 
     router.replace("/app")
   }
