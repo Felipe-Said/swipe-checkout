@@ -111,6 +111,11 @@ export default function WhopPage() {
   const reloadAccounts = React.useCallback(async () => {
     const session = await getCurrentAppSession()
     const loadedAccounts = await getManagedAccounts()
+
+    if (loadedAccounts.length === 0) {
+      return
+    }
+
     setAccounts(loadedAccounts)
 
     const preferredAccountId =
@@ -191,7 +196,6 @@ export default function WhopPage() {
         },
       ])
 
-      await reloadAccounts()
       toast.success("Chave da Whop salva com sucesso.")
     } catch (error) {
       const message =
@@ -285,7 +289,6 @@ export default function WhopPage() {
         )
       )
 
-      await reloadAccounts()
       toast.success("Integracao Whop validada com sucesso.")
       setIsValidating(false)
     })()
