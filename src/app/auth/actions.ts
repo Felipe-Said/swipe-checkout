@@ -39,8 +39,10 @@ export async function login(formData: FormData) {
     return { error: error.message }
   }
 
-  // Check profile status
-  const { data: profile, error: profileError } = await supabase
+  // Check profile status through the admin client so the lookup
+  // does not depend on the user session being propagated yet.
+  const supabaseAdmin = getSupabaseAdmin()
+  const { data: profile, error: profileError } = await supabaseAdmin
     .from('profiles')
     .select('status, role')
     .eq('id', data.user.id)
