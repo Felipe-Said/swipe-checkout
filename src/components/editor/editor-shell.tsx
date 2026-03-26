@@ -26,11 +26,11 @@ import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { ShopifyCheckout } from "../checkout-preview/shopify-checkout"
-import { readDemoSession } from "@/lib/demo-auth"
-import { readManagedAccounts, type ManagedAccount } from "@/lib/account-metrics"
-import { readConnectedDomains, type ConnectedDomain } from "@/lib/domain-data"
+import { getCurrentAppSession } from "@/lib/app-session"
+import { getManagedAccounts, type ManagedAccount } from "@/lib/account-metrics"
+import { getConnectedDomains, type ConnectedDomain } from "@/lib/domain-data"
 import { readShippingMethods, type ShippingMethod } from "@/lib/shipping-data"
-import { readConnectedShopifyStores, type ConnectedShopifyStore } from "@/lib/shopify-store-data"
+import { getConnectedShopifyStores, type ConnectedShopifyStore } from "@/lib/shopify-store-data"
 
 type PolicyMode = "link" | "text"
 type SupportedLocale = "pt-BR" | "en-US" | "es-ES" | "fr-FR" | "de-DE"
@@ -302,37 +302,48 @@ export function EditorShell() {
   )
 
   React.useEffect(() => {
-    const session = readDemoSession()
-    setShippingMethods(readShippingMethods())
-    const availableDomains = readConnectedDomains()
-    const availableStores = readConnectedShopifyStores()
-    const availableAccounts = readManagedAccounts()
-    const currentAccount = availableAccounts.find((account) => account.email === session?.email)
-    const availableWhopAccounts =
-      session?.role === "admin"
-        ? availableAccounts.filter((account) => account.whopKey?.trim())
-        : currentAccount && !currentAccount.keyFrozen && currentAccount.whopKey?.trim()
-          ? [currentAccount]
-          : []
+    async function loadEditorData() {
+      const session = await getCurrentAppSession()
+      setShippingMethods(readShippingMethods())
 
-    setDomains(availableDomains)
-    setStores(availableStores)
-    setWhopAccounts(availableWhopAccounts)
-    if (availableDomains[0] && !config.selectedDomainId) {
-      updateConfig((prev) => ({ ...prev, selectedDomainId: availableDomains[0].id }), {
-        trackHistory: false,
-      })
+      const availableAccounts = await getManagedAccounts()
+      const currentAccount = availableAccounts.find(
+        (account) => account.profile_id === session?.userId || account.id === session?.accountId
+      )
+      const availableDomains = session?.accountId
+        ? await getConnectedDomains(session.accountId)
+        : []
+      const availableStores = session?.accountId
+        ? await getConnectedShopifyStores(session.accountId)
+        : []
+      const availableWhopAccounts =
+        session?.role === "admin"
+          ? availableAccounts.filter((account) => account.whopKey?.trim())
+          : currentAccount && !currentAccount.keyFrozen && currentAccount.whopKey?.trim()
+            ? [currentAccount]
+            : []
+
+      setDomains(availableDomains)
+      setStores(availableStores)
+      setWhopAccounts(availableWhopAccounts)
+      if (availableDomains[0] && !config.selectedDomainId) {
+        updateConfig((prev) => ({ ...prev, selectedDomainId: availableDomains[0].id }), {
+          trackHistory: false,
+        })
+      }
+      if (availableStores[0] && !config.selectedStoreId) {
+        updateConfig((prev) => ({ ...prev, selectedStoreId: availableStores[0].id }), {
+          trackHistory: false,
+        })
+      }
+      if (availableWhopAccounts[0] && !config.selectedWhopAccountId) {
+        updateConfig((prev) => ({ ...prev, selectedWhopAccountId: availableWhopAccounts[0].id }), {
+          trackHistory: false,
+        })
+      }
     }
-    if (availableStores[0] && !config.selectedStoreId) {
-      updateConfig((prev) => ({ ...prev, selectedStoreId: availableStores[0].id }), {
-        trackHistory: false,
-      })
-    }
-    if (availableWhopAccounts[0] && !config.selectedWhopAccountId) {
-      updateConfig((prev) => ({ ...prev, selectedWhopAccountId: availableWhopAccounts[0].id }), {
-        trackHistory: false,
-      })
-    }
+
+    loadEditorData()
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 

@@ -7,8 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { readDemoSession } from "@/lib/demo-auth"
-import { readManagedAccounts } from "@/lib/account-metrics"
+import { getCurrentAppSession } from "@/lib/app-session"
 import {
   appendSupportChatMessage,
   readSupportChatMessages,
@@ -22,15 +21,17 @@ export default function MessengerPage() {
   const [imageDraft, setImageDraft] = React.useState("")
 
   React.useEffect(() => {
-    const session = readDemoSession()
-    const accounts = readManagedAccounts()
-    const currentAccount = accounts.find((account) => account.email === session?.email) ?? accounts[0]
-    if (!currentAccount) {
-      return
+    async function loadSession() {
+      const session = await getCurrentAppSession()
+      if (!session?.accountId) {
+        return
+      }
+
+      setAccountId(session.accountId)
+      setMessages(readSupportChatMessages())
     }
 
-    setAccountId(currentAccount.id)
-    setMessages(readSupportChatMessages())
+    loadSession()
   }, [])
 
   const handleSend = () => {

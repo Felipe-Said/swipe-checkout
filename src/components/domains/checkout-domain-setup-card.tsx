@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
-import { supabase } from "@/lib/supabase"
+import { getCurrentAppSession } from "@/lib/app-session"
 import { DomainMode } from "@/lib/domain-data"
 
 interface DomainSetupCardProps {
@@ -24,13 +24,13 @@ export function DomainSetupCard({ onAdd }: DomainSetupCardProps) {
 
   React.useEffect(() => {
     async function load() {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (user) {
-        const { getCheckouts } = await import("@/lib/domain-data")
-        const list = await getCheckouts(user.id)
-        setCheckouts(list)
-        if (list.length > 0) setCheckoutId(list[0].id)
-      }
+      const session = await getCurrentAppSession()
+      if (!session?.accountId) return
+
+      const { getCheckouts } = await import("@/lib/domain-data")
+      const list = await getCheckouts(session.accountId)
+      setCheckouts(list)
+      if (list.length > 0) setCheckoutId(list[0].id)
     }
     load()
   }, [])

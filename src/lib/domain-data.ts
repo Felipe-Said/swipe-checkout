@@ -64,6 +64,22 @@ export async function deleteDomain(id: string) {
   if (error) throw error
 }
 
+export async function setPrimaryDomain(accountId: string, id: string) {
+  const { error: clearError } = await supabase
+    .from("domains")
+    .update({ is_primary: false })
+    .eq("account_id", accountId)
+
+  if (clearError) throw clearError
+
+  const { error } = await supabase
+    .from("domains")
+    .update({ is_primary: true })
+    .eq("id", id)
+
+  if (error) throw error
+}
+
 function mapDbToDomain(db: any): ConnectedDomain {
   const setup = getDomainSetup(db.host, inferMode(db.host))
   return {

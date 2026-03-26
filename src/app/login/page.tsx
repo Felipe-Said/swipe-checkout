@@ -4,9 +4,8 @@ import * as React from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { CreditCard, Loader2, AlertCircle } from "lucide-react"
-import { login } from "@/app/auth/actions"
-import { toast } from "sonner"
 import { useSearchParams } from "next/navigation"
+import { supabase } from "@/lib/supabase"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -45,14 +44,41 @@ function LoginContent() {
     setError("")
 
     const formData = new FormData(event.currentTarget)
-    const result = await login(formData)
+    const email = String(formData.get("email") || "")
+    const password = String(formData.get("password") || "")
 
-    if (result?.error) {
-      setError(result.error)
+    const { data, error: loginError } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    })
+
+    if (loginError || !data.user) {
+      setError(loginError?.message || "Nao foi possivel entrar.")
       setIsLoading(false)
-    } else {
-      router.replace("/app")
+      return
     }
+
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("status, role")
+      .eq("id", data.user.id)
+      .single()
+
+    if (profileError || !profile) {
+      await supabase.auth.signOut()
+      setError("Perfil nao encontrado.")
+      setIsLoading(false)
+      return
+    }
+
+    if (profile.status !== "approved" && profile.role !== "admin") {
+      await supabase.auth.signOut()
+      setError("Sua conta esta aguardando aprovacao administrativa.")
+      setIsLoading(false)
+      return
+    }
+
+    router.replace("/app")
   }
 
   return (

@@ -6,12 +6,12 @@ import {
   getConnectedDomains,
   addDomain,
   deleteDomain,
-  ConnectedDomain,
-  DomainMode,
+  setPrimaryDomain,
+  type ConnectedDomain,
+  type DomainMode,
   getDomainSetup,
 } from "@/lib/domain-data"
-import { getManagedAccounts } from "@/lib/account-metrics"
-import { supabase } from "@/lib/supabase"
+import { getCurrentAppSession } from "@/lib/app-session"
 import { DomainSetupCard } from "@/components/domains/checkout-domain-setup-card"
 import { DomainDNSCard } from "@/components/domains/checkout-domain-dns-card"
 import { DomainListCard } from "@/components/domains/checkout-domain-list-card"
@@ -32,22 +32,24 @@ export default function DomainsPage() {
     recordName: string
     recordValue: string
   } | null>(null)
+  const [activeAccountId, setActiveAccountId] = React.useState("")
 
-  const [accounts, setAccounts] = React.useState<any[]>([])
-  
-  const activeAccountId = accounts[0]?.id
+  const loadDomains = React.useCallback(async (accountId: string) => {
+    const doms = await getConnectedDomains(accountId)
+    setDomains(doms)
+  }, [])
 
   React.useEffect(() => {
     async function load() {
-      const accs = await getManagedAccounts()
-      setAccounts(accs)
-      if (accs.length > 0) {
-        const doms = await getConnectedDomains(accs[0].id)
-        setDomains(doms)
-      }
+      const session = await getCurrentAppSession()
+      if (!session?.accountId) return
+
+      setActiveAccountId(session.accountId)
+      await loadDomains(session.accountId)
     }
+
     load()
-  }, [])
+  }, [loadDomains])
 
   const handleAddDomain = async (
     host: string,
@@ -70,9 +72,8 @@ export default function DomainsPage() {
         status: setup.status as any,
         sslStatus: setup.sslStatus as any,
       })
-      
-      const nextDomains = await getConnectedDomains(activeAccountId)
-      setDomains(nextDomains)
+
+      await loadDomains(activeAccountId)
 
       if (mode !== "platform") {
         setSelectedSetup({
@@ -84,55 +85,49 @@ export default function DomainsPage() {
         })
       }
 
-      toast.success("Domínio adicionado com sucesso!")
-    } catch (error) {
-      toast.error("Erro ao adicionar domínio.")
+      toast.success("Dominio adicionado com sucesso!")
+    } catch {
+      toast.error("Erro ao adicionar dominio.")
     }
   }
 
   const handleDeleteDomain = async (id: string) => {
     try {
       await deleteDomain(id)
-      const nextDomains = domains.filter((d) => d.id !== id)
-      setDomains(nextDomains)
-      toast.info("Domínio removido.")
-    } catch (error) {
-      toast.error("Erro ao remover domínio.")
+      await loadDomains(activeAccountId)
+      toast.info("Dominio removido.")
+    } catch {
+      toast.error("Erro ao remover dominio.")
     }
   }
 
-  const handleRefreshStatus = (id: string) => {
-    const nextDomains = domains.map((d) => {
-      if (d.id === id) {
-        return {
-          ...d,
-          lastChecked: new Date().toLocaleString(),
-        }
-      }
-      return d
-    })
-    setDomains(nextDomains)
+  const handleRefreshStatus = async () => {
+    if (!activeAccountId) return
+    await loadDomains(activeAccountId)
   }
 
-  const handleSetPrimary = (id: string) => {
-    const nextDomains = domains.map((d) => ({
-      ...d,
-      isPrimary: d.id === id,
-    }))
-    setDomains(nextDomains)
-    toast.success("Domínio principal atualizado.")
+  const handleSetPrimary = async (id: string) => {
+    if (!activeAccountId) return
+
+    try {
+      await setPrimaryDomain(activeAccountId, id)
+      await loadDomains(activeAccountId)
+      toast.success("Dominio principal atualizado.")
+    } catch {
+      toast.error("Erro ao atualizar dominio principal.")
+    }
   }
 
   const filteredDomains = domains.filter(
-    (d) =>
-      d.host.toLowerCase().includes(search.toLowerCase()) ||
-      d.checkoutName.toLowerCase().includes(search.toLowerCase())
+    (domain) =>
+      domain.host.toLowerCase().includes(search.toLowerCase()) ||
+      domain.checkoutName.toLowerCase().includes(search.toLowerCase())
   )
 
   const stats = {
     total: domains.length,
-    ready: domains.filter((d) => d.status === "Pronto").length,
-    pending: domains.filter((d) => d.status === "Aguardando DNS").length,
+    ready: domains.filter((domain) => domain.status === "Pronto").length,
+    pending: domains.filter((domain) => domain.status === "Aguardando DNS").length,
   }
 
   return (
@@ -150,7 +145,7 @@ export default function DomainsPage() {
         <div className="flex items-center gap-4 rounded-3xl border border-primary/5 bg-card/40 p-4 shadow-xl backdrop-blur-sm">
           <div className="flex flex-col border-r border-primary/10 px-4">
             <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">
-              Saúde Global
+              Saude Global
             </span>
             <div className="mt-1 flex items-center gap-2">
               <Activity className="h-4 w-4 text-emerald-500" />
@@ -182,10 +177,10 @@ export default function DomainsPage() {
 
         <div className="space-y-6">
           <div className="mb-2 flex items-center justify-between">
-            <h2 className="text-xl font-black tracking-tight">Domínios Conectados</h2>
+            <h2 className="text-xl font-black tracking-tight">Dominios Conectados</h2>
             <div className="relative w-72">
               <Input
-                placeholder="Buscar domínio ou checkout..."
+                placeholder="Buscar dominio ou checkout..."
                 className="h-10 rounded-xl border-primary/10 bg-card px-10 text-xs font-medium focus-visible:ring-primary/20"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
@@ -209,10 +204,10 @@ export default function DomainsPage() {
               <Card className="flex flex-col items-center justify-center border-dashed border-primary/20 bg-transparent py-20 text-center">
                 <Globe className="mb-4 h-12 w-12 text-muted-foreground/20" />
                 <CardTitle className="font-black text-muted-foreground/60">
-                  Nenhum domínio encontrado
+                  Nenhum dominio encontrado
                 </CardTitle>
                 <CardDescription>
-                  Comece adicionando seu primeiro domínio de checkout no formulário lateral.
+                  Comece adicionando seu primeiro dominio de checkout no formulario lateral.
                 </CardDescription>
               </Card>
             )}

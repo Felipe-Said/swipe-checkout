@@ -23,13 +23,16 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { clearDemoSession, type DemoSession } from "@/lib/demo-auth"
+import { clearDemoSession } from "@/lib/demo-auth"
+import type { AppSession } from "@/lib/app-session"
+import { supabase } from "@/lib/supabase"
 
-export function MainHeader({ session }: { session: DemoSession }) {
+export function MainHeader({ session }: { session: AppSession }) {
   const router = useRouter()
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     clearDemoSession()
+    await supabase.auth.signOut()
     router.replace("/login")
   }
 

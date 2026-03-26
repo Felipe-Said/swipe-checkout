@@ -16,7 +16,7 @@ import {
   ChevronRight,
   Truck,
 } from "lucide-react"
-import type { DemoSession } from "@/lib/demo-auth"
+import type { AppSession } from "@/lib/app-session"
 import { useI18n } from "@/lib/i18n"
 
 import {
@@ -36,23 +36,9 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 export function MainSidebar({
   session,
   ...props
-}: React.ComponentProps<typeof Sidebar> & { session: DemoSession }) {
+}: React.ComponentProps<typeof Sidebar> & { session: AppSession }) {
   const { t } = useI18n()
-  
-  const accounts = React.useMemo(() => {
-    try {
-      if (typeof window === "undefined") {
-        return []
-      }
-      const raw = window.localStorage.getItem("swipe-managed-accounts")
-      return raw ? (JSON.parse(raw) as Array<{ email: string; keyFrozen?: boolean }>) : []
-    } catch {
-      return []
-    }
-  }, [])
-
-  const currentAccount = accounts.find((account) => account.email === session.email)
-  const shouldShowWhopForUser = session.role === "user" ? !currentAccount?.keyFrozen : false
+  const shouldShowWhopForUser = session.role === "user" ? !session.keyFrozen : false
 
   const navMain = [
     {

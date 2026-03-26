@@ -31,7 +31,14 @@ const DEFAULT_USER_FEE_RATE = 15
 export async function getManagedAccounts(): Promise<ManagedAccount[]> {
   const { data, error } = await supabase
     .from('managed_accounts')
-    .select('*')
+    .select(`
+      *,
+      profiles:profile_id (
+        email,
+        role,
+        status
+      )
+    `)
     .order('created_at', { ascending: false })
 
   if (error) {
@@ -55,10 +62,15 @@ export async function updateManagedAccount(id: string, updates: Partial<ManagedA
 }
 
 function mapDbToAccount(db: any): ManagedAccount {
+  const profile = Array.isArray(db.profiles) ? db.profiles[0] : db.profiles
+
   return {
     id: db.id,
     profile_id: db.profile_id,
     name: db.name,
+    email: profile?.email,
+    role: profile?.role ?? "user",
+    status: profile?.status === "blocked" ? "Bloqueada" : "Ativa",
     feeRate: Number(db.fee_rate),
     billingCycleDays: db.billing_cycle_days,
     paymentMode: db.payment_mode,
@@ -72,8 +84,6 @@ function mapDbToAccount(db: any): ManagedAccount {
     whopCompanyId: db.whop_company_id,
     whopEnvironment: db.whop_environment,
     // Fields not in table yet or handled via joins/aggregates
-    role: "user",
-    status: "Ativa",
     orders: 0,
     conversionRate: 0,
     revenue: 0,
