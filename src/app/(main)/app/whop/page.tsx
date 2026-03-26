@@ -70,6 +70,17 @@ export default function WhopPage() {
 
       let loadedAccounts = await getManagedAccounts()
 
+      if (session?.userId) {
+        const serverLoaded = await loadWhopAccountForSession({
+          accountId: session.accountId,
+          userId: session.userId,
+        })
+
+        if (serverLoaded.account) {
+          loadedAccounts = [serverLoaded.account]
+        }
+      }
+
       if (loadedAccounts.length === 0 && session) {
         loadedAccounts = [
           {
