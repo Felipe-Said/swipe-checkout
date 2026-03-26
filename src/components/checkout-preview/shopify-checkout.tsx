@@ -433,6 +433,7 @@ export function ShopifyCheckout({
     (method) =>
       method.active && config.selectedShippingMethodIds.includes(method.id)
   )
+  const hasRealWhopPayment = Boolean(config.whop?.checkoutConfigurationId || config.whop?.planId)
   const deliveryCompleted = Object.values(deliveryData).every((value) => value.trim().length > 0)
   const selectedShipping =
     availableShippingMethods.find((method) => method.id === selectedShippingId) ?? null
@@ -526,7 +527,7 @@ export function ShopifyCheckout({
                 <CouponBar config={config} copy={copy} />
                 <SummaryRows copy={copy} config={config} subtotalPrice={formattedPrice} shippingPrice={shippingPrice} totalPrice={formattedTotalPrice} locale={resolvedLocale} currency={resolvedCurrency} />
                 <InfoBanner config={config} text={copy.shippingBeforeConfirm} />
-                <BuyButton config={config} label={config.buttonText} />
+                {!hasRealWhopPayment ? <BuyButton config={config} label={config.buttonText} /> : null}
                 <PolicyLinks config={config} compact={isMobile} copy={copy} />
               </div>
             </aside>
@@ -562,9 +563,11 @@ export function ShopifyCheckout({
                   contactData={contactData}
                   deliveryData={deliveryData}
                 />
-                <div className="pt-6">
-                  <BuyButton config={config} label={config.buttonText} />
-                </div>
+                {!hasRealWhopPayment ? (
+                  <div className="pt-6">
+                    <BuyButton config={config} label={config.buttonText} />
+                  </div>
+                ) : null}
                 <PolicyLinks config={config} compact={isMobile} copy={copy} />
                 <CheckoutFooter compact={isMobile} config={config} copy={copy} />
               </div>
