@@ -123,7 +123,20 @@ export function getDomainSetup(host: string, mode: DomainMode): Partial<Connecte
   }
 }
 
+export async function getCheckouts(accountId: string) {
+  const { data, error } = await supabase
+    .from('checkouts')
+    .select('*')
+    .eq('account_id', accountId)
+
+  if (error) {
+    console.error('Error fetching checkouts:', error)
+    return []
+  }
+
+  return data || []
+}
+
 // Legacy exports
 export function readConnectedDomains(): ConnectedDomain[] { return [] }
 export function writeConnectedDomains(domains: ConnectedDomain[]) {}
-export const mockCheckouts = []

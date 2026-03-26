@@ -8,7 +8,8 @@ import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
-import { DomainMode, mockCheckouts } from "@/lib/domain-data"
+import { supabase } from "@/lib/supabase"
+import { DomainMode } from "@/lib/domain-data"
 
 interface DomainSetupCardProps {
   onAdd: (domain: string, mode: DomainMode, checkoutId: string, isPrimary: boolean) => void
@@ -17,11 +18,25 @@ interface DomainSetupCardProps {
 export function DomainSetupCard({ onAdd }: DomainSetupCardProps) {
   const [domain, setDomain] = React.useState("")
   const [mode, setMode] = React.useState<DomainMode>("custom_subdomain")
-  const [checkoutId, setCheckoutId] = React.useState(mockCheckouts[0].id)
+  const [checkouts, setCheckouts] = React.useState<any[]>([])
+  const [checkoutId, setCheckoutId] = React.useState("")
   const [isPrimary, setIsPrimary] = React.useState(false)
 
+  React.useEffect(() => {
+    async function load() {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        const { getCheckouts } = await import("@/lib/domain-data")
+        const list = await getCheckouts(user.id)
+        setCheckouts(list)
+        if (list.length > 0) setCheckoutId(list[0].id)
+      }
+    }
+    load()
+  }, [])
+
   const handleAdd = () => {
-    if (!domain) return
+    if (!domain || !checkoutId) return
     onAdd(domain, mode, checkoutId, isPrimary)
     setDomain("")
   }
@@ -84,7 +99,7 @@ export function DomainSetupCard({ onAdd }: DomainSetupCardProps) {
                 <SelectValue placeholder="Vincular checkout" />
               </SelectTrigger>
               <SelectContent>
-                {mockCheckouts.map((chk) => (
+                {checkouts.map((chk) => (
                   <SelectItem key={chk.id} value={chk.id} className="font-medium">
                     {chk.name}
                   </SelectItem>
