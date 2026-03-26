@@ -77,6 +77,8 @@ export default function SettingsPage() {
       } else {
         localStorage.removeItem("swipe-profile-photo")
       }
+
+      window.dispatchEvent(new Event("swipe-profile-photo-updated"))
       
       setIsSaving(false)
     }, 800)

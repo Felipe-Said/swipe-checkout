@@ -29,6 +29,28 @@ import { supabase } from "@/lib/supabase"
 
 export function MainHeader({ session }: { session: AppSession }) {
   const router = useRouter()
+  const [profilePhoto, setProfilePhoto] = React.useState<string>("")
+
+  React.useEffect(() => {
+    function syncProfilePhoto() {
+      try {
+        setProfilePhoto(window.localStorage.getItem("swipe-profile-photo") || "")
+      } catch {
+        setProfilePhoto("")
+      }
+    }
+
+    syncProfilePhoto()
+    window.addEventListener("focus", syncProfilePhoto)
+    window.addEventListener("swipe-profile-photo-updated", syncProfilePhoto)
+    window.addEventListener("storage", syncProfilePhoto)
+
+    return () => {
+      window.removeEventListener("focus", syncProfilePhoto)
+      window.removeEventListener("swipe-profile-photo-updated", syncProfilePhoto)
+      window.removeEventListener("storage", syncProfilePhoto)
+    }
+  }, [])
 
   const handleLogout = async () => {
     clearDemoSession()
@@ -60,7 +82,7 @@ export function MainHeader({ session }: { session: AppSession }) {
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="relative h-8 w-8 rounded-full">
               <Avatar className="h-8 w-8">
-                <AvatarImage src="/avatars/user.png" alt={session.email} />
+                <AvatarImage src={profilePhoto || "/avatars/user.png"} alt={session.email} />
                 <AvatarFallback>
                   {session.role === "admin" ? "AD" : "US"}
                 </AvatarFallback>
