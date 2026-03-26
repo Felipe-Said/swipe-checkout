@@ -51,6 +51,11 @@ export function clearAppSession() {
 }
 
 export async function getCurrentAppSession(): Promise<AppSession | null> {
+  const storedSession = readAppSession()
+  if (storedSession) {
+    return storedSession
+  }
+
   const {
     data: { user },
   } = await supabase.auth.getUser()

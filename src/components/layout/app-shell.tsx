@@ -2,7 +2,14 @@
 
 import * as React from "react"
 import { usePathname, useRouter } from "next/navigation"
-import { getCurrentAppSession, type AppSession } from "@/lib/app-session"
+import { resolveLoginProfile } from "@/app/auth/actions"
+import {
+  getCurrentAppSession,
+  readAppSession,
+  type AppSession,
+  writeAppSession,
+} from "@/lib/app-session"
+import { supabase } from "@/lib/supabase"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { MainSidebar } from "./main-sidebar"
 import { MainHeader } from "./main-header"
@@ -14,7 +21,44 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = React.useState(false)
 
   React.useEffect(() => {
+    let cancelled = false
+
     async function loadSession() {
+      const storedSession = readAppSession()
+      if (storedSession && !cancelled) {
+        setSession(storedSession)
+        setReady(true)
+      }
+
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+
+      if (user) {
+        const resolvedProfile = await resolveLoginProfile(user.id)
+        if (resolvedProfile?.session && !cancelled) {
+          const syncedSession: AppSession = {
+            userId: resolvedProfile.session.userId,
+            name: resolvedProfile.session.name,
+            email: resolvedProfile.session.email,
+            role: resolvedProfile.session.role === "admin" ? "admin" : "user",
+            accountId: resolvedProfile.session.accountId,
+            keyFrozen: resolvedProfile.session.keyFrozen,
+          }
+
+          writeAppSession(syncedSession)
+
+          if (syncedSession.role !== "admin" && pathname === "/app/customers") {
+            router.replace("/app/messenger")
+            return
+          }
+
+          setSession(syncedSession)
+          setReady(true)
+          return
+        }
+      }
+
       const nextSession = await getCurrentAppSession()
       if (!nextSession) {
         router.replace("/login")
@@ -26,11 +70,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         return
       }
 
-      setSession(nextSession)
-      setReady(true)
+      if (!cancelled) {
+        setSession(nextSession)
+        setReady(true)
+      }
     }
 
     loadSession()
+
+    return () => {
+      cancelled = true
+    }
   }, [pathname, router])
 
   if (!ready || !session) {

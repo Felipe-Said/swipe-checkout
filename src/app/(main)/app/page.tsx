@@ -13,7 +13,7 @@ import {
   Megaphone,
 } from "lucide-react"
 
-import { supabase } from "@/lib/supabase"
+import { getCurrentAppSession } from "@/lib/app-session"
 import { useI18n } from "@/lib/i18n"
 import {
   calculateFeeValue,
@@ -47,26 +47,68 @@ export default function DashboardPage() {
   const [campaigns, setCampaigns] = React.useState<ReturnType<typeof readCampaignPerformance>>([])
   const [period, setPeriod] = React.useState<keyof typeof periodFactors>("month")
   const [date, setDate] = React.useState("2026-03-24")
+  const [loaded, setLoaded] = React.useState(false)
 
   React.useEffect(() => {
+    let cancelled = false
+
     async function load() {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (user) {
-        setSessionEmail(user.email || "")
-        // Role check could be better but let's stick to this for now
-        const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
-        setSessionRole(profile?.role || "user")
+      const session = await getCurrentAppSession()
+      if (session && !cancelled) {
+        setSessionEmail(session.email || "")
+        setSessionRole(session.role === "admin" ? "admin" : "user")
       }
-      
-      const accs = await getManagedAccounts()
-      setAccounts(accs)
-      setCampaigns(readCampaignPerformance())
+
+      let accs = await getManagedAccounts()
+
+      if (accs.length === 0) {
+        await new Promise((resolve) => window.setTimeout(resolve, 250))
+        accs = await getManagedAccounts()
+      }
+
+      if (!cancelled) {
+        const fallbackAccount =
+          session && accs.length === 0
+            ? [
+                {
+                  id: session.accountId ?? session.userId,
+                  profile_id: session.userId,
+                  name: session.name,
+                  email: session.email,
+                  role: session.role,
+                  status: "Ativa" as const,
+                  orders: 0,
+                  conversionRate: 0,
+                  revenue: 0,
+                  feeRate: session.role === "admin" ? 0 : 15,
+                  keyFrozen: session.keyFrozen,
+                  billingCycleDays: 2,
+                  paymentMode: "manual" as const,
+                  settlementStartedAt: new Date().toISOString(),
+                  estimatedDailyRevenueByCurrency: { BRL: 0, USD: 0, EUR: 0, GBP: 0 },
+                },
+              ]
+            : []
+
+        setAccounts(accs.length > 0 ? accs : fallbackAccount)
+        setCampaigns(readCampaignPerformance())
+        setLoaded(true)
+      }
     }
+
     load()
+
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   const currentAccount =
     accounts.find((account) => account.email === sessionEmail) ?? accounts[0]
+
+  if (!loaded) {
+    return <div className="min-h-[320px]" />
+  }
 
   if (!currentAccount) {
     return null
