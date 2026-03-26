@@ -18,7 +18,11 @@ import Link from "next/link"
 import { useParams, useRouter } from "next/navigation"
 import { toast } from "sonner"
 
-import { loadCheckoutForEditor, saveCheckoutFromEditor } from "@/app/actions/whop"
+import {
+  loadCheckoutForEditor,
+  loadWhopAccountForSession,
+  saveCheckoutFromEditor,
+} from "@/app/actions/whop"
 import { cn } from "@/lib/utils"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -314,9 +318,17 @@ export function EditorShell() {
       setShippingMethods(readShippingMethods())
 
       const availableAccounts = await getManagedAccounts()
-      const currentAccount = availableAccounts.find(
-        (account) => account.profile_id === session?.userId || account.id === session?.accountId
-      )
+      const serverWhopAccount = session?.userId
+        ? await loadWhopAccountForSession({
+            accountId: session.accountId,
+            userId: session.userId,
+          })
+        : { account: null }
+      const currentAccount =
+        serverWhopAccount.account ??
+        availableAccounts.find(
+          (account) => account.profile_id === session?.userId || account.id === session?.accountId
+        )
       const availableDomains = session?.accountId
         ? await getConnectedDomains(session.accountId)
         : []
@@ -325,7 +337,13 @@ export function EditorShell() {
         : []
       const availableWhopAccounts =
         session?.role === "admin"
-          ? availableAccounts.filter((account) => account.whopKey?.trim())
+          ? [
+              ...(serverWhopAccount.account?.whopKey?.trim() ? [serverWhopAccount.account] : []),
+              ...availableAccounts.filter(
+                (account) =>
+                  account.id !== serverWhopAccount.account?.id && account.whopKey?.trim()
+              ),
+            ]
           : currentAccount && !currentAccount.keyFrozen && currentAccount.whopKey?.trim()
             ? [currentAccount]
             : []
