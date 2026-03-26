@@ -15,8 +15,10 @@ import {
   Undo2,
 } from "lucide-react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { useParams, useRouter } from "next/navigation"
+import { toast } from "sonner"
 
+import { loadCheckoutForEditor, saveCheckoutFromEditor } from "@/app/actions/whop"
 import { cn } from "@/lib/utils"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -255,6 +257,7 @@ const upsellSelections = {
 } as const
 
 export function EditorShell() {
+  const params = useParams<{ id: string }>()
   const router = useRouter()
   const [activeDevice, setActiveDevice] = React.useState<"desktop" | "mobile">("desktop")
   const [previewPage, setPreviewPage] = React.useState<"checkout" | "thank-you">("checkout")
@@ -266,6 +269,9 @@ export function EditorShell() {
   const [domains, setDomains] = React.useState<ConnectedDomain[]>([])
   const [stores, setStores] = React.useState<ConnectedShopifyStore[]>([])
   const [whopAccounts, setWhopAccounts] = React.useState<ManagedAccount[]>([])
+  const [sessionAccountId, setSessionAccountId] = React.useState("")
+  const [checkoutName, setCheckoutName] = React.useState("Checkout Premium")
+  const [isSaving, setIsSaving] = React.useState(false)
 
   const syncHistoryState = React.useCallback(() => {
     setHistoryState({
@@ -304,6 +310,7 @@ export function EditorShell() {
   React.useEffect(() => {
     async function loadEditorData() {
       const session = await getCurrentAppSession()
+      setSessionAccountId(session?.accountId ?? "")
       setShippingMethods(readShippingMethods())
 
       const availableAccounts = await getManagedAccounts()
@@ -341,11 +348,30 @@ export function EditorShell() {
           trackHistory: false,
         })
       }
+
+      if (session?.accountId && params?.id && params.id !== "new") {
+        const result = await loadCheckoutForEditor({
+          checkoutId: params.id,
+          accountId: session.accountId,
+        })
+
+        if (result.checkout) {
+          setCheckoutName(result.checkout.name)
+          const nextConfig = {
+            ...initialConfig,
+            ...result.checkout.config,
+          }
+          configHistoryRef.current = [nextConfig]
+          historyIndexRef.current = 0
+          setConfig(nextConfig)
+          syncHistoryState()
+        }
+      }
     }
 
     loadEditorData()
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [params?.id])
 
   const handleUpdate = (key: keyof EditorConfig, value: string | boolean | number) => {
     if (key === "thankYouDragEnabled") {
@@ -519,6 +545,38 @@ export function EditorShell() {
     }))
   }
 
+  const handleSaveCheckout = async () => {
+    if (!sessionAccountId) {
+      toast.error("Conta operacional nao encontrada para salvar este checkout.")
+      return
+    }
+
+    setIsSaving(true)
+    const result = await saveCheckoutFromEditor({
+      checkoutId: typeof params?.id === "string" ? params.id : "new",
+      accountId: sessionAccountId,
+      name: checkoutName,
+      config,
+    })
+    setIsSaving(false)
+
+    if (result?.error) {
+      toast.error(result.error)
+      return
+    }
+
+    if (result?.checkoutId && result.checkoutId !== params?.id) {
+      router.replace(`/app/checkouts/${result.checkoutId}/editor`)
+    }
+
+    if (result?.purchaseUrl) {
+      toast.success("Checkout publicado na Whop com link real gerado.")
+      return
+    }
+
+    toast.success("Checkout salvo com sucesso.")
+  }
+
   const activeDeviceIndex = deviceOptions.findIndex((option) => option.value === activeDevice)
 
   return (
@@ -571,8 +629,8 @@ export function EditorShell() {
           <Button variant="outline" size="sm">
             <Eye className="mr-2 h-4 w-4" /> Visualizar
           </Button>
-          <Button size="sm">
-            <Save className="mr-2 h-4 w-4" /> Salvar
+          <Button size="sm" onClick={handleSaveCheckout} disabled={isSaving}>
+            <Save className="mr-2 h-4 w-4" /> {isSaving ? "Salvando" : "Salvar"}
           </Button>
         </div>
       </header>
@@ -610,6 +668,10 @@ export function EditorShell() {
                 </div>
                 {previewPage === "checkout" ? (
                   <>
+                    <div className="space-y-4">
+                      <Label>Nome do Checkout</Label>
+                      <Input value={checkoutName} onChange={(e) => setCheckoutName(e.target.value)} />
+                    </div>
                     <ColorField label="Cor Principal" value={config.primaryColor} onChange={(value) => handleUpdate("primaryColor", value)} />
                     <div className="space-y-4">
                       <Label>Arredondamento (Button)</Label>

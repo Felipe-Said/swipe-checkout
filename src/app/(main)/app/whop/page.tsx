@@ -2,10 +2,10 @@
 
 import * as React from "react"
 
+import { validateWhopAccount } from "@/app/actions/whop"
 import { getCurrentAppSession } from "@/lib/app-session"
 import {
   getManagedAccounts,
-  updateManagedAccount,
   type ManagedAccount,
 } from "@/lib/account-metrics"
 import { toast } from "sonner"
@@ -98,28 +98,10 @@ export default function WhopPage() {
   const currentAccount =
     accounts.find((account) => account.id === selectedAccountId) ?? accounts[0]
 
-  const updateAccounts = React.useCallback(
-    async (updater: (current: ManagedAccount[]) => ManagedAccount[]) => {
-      const next = updater(accounts)
-      setAccounts(next)
-      
-      const updatedAccount = next.find(a => a.id === selectedAccountId)
-      if (updatedAccount) {
-        try {
-          await updateManagedAccount(updatedAccount.id, updatedAccount)
-        } catch (error) {
-          console.error("Failed to update account in Supabase:", error)
-          toast.error("Erro ao salvar no banco de dados")
-        }
-      }
-    },
-    [accounts, selectedAccountId]
-  )
-
   const handleKeyChange = (value: string) => {
     if (!currentAccount) return
 
-    updateAccounts((current) =>
+    setAccounts((current) =>
       current.map((account) =>
         account.id === currentAccount.id ? { ...account, whopKey: value } : account
       )
@@ -129,10 +111,15 @@ export default function WhopPage() {
   const handleSave = () => {
     if (!currentAccount) return
 
-    updateAccounts((current) =>
+    setAccounts((current) =>
       current.map((account) =>
         account.id === currentAccount.id
-          ? { ...account, whopIntegrationStatus: PENDING_STATUS }
+          ? {
+              ...account,
+              whopIntegrationStatus: PENDING_STATUS,
+              whopPermissionsValid: false,
+              whopCheckoutReady: false,
+            }
           : account
       )
     )
@@ -162,59 +149,61 @@ export default function WhopPage() {
       },
     ])
 
-    setTimeout(() => {
+    void (async () => {
+      const result = await validateWhopAccount({
+        accountId: currentAccount.id,
+        apiKey: currentAccount.whopKey || "",
+      })
+
+      if (result?.error) {
+        setEvents((prev) => [
+          {
+            id: "error",
+            timestamp: new Date().toLocaleTimeString(),
+            type: "error",
+            message: "Falha ao validar a API Key",
+            description: result.error,
+          },
+          ...prev,
+        ])
+        toast.error(result.error)
+        setIsValidating(false)
+        return
+      }
+
       setEvents((prev) => [
         {
           id: "check-key",
           timestamp: new Date().toLocaleTimeString(),
           type: "success",
           message: "API Key validada com sucesso",
-          description: "A chave respondeu corretamente a chamada de teste.",
+          description: "A chave respondeu corretamente a Whop.",
         },
-        ...prev,
-      ])
-    }, 1000)
-
-    setTimeout(() => {
-      setEvents((prev) => [
         {
           id: "check-perms",
           timestamp: new Date().toLocaleTimeString(),
           type: "success",
           message: "Permissoes verificadas",
-          description: "Acesso a checkout configurations e produtos confirmado.",
+          description: "Checkout configurations, company e webhooks confirmados.",
         },
-        ...prev,
-      ])
-    }, 2000)
-
-    setTimeout(() => {
-      setEvents((prev) => [
         {
           id: "check-webhook",
           timestamp: new Date().toLocaleTimeString(),
           type: "success",
-          message: "Webhook monitorado",
-          description: "Listener ativo e recebendo eventos de teste.",
+          message: "Webhook configurado",
+          description: "A URL operacional da Whop foi registrada para esta conta.",
         },
-        ...prev,
-      ])
-    }, 3000)
-
-    setTimeout(() => {
-      setEvents((prev) => [
         {
           id: "ready",
           timestamp: new Date().toLocaleTimeString(),
           type: "success",
           message: "Checkout pronto",
-          description:
-            "A conta esta apta para operar o fluxo de checkout incorporado.",
+          description: "A conta esta apta para publicar checkouts reais na Whop.",
         },
         ...prev,
       ])
 
-      updateAccounts((current) =>
+      setAccounts((current) =>
         current.map((account) =>
           account.id === currentAccount.id
             ? {
@@ -224,17 +213,16 @@ export default function WhopPage() {
                 whopPermissionsValid: true,
                 whopCheckoutReady: true,
                 whopWebhookActive: true,
-                whopCompanyId:
-                  account.whopCompanyId ??
-                  `comp_${Math.random().toString(36).slice(2, 11)}`,
-                whopEnvironment: account.whopEnvironment ?? SANDBOX_ENV,
+                whopCompanyId: result.company?.id ?? account.whopCompanyId,
+                whopEnvironment: "Produção",
               }
             : account
         )
       )
 
+      toast.success("Integracao Whop validada com sucesso.")
       setIsValidating(false)
-    }, 4000)
+    })()
   }
 
   if (!loaded) {

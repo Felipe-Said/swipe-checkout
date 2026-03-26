@@ -16,6 +16,8 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 
+import { deleteCheckoutForAccount, loadCheckoutsForAccount } from "@/app/actions/whop"
+import { getCurrentAppSession } from "@/lib/app-session"
 import { readConnectedDomains, type ConnectedDomain } from "@/lib/domain-data"
 import { readPushcutConfigs, writePushcutConfigs, type PushcutCheckoutConfig } from "@/lib/pushcut-data"
 import { readCampaignPerformance, readPixelConfigs, writePixelConfigs, type CheckoutPixelConfig } from "@/lib/pixels-data"
@@ -61,41 +63,8 @@ type CheckoutRow = {
   date: string
 }
 
-const initialCheckouts: CheckoutRow[] = [
-  {
-    id: "1",
-    name: "Checkout Shopify - Colecao Inverno",
-    status: "Ativo",
-    selectedStoreId: "shopify-1",
-    selectedDomainId: "1",
-    conversions: "4.2%",
-    total: "R$ 12.450,00",
-    date: "24/03/2026",
-  },
-  {
-    id: "2",
-    name: "Checkout Whop - Curso de Dev",
-    status: "Rascunho",
-    selectedStoreId: "",
-    selectedDomainId: "",
-    conversions: "0%",
-    total: "R$ 0,00",
-    date: "23/03/2026",
-  },
-  {
-    id: "3",
-    name: "Checkout Shopify - Oferta Relampago",
-    status: "Pausado",
-    selectedStoreId: "shopify-2",
-    selectedDomainId: "2",
-    conversions: "2.8%",
-    total: "R$ 4.120,00",
-    date: "20/03/2026",
-  },
-]
-
 export default function CheckoutsPage() {
-  const [checkouts, setCheckouts] = React.useState(initialCheckouts)
+  const [checkouts, setCheckouts] = React.useState<CheckoutRow[]>([])
   const [domains, setDomains] = React.useState<ConnectedDomain[]>([])
   const [stores, setStores] = React.useState<ConnectedShopifyStore[]>([])
   const [pushcutConfigs, setPushcutConfigs] = React.useState<PushcutCheckoutConfig[]>([])
@@ -107,19 +76,47 @@ export default function CheckoutsPage() {
   const [googleAdsId, setGoogleAdsId] = React.useState("")
   const [tiktokPixelId, setTiktokPixelId] = React.useState("")
   const [trackCampaignSource, setTrackCampaignSource] = React.useState(true)
+  const [accountId, setAccountId] = React.useState("")
 
   React.useEffect(() => {
-    setDomains(readConnectedDomains())
-    setStores(readConnectedShopifyStores())
-    setPushcutConfigs(readPushcutConfigs())
-    setPixelConfigs(readPixelConfigs())
-    readCampaignPerformance()
+    async function load() {
+      const session = await getCurrentAppSession()
+      setAccountId(session?.accountId ?? "")
+
+      setDomains(readConnectedDomains())
+      setStores(readConnectedShopifyStores())
+      setPushcutConfigs(readPushcutConfigs())
+      setPixelConfigs(readPixelConfigs())
+      readCampaignPerformance()
+
+      if (!session?.accountId) {
+        return
+      }
+
+      const result = await loadCheckoutsForAccount({ accountId: session.accountId })
+      const nextCheckouts = (result.checkouts || []).map((checkout) => ({
+        id: checkout.id,
+        name: checkout.name,
+        status: normalizeStatus(checkout.status),
+        selectedStoreId: String(checkout.config?.selectedStoreId || ""),
+        selectedDomainId: String(checkout.config?.selectedDomainId || ""),
+        conversions: "0%",
+        total: formatCheckoutTotal(checkout.config?.currency),
+        date: formatCheckoutDate(checkout.created_at),
+      }))
+
+      setCheckouts(nextCheckouts)
+    }
+
+    void load()
   }, [])
 
   const handleDeleteCheckout = (checkoutId: string) => {
-    setCheckouts((currentCheckouts) =>
-      currentCheckouts.filter((checkout) => checkout.id !== checkoutId)
-    )
+    if (accountId) {
+      void deleteCheckoutForAccount({ checkoutId, accountId })
+    }
+
+    setCheckouts((currentCheckouts) => currentCheckouts.filter((checkout) => checkout.id !== checkoutId))
   }
 
   const handleOpenPushcut = (checkout: CheckoutRow) => {
@@ -425,6 +422,34 @@ export default function CheckoutsPage() {
       </Dialog>
     </>
   )
+}
+
+function normalizeStatus(value: string): "Ativo" | "Rascunho" | "Pausado" {
+  if (value === "Pausado") return "Pausado"
+  if (value === "Rascunho") return "Rascunho"
+  return "Ativo"
+}
+
+function formatCheckoutDate(value: string) {
+  return new Intl.DateTimeFormat("pt-BR").format(new Date(value))
+}
+
+function formatCheckoutTotal(currency: unknown) {
+  const normalized =
+    currency === "USD" || currency === "EUR" || currency === "GBP" ? currency : "BRL"
+  const locale =
+    normalized === "USD"
+      ? "en-US"
+      : normalized === "GBP"
+        ? "en-GB"
+        : normalized === "EUR"
+          ? "de-DE"
+          : "pt-BR"
+
+  return new Intl.NumberFormat(locale, {
+    style: "currency",
+    currency: normalized,
+  }).format(1250)
 }
 
 function ConnectionsCell({
