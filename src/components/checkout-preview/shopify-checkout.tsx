@@ -404,6 +404,11 @@ export function ShopifyCheckout({
   const [isSummaryOpen, setIsSummaryOpen] = React.useState(false)
   const [resolvedLocale, setResolvedLocale] = React.useState<SupportedLocale>(config.locale)
   const [resolvedCurrency, setResolvedCurrency] = React.useState<SupportedCurrency>(config.currency)
+  const [contactData, setContactData] = React.useState({
+    fullName: "",
+    phone: "",
+    email: "",
+  })
   const [deliveryData, setDeliveryData] = React.useState({
     firstName: "",
     lastName: "",
@@ -484,7 +489,13 @@ export function ShopifyCheckout({
             <div className="space-y-8">
               <CheckoutBrand config={config} />
               <CheckoutTopBlock config={config} copy={copy} accentColor={config.checkoutAccentColor} isMobile={isMobile} />
-              <ContactSection config={config} compact={isMobile} copy={copy} />
+              <ContactSection
+                config={config}
+                compact={isMobile}
+                copy={copy}
+                contactData={contactData}
+                onChange={setContactData}
+              />
               <DeliverySection config={config} compact={isMobile} copy={copy} deliveryData={deliveryData} onChange={setDeliveryData} />
               <ShippingSection
                 config={config}
@@ -496,7 +507,13 @@ export function ShopifyCheckout({
                 locale={resolvedLocale}
                 currency={resolvedCurrency}
               />
-              <PaymentSection config={config} copy={copy} />
+              <PaymentSection
+                config={config}
+                copy={copy}
+                locale={resolvedLocale}
+                contactData={contactData}
+                deliveryData={deliveryData}
+              />
               <CheckoutFooter compact={isMobile} config={config} copy={copy} />
             </div>
 
@@ -520,7 +537,13 @@ export function ShopifyCheckout({
             <div className={cn("mx-auto space-y-8", isMobile ? "max-w-none" : "max-w-[600px]")}>
               <CheckoutBrand config={config} />
               <CheckoutTopBlock config={config} copy={copy} accentColor={config.checkoutAccentColor} isMobile={isMobile} />
-              <ContactSection config={config} compact={isMobile} copy={copy} />
+              <ContactSection
+                config={config}
+                compact={isMobile}
+                copy={copy}
+                contactData={contactData}
+                onChange={setContactData}
+              />
               <DeliverySection config={config} compact={isMobile} copy={copy} deliveryData={deliveryData} onChange={setDeliveryData} />
                 <ShippingSection
                   config={config}
@@ -532,7 +555,13 @@ export function ShopifyCheckout({
                   locale={resolvedLocale}
                   currency={resolvedCurrency}
                 />
-                <PaymentSection config={config} copy={copy} />
+                <PaymentSection
+                  config={config}
+                  copy={copy}
+                  locale={resolvedLocale}
+                  contactData={contactData}
+                  deliveryData={deliveryData}
+                />
                 <div className="pt-6">
                   <BuyButton config={config} label={config.buttonText} />
                 </div>
@@ -996,15 +1025,55 @@ function CheckoutProgress({ copy, accentColor }: { copy: Copy; accentColor: stri
   )
 }
 
-function ContactSection({ config, compact, copy }: { config: CheckoutConfig; compact: boolean; copy: Copy }) {
+function ContactSection({
+  config,
+  compact,
+  copy,
+  contactData,
+  onChange,
+}: {
+  config: CheckoutConfig
+  compact: boolean
+  copy: Copy
+  contactData: {
+    fullName: string
+    phone: string
+    email: string
+  }
+  onChange: React.Dispatch<
+    React.SetStateAction<{
+      fullName: string
+      phone: string
+      email: string
+    }>
+  >
+}) {
   return (
     <section className="space-y-4">
       <div className={cn("gap-2", compact ? "space-y-2" : "flex items-center justify-between")}>
         <h2 className="text-lg font-medium" style={{ color: config.checkoutTextColor }}>{copy.contact}</h2>
       </div>
-      <Input placeholder={copy.fullName} className="h-11" style={{ borderColor: config.checkoutMutedColor }} />
-      <Input placeholder={copy.phone} className="h-11" style={{ borderColor: config.checkoutMutedColor }} />
-      <Input placeholder={copy.email} className="h-11" style={{ borderColor: config.checkoutMutedColor }} />
+      <Input
+        placeholder={copy.fullName}
+        className="h-11"
+        style={{ borderColor: config.checkoutMutedColor }}
+        value={contactData.fullName}
+        onChange={(e) => onChange((prev) => ({ ...prev, fullName: e.target.value }))}
+      />
+      <Input
+        placeholder={copy.phone}
+        className="h-11"
+        style={{ borderColor: config.checkoutMutedColor }}
+        value={contactData.phone}
+        onChange={(e) => onChange((prev) => ({ ...prev, phone: e.target.value }))}
+      />
+      <Input
+        placeholder={copy.email}
+        className="h-11"
+        style={{ borderColor: config.checkoutMutedColor }}
+        value={contactData.email}
+        onChange={(e) => onChange((prev) => ({ ...prev, email: e.target.value }))}
+      />
       <div className={cn("flex items-start gap-2", compact && "leading-5")}>
         <input type="checkbox" id="newsletter" className="mt-1 h-4 w-4 rounded" style={{ accentColor: config.checkoutAccentColor }} />
         <Label htmlFor="newsletter" className="text-sm font-normal" style={{ color: config.checkoutTextColor }}>{copy.newsletter}</Label>
@@ -1128,10 +1197,48 @@ function ShippingSection({
   )
 }
 
-function PaymentSection({ config, copy }: { config: CheckoutConfig; copy: Copy }) {
+function PaymentSection({
+  config,
+  copy,
+  locale,
+  contactData,
+  deliveryData,
+}: {
+  config: CheckoutConfig
+  copy: Copy
+  locale: SupportedLocale
+  contactData: {
+    fullName: string
+    phone: string
+    email: string
+  }
+  deliveryData: {
+    firstName: string
+    lastName: string
+    address: string
+    city: string
+    state: string
+    zip: string
+  }
+}) {
   const hasRealWhopCheckout = Boolean(config.whop?.purchaseUrl)
   const hasSelectedWhopAccount = Boolean(config.selectedWhopAccountId)
   const hasEmbeddedPlan = Boolean(config.whop?.planId)
+  const inferredFullName = contactData.fullName.trim() || `${deliveryData.firstName} ${deliveryData.lastName}`.trim()
+  const embedPrefill = React.useMemo(
+    () => ({
+      email: contactData.email.trim() || undefined,
+      address: {
+        name: inferredFullName || undefined,
+        country: resolveWhopCountry(locale),
+        line1: deliveryData.address.trim() || undefined,
+        city: deliveryData.city.trim() || undefined,
+        state: deliveryData.state.trim() || undefined,
+        postalCode: deliveryData.zip.trim() || undefined,
+      },
+    }),
+    [contactData.email, deliveryData.address, deliveryData.city, deliveryData.state, deliveryData.zip, inferredFullName, locale]
+  )
 
   return (
     <section className="space-y-4 pt-4">
@@ -1147,7 +1254,9 @@ function PaymentSection({ config, copy }: { config: CheckoutConfig; copy: Copy }
             theme="light"
             skipRedirect
             hideEmail={false}
+            disableEmail={Boolean(embedPrefill.email)}
             hideAddressForm={false}
+            prefill={embedPrefill}
           />
         </div>
       ) : (
@@ -1429,6 +1538,23 @@ function normalizeLocale(locale: string): SupportedLocale | null {
   if (value.startsWith("fr")) return "fr-FR"
   if (value.startsWith("de")) return "de-DE"
   return null
+}
+
+function resolveWhopCountry(locale: SupportedLocale) {
+  switch (locale) {
+    case "pt-BR":
+      return "BR"
+    case "en-US":
+      return "US"
+    case "es-ES":
+      return "ES"
+    case "fr-FR":
+      return "FR"
+    case "de-DE":
+      return "DE"
+    default:
+      return "BR"
+  }
 }
 
 function formatPrice(amount: number, locale: SupportedLocale, currency: SupportedCurrency) {
