@@ -7,14 +7,15 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
-  addConnectedShopifyStore,
-  deleteConnectedShopifyStore,
-  getConnectedShopifyStores,
-  normalizeShopDomain,
-  updateConnectedShopifyStore,
   type ConnectedShopifyStore,
 } from "@/lib/shopify-store-data"
 import { getCurrentAppSession } from "@/lib/app-session"
+import {
+  connectShopifyStore,
+  deleteShopifyStoreForSession,
+  loadShopifyStoresForSession,
+  syncShopifyStore,
+} from "@/app/actions/shopify"
 
 import { ShopifyIntegrationHeader } from "@/components/shopify/shopify-integration-header"
 import { ShopifyConnectionWizard, ShopifyStep } from "@/components/shopify/shopify-connection-wizard"
@@ -30,10 +31,20 @@ export default function StoresPage() {
   const [isConnecting, setIsConnecting] = React.useState(false)
   const [searchTerm, setSearchTerm] = React.useState("")
   const [accountId, setAccountId] = React.useState("")
+  const [userId, setUserId] = React.useState("")
 
-  const loadStores = React.useCallback(async (nextAccountId: string) => {
-    const list = await getConnectedShopifyStores(nextAccountId)
-    setStores(list)
+  const loadStores = React.useCallback(async (nextAccountId: string, nextUserId: string) => {
+    const result = await loadShopifyStoresForSession({
+      accountId: nextAccountId,
+      userId: nextUserId,
+    })
+
+    if (result.error) {
+      toast.error(result.error)
+      return
+    }
+
+    setStores(result.stores)
   }, [])
 
   React.useEffect(() => {
@@ -44,7 +55,8 @@ export default function StoresPage() {
       }
 
       setAccountId(session.accountId)
-      await loadStores(session.accountId)
+      setUserId(session.userId)
+      await loadStores(session.accountId, session.userId)
     }
 
     load()
@@ -55,7 +67,7 @@ export default function StoresPage() {
     shopDomain: string,
     manualToken?: string
   ) => {
-    if (!accountId) return
+    if (!accountId || !userId) return
 
     setIsConnecting(true)
     setCurrentStep("connecting")
@@ -67,25 +79,25 @@ export default function StoresPage() {
         setCurrentStep("syncing")
 
         setTimeout(async () => {
-          try {
-            const normalizedDomain = normalizeShopDomain(shopDomain)
-            await addConnectedShopifyStore({
-              accountId,
-              name: storeName,
-              shopDomain: normalizedDomain,
-              storefrontToken: manualToken || `shptka_live_${Date.now()}`,
-              status: "Conectada",
-              productCount: Math.floor(Math.random() * 200) + 50,
-              variantCount: Math.floor(Math.random() * 500) + 100,
-              lastSync: new Date().toISOString(),
-            })
+          const result = await connectShopifyStore({
+            accountId,
+            userId,
+            storeName,
+            shopDomain,
+            storefrontToken: manualToken ?? "",
+          })
 
-            await loadStores(accountId)
+          if (result.error) {
+            toast.error(result.error)
+            setCurrentStep("identifying")
+            setIsConnecting(false)
+            return
+          }
+
+          try {
+            await loadStores(accountId, userId)
             setCurrentStep("completed")
             toast.success("Loja conectada com sucesso.")
-          } catch {
-            toast.error("Erro ao conectar loja.")
-            setCurrentStep("identifying")
           } finally {
             setIsConnecting(false)
             setTimeout(() => {
@@ -98,34 +110,40 @@ export default function StoresPage() {
   }
 
   const handleSync = async (id: string) => {
-    try {
-      await updateConnectedShopifyStore(id, {
-        status: "Sincronizando",
-      })
-      await loadStores(accountId)
+    if (!accountId || !userId) return
 
-      setTimeout(async () => {
-        const currentStore = stores.find((store) => store.id === id)
-        await updateConnectedShopifyStore(id, {
-          status: "Conectada",
-          lastSync: new Date().toISOString(),
-          productCount: (currentStore?.productCount ?? 0) + 2,
-        })
-        await loadStores(accountId)
-      }, 3000)
-    } catch {
-      toast.error("Erro ao sincronizar loja.")
+    const result = await syncShopifyStore({
+      storeId: id,
+      accountId,
+      userId,
+    })
+
+    if (result.error) {
+      toast.error(result.error)
+      await loadStores(accountId, userId)
+      return
     }
+
+    await loadStores(accountId, userId)
+    toast.success("Loja sincronizada.")
   }
 
   const handleDelete = async (id: string) => {
-    try {
-      await deleteConnectedShopifyStore(id)
-      await loadStores(accountId)
-      toast.success("Loja removida.")
-    } catch {
-      toast.error("Erro ao remover loja.")
+    if (!accountId || !userId) return
+
+    const result = await deleteShopifyStoreForSession({
+      storeId: id,
+      accountId,
+      userId,
+    })
+
+    if (result.error) {
+      toast.error(result.error)
+      return
     }
+
+    await loadStores(accountId, userId)
+    toast.success("Loja removida.")
   }
 
   const handleReconnect = async (id: string) => {

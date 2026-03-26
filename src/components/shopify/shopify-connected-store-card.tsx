@@ -165,10 +165,10 @@ export function ShopifyConnectedStoreCard({
               <div className="space-y-3 rounded-2xl border border-primary/5 bg-muted/30 p-4">
                 <div className="flex items-center gap-2">
                   <div className="h-2 w-2 rounded-full bg-emerald-500 shadow-lg shadow-emerald-500/50" />
-                  <span className="text-[11px] font-bold">Authorization Grant v2</span>
+                  <span className="text-[11px] font-bold">Storefront API Token</span>
                 </div>
                 <div className="text-[10px] italic leading-relaxed text-muted-foreground">
-                  "Token de acesso persistente gerado via OAuth2 Flow oficial da Shopify."
+                  "Conexao validada com o token real da Storefront API da Shopify."
                 </div>
               </div>
             </div>
