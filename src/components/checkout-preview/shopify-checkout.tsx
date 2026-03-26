@@ -428,6 +428,21 @@ export function ShopifyCheckout({
     setResolvedCurrency(currency)
   }, [config.currency, config.currencyMode, config.locale, config.localeMode])
 
+  React.useEffect(() => {
+    if (typeof document === "undefined") return
+
+    const previousHtmlLang = document.documentElement.lang
+    const previousBodyLang = document.body.lang
+
+    document.documentElement.lang = resolvedLocale
+    document.body.lang = resolvedLocale
+
+    return () => {
+      document.documentElement.lang = previousHtmlLang
+      document.body.lang = previousBodyLang
+    }
+  }, [resolvedLocale])
+
   const copy = COPY[resolvedLocale] ?? COPY[FALLBACK_LOCALE]
   const availableShippingMethods = shippingMethods.filter(
     (method) =>
@@ -1229,6 +1244,7 @@ function PaymentSection({
   const hasEmbeddedSession = Boolean(config.whop?.checkoutConfigurationId || config.whop?.planId)
   const inferredFullName = contactData.fullName.trim() || `${deliveryData.firstName} ${deliveryData.lastName}`.trim()
   const shouldHideEmbedEmail = Boolean(contactData.email.trim())
+  const embedKey = `${locale}:${config.whop?.checkoutConfigurationId ?? config.whop?.planId ?? "default"}`
   const embedPrefill = React.useMemo(
     () => ({
       email: contactData.email.trim() || undefined,
@@ -1256,6 +1272,7 @@ function PaymentSection({
         >
           {config.whop?.checkoutConfigurationId ? (
             <WhopCheckoutEmbed
+              key={embedKey}
               sessionId={config.whop.checkoutConfigurationId}
               theme="light"
               skipRedirect
@@ -1267,6 +1284,7 @@ function PaymentSection({
             />
           ) : (
             <WhopCheckoutEmbed
+              key={embedKey}
               planId={config.whop?.planId ?? ""}
               theme="light"
               skipRedirect
