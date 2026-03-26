@@ -9,12 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 
-interface ManagedAccount {
-  id: string
-  name: string
-  email: string
-  whopKey: string
-}
+import { type ManagedAccount } from "@/lib/account-metrics"
 
 interface WhopCredentialsCardProps {
   accounts: ManagedAccount[]
