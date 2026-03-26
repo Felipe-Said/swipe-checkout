@@ -310,8 +310,8 @@ export function EditorShell() {
     const currentAccount = availableAccounts.find((account) => account.email === session?.email)
     const availableWhopAccounts =
       session?.role === "admin"
-        ? availableAccounts.filter((account) => account.whopKey.trim())
-        : currentAccount && !currentAccount.keyFrozen && currentAccount.whopKey.trim()
+        ? availableAccounts.filter((account) => account.whopKey?.trim())
+        : currentAccount && !currentAccount.keyFrozen && currentAccount.whopKey?.trim()
           ? [currentAccount]
           : []
 
