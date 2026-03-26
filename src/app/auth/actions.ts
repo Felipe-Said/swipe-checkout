@@ -4,6 +4,43 @@ import { cookies } from 'next/headers'
 import { getSupabaseAdmin, supabase } from '@/lib/supabase'
 import { redirect } from 'next/navigation'
 
+async function ensureManagedAccount(userId: string, name: string, role: "admin" | "user") {
+  const supabaseAdmin = getSupabaseAdmin()
+
+  const { data: existingAccount, error: existingError } = await supabaseAdmin
+    .from("managed_accounts")
+    .select("id")
+    .eq("profile_id", userId)
+    .maybeSingle()
+
+  if (existingError) {
+    return { error: existingError.message, accountId: null as string | null }
+  }
+
+  if (existingAccount?.id) {
+    return { accountId: existingAccount.id, error: null as string | null }
+  }
+
+  const { data: createdAccount, error: createError } = await supabaseAdmin
+    .from("managed_accounts")
+    .insert({
+      profile_id: userId,
+      name,
+      fee_rate: role === "admin" ? 0 : 15,
+      billing_cycle_days: 2,
+      payment_mode: "manual",
+      settlement_started_at: new Date().toISOString(),
+    })
+    .select("id")
+    .single()
+
+  if (createError) {
+    return { error: createError.message, accountId: null as string | null }
+  }
+
+  return { accountId: createdAccount.id, error: null as string | null }
+}
+
 export async function signup(formData: FormData) {
   const email = formData.get('email') as string
   const password = formData.get('password') as string
@@ -21,6 +58,13 @@ export async function signup(formData: FormData) {
 
   if (error) {
     return { error: error.message }
+  }
+
+  if (data.user?.id) {
+    const ensured = await ensureManagedAccount(data.user.id, name, "user")
+    if (ensured.error) {
+      return { error: ensured.error }
+    }
   }
 
   return { success: true }
@@ -77,10 +121,20 @@ export async function resolveLoginProfile(userId: string) {
     return { error: "Perfil não encontrado." }
   }
 
+  const ensuredAccount = await ensureManagedAccount(
+    userId,
+    profile.name || profile.email?.split("@")[0] || "Usuario",
+    profile.role === "admin" ? "admin" : "user"
+  )
+
+  if (ensuredAccount.error) {
+    return { error: ensuredAccount.error }
+  }
+
   const { data: managedAccount } = await supabaseAdmin
     .from("managed_accounts")
     .select("id, whop_key")
-    .eq("profile_id", userId)
+    .eq("id", ensuredAccount.accountId)
     .maybeSingle()
 
   return {
