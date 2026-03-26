@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { getCurrentAppSession } from "@/lib/app-session"
 import {
   calculateFeeValue,
   getManagedAccounts,
@@ -41,15 +42,50 @@ export default function CustomersAdminPage() {
   const [signupQueue, setSignupQueue] = React.useState(pendingSignups)
   const [messages, setMessages] = React.useState<SupportChatMessage[]>([])
   const [withdrawals, setWithdrawals] = React.useState<WithdrawalRecord[]>([])
+  const [loaded, setLoaded] = React.useState(false)
 
   React.useEffect(() => {
+    let cancelled = false
+
     async function load() {
-      const loaded = await getManagedAccounts()
-      setAccounts(loaded)
-      setSelectedAccountId(loaded[0]?.id ?? "")
-      setMessages(readSupportChatMessages())
+      const session = await getCurrentAppSession()
+      let loadedAccounts = await getManagedAccounts()
+
+      if (loadedAccounts.length === 0 && session) {
+        loadedAccounts = [
+          {
+            id: session.accountId ?? session.userId,
+            profile_id: session.userId,
+            name: session.name,
+            email: session.email,
+            role: session.role,
+            status: "Ativa",
+            orders: 0,
+            conversionRate: 0,
+            revenue: 0,
+            feeRate: session.role === "admin" ? 0 : 15,
+            keyFrozen: session.keyFrozen,
+            billingCycleDays: 2,
+            paymentMode: "manual",
+            settlementStartedAt: new Date().toISOString(),
+            estimatedDailyRevenueByCurrency: { BRL: 0, USD: 0, EUR: 0, GBP: 0 },
+          },
+        ]
+      }
+
+      if (!cancelled) {
+        setAccounts(loadedAccounts)
+        setSelectedAccountId(loadedAccounts[0]?.id ?? "")
+        setMessages(readSupportChatMessages())
+        setLoaded(true)
+      }
     }
+
     load()
+
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   const selectedAccount =
@@ -124,8 +160,30 @@ export default function CustomersAdminPage() {
     setWithdrawals(nextStore.withdrawals.filter((withdrawal) => withdrawal.accountId === selectedAccountId))
   }
 
+  if (!loaded) {
+    return <div className="min-h-[320px]" />
+  }
+
   if (!selectedAccount) {
-    return null
+    return (
+      <div className="flex flex-col gap-6">
+        <div className="flex flex-col gap-1">
+          <h1 className="text-3xl font-bold tracking-tight">Clientes</h1>
+          <p className="text-muted-foreground">
+            Painel admin com metricas, chat, controle de chaves e aprovacao de cadastros.
+          </p>
+        </div>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Nenhuma conta carregada</CardTitle>
+            <CardDescription>
+              Assim que novos usuarios forem aprovados, eles aparecerao aqui para administracao.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      </div>
+    )
   }
 
   const accountMessages = messages.filter((message) => message.accountId === selectedAccount.id)
