@@ -118,6 +118,14 @@ type EditorConfig = {
   selectedDomainId: string
   selectedStoreId: string
   selectedWhopAccountId: string
+  whop?: {
+    checkoutConfigurationId?: string | null
+    planId?: string | null
+    purchaseUrl?: string | null
+    companyId?: string | null
+    publishedAt?: string
+    amount?: number
+  }
 }
 
 const POLICY_TEXT_MAX_LENGTH = 1200
@@ -588,6 +596,11 @@ export function EditorShell() {
     }
 
     if (result?.purchaseUrl) {
+      if (result.whop) {
+        updateConfig((prev) => ({ ...prev, whop: result.whop ?? undefined }), {
+          trackHistory: false,
+        })
+      }
       toast.success("Checkout publicado na Whop com link real gerado.")
       return
     }

@@ -95,6 +95,15 @@ interface CheckoutConfig {
   upsellButtonText: string
   upsellPrice: number
   selectedShippingMethodIds: string[]
+  selectedWhopAccountId?: string
+  whop?: {
+    checkoutConfigurationId?: string | null
+    planId?: string | null
+    purchaseUrl?: string | null
+    companyId?: string | null
+    publishedAt?: string
+    amount?: number
+  }
 }
 
 type Copy = {
@@ -127,6 +136,8 @@ type Copy = {
   shippingNextStep: string
   shippingBeforeConfirm: string
   securePayment: string
+  realGatewayReady: string
+  realGatewayPending: string
   refundPolicy: string
   privacyPolicy: string
   termsPolicy: string
@@ -184,6 +195,8 @@ const COPY: Record<SupportedLocale, Copy> = {
     shippingNextStep: "Frete calculado no proximo passo",
     shippingBeforeConfirm: "Frete e taxas aparecem antes da confirmacao final.",
     securePayment: "Pagamento seguro e protegido.",
+    realGatewayReady: "Checkout Whop real conectado e pronto para receber pagamentos.",
+    realGatewayPending: "Conta Whop selecionada. Salve o checkout para publicar a sessao real.",
     refundPolicy: "Politica de reembolso",
     privacyPolicy: "Politica de privacidade",
     termsPolicy: "Termos de servico",
@@ -226,6 +239,8 @@ const COPY: Record<SupportedLocale, Copy> = {
     shippingNextStep: "Shipping calculated on the next step",
     shippingBeforeConfirm: "Shipping and fees appear before final confirmation.",
     securePayment: "Secure and protected payment.",
+    realGatewayReady: "Real Whop checkout connected and ready to receive payments.",
+    realGatewayPending: "Whop account selected. Save the checkout to publish the real session.",
     refundPolicy: "Refund policy",
     privacyPolicy: "Privacy policy",
     termsPolicy: "Terms of service",
@@ -268,6 +283,8 @@ const COPY: Record<SupportedLocale, Copy> = {
     shippingNextStep: "El envio se calcula en el siguiente paso",
     shippingBeforeConfirm: "El envio y las tasas aparecen antes de la confirmacion final.",
     securePayment: "Pago seguro y protegido.",
+    realGatewayReady: "Checkout real de Whop conectado y listo para recibir pagos.",
+    realGatewayPending: "Cuenta de Whop seleccionada. Guarda el checkout para publicar la sesion real.",
     refundPolicy: "Politica de reembolso",
     privacyPolicy: "Politica de privacidad",
     termsPolicy: "Terminos del servicio",
@@ -310,6 +327,8 @@ const COPY: Record<SupportedLocale, Copy> = {
     shippingNextStep: "Livraison calculee a l'etape suivante",
     shippingBeforeConfirm: "La livraison et les frais apparaissent avant la confirmation finale.",
     securePayment: "Paiement securise et protege.",
+    realGatewayReady: "Checkout Whop reel connecte et pret a recevoir les paiements.",
+    realGatewayPending: "Compte Whop selectionne. Enregistrez le checkout pour publier la session reelle.",
     refundPolicy: "Politique de remboursement",
     privacyPolicy: "Politique de confidentialite",
     termsPolicy: "Conditions d'utilisation",
@@ -352,6 +371,8 @@ const COPY: Record<SupportedLocale, Copy> = {
     shippingNextStep: "Versand wird im nachsten Schritt berechnet",
     shippingBeforeConfirm: "Versand und Gebuhren erscheinen vor der finalen Bestatigung.",
     securePayment: "Sichere und geschutzte Zahlung.",
+    realGatewayReady: "Realer Whop-Checkout ist verbunden und bereit fur Zahlungen.",
+    realGatewayPending: "Whop-Konto ausgewahlt. Speichern Sie den Checkout, um die echte Sitzung zu veroffentlichen.",
     refundPolicy: "Ruckerstattungsrichtlinie",
     privacyPolicy: "Datenschutzrichtlinie",
     termsPolicy: "Nutzungsbedingungen",
@@ -1107,6 +1128,9 @@ function ShippingSection({
 }
 
 function PaymentSection({ config, copy }: { config: CheckoutConfig; copy: Copy }) {
+  const hasRealWhopCheckout = Boolean(config.whop?.purchaseUrl)
+  const hasSelectedWhopAccount = Boolean(config.selectedWhopAccountId)
+
   return (
     <section className="space-y-4 pt-4">
       <h2 className="text-lg font-medium" style={{ color: config.checkoutTextColor }}>{copy.payment}</h2>
@@ -1118,7 +1142,13 @@ function PaymentSection({ config, copy }: { config: CheckoutConfig; copy: Copy }
         <p className="text-sm font-semibold uppercase tracking-wider" style={{ color: config.checkoutTextColor }}>
           {config.layoutStyle === "one-page" ? copy.integratedPayment : copy.embeddedGateway}
         </p>
-        <p className="mt-2 text-xs">{copy.gatewayPlaceholder}</p>
+        <p className="mt-2 text-xs">
+          {hasRealWhopCheckout
+            ? copy.realGatewayReady
+            : hasSelectedWhopAccount
+              ? copy.realGatewayPending
+              : copy.gatewayPlaceholder}
+        </p>
       </div>
     </section>
   )

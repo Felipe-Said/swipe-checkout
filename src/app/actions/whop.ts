@@ -13,6 +13,14 @@ type EditorCheckoutConfig = {
   selectedDomainId?: string
   selectedStoreId?: string
   selectedWhopAccountId?: string
+  whop?: {
+    checkoutConfigurationId?: string | null
+    planId?: string | null
+    purchaseUrl?: string | null
+    companyId?: string | null
+    publishedAt?: string
+    amount?: number
+  }
   [key: string]: unknown
 }
 
@@ -437,6 +445,7 @@ export async function saveCheckoutFromEditor(input: {
   }
 
   let purchaseUrl: string | null = null
+  let publishedWhopConfig: EditorCheckoutConfig["whop"] | null = null
 
   if (input.config.selectedWhopAccountId) {
     const { data: whopAccount, error: whopAccountError } = await supabaseAdmin
@@ -492,16 +501,17 @@ export async function saveCheckoutFromEditor(input: {
       } as any)
 
       purchaseUrl = checkoutConfiguration.purchase_url
+      publishedWhopConfig = {
+        checkoutConfigurationId: checkoutConfiguration.id,
+        planId: checkoutConfiguration.plan?.id ?? null,
+        purchaseUrl: checkoutConfiguration.purchase_url,
+        companyId: checkoutConfiguration.company_id,
+        publishedAt: new Date().toISOString(),
+        amount: DEFAULT_CHECKOUT_AMOUNT,
+      }
       currentConfig = {
         ...currentConfig,
-        whop: {
-          checkoutConfigurationId: checkoutConfiguration.id,
-          planId: checkoutConfiguration.plan?.id ?? null,
-          purchaseUrl: checkoutConfiguration.purchase_url,
-          companyId: checkoutConfiguration.company_id,
-          publishedAt: new Date().toISOString(),
-          amount: DEFAULT_CHECKOUT_AMOUNT,
-        },
+        whop: publishedWhopConfig,
       }
 
       const { error: publishError } = await supabaseAdmin
@@ -533,5 +543,6 @@ export async function saveCheckoutFromEditor(input: {
     success: true,
     checkoutId,
     purchaseUrl,
+    whop: publishedWhopConfig,
   }
 }
