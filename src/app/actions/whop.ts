@@ -3,6 +3,7 @@
 import Whop from "@whop/sdk"
 
 import { getSupabaseAdmin } from "@/lib/supabase"
+import { type ManagedAccount } from "@/lib/account-metrics"
 
 const DEFAULT_CHECKOUT_AMOUNT = 1250
 
@@ -23,6 +24,24 @@ type CheckoutRecord = {
   type: string
   config: EditorCheckoutConfig
   created_at: string
+}
+
+type WhopManagedAccount = {
+  id: string
+  profile_id: string | null
+  name: string
+  whop_key: string | null
+  whop_company_id: string | null
+  whop_integration_status: string | null
+  whop_last_validation: string | null
+  whop_permissions_valid: boolean | null
+  whop_checkout_ready: boolean | null
+  whop_webhook_active: boolean | null
+  whop_environment: string | null
+  billing_cycle_days: number | null
+  payment_mode: string | null
+  settlement_started_at: string | null
+  fee_rate: number | null
 }
 
 function getAppBaseUrl() {
@@ -102,6 +121,71 @@ function mapCheckoutRecord(row: any): CheckoutRecord {
         ? (row.config as EditorCheckoutConfig)
         : {},
     created_at: row.created_at,
+  }
+}
+
+function mapManagedAccountToWhopState(row: WhopManagedAccount, profile?: any): ManagedAccount {
+  return {
+    id: row.id,
+    profile_id: row.profile_id ?? undefined,
+    name: row.name,
+    email: profile?.email,
+    role: profile?.role === "admin" ? "admin" : "user",
+    status: profile?.status === "blocked" ? "Bloqueada" : "Ativa",
+    feeRate: Number(row.fee_rate ?? 0),
+    billingCycleDays: row.billing_cycle_days ?? 2,
+    paymentMode: "manual" as const,
+    settlementStartedAt: row.settlement_started_at ?? undefined,
+    whopKey: row.whop_key ?? undefined,
+    whopCompanyId: row.whop_company_id ?? undefined,
+    whopIntegrationStatus: (row.whop_integration_status ?? "Pendente") as
+      | "Pronto"
+      | "Em validação"
+      | "Atenção"
+      | "Pendente"
+      | "Falha",
+    whopLastValidation: row.whop_last_validation ?? undefined,
+    whopPermissionsValid: !!row.whop_permissions_valid,
+    whopCheckoutReady: !!row.whop_checkout_ready,
+    whopWebhookActive: !!row.whop_webhook_active,
+    whopEnvironment: (row.whop_environment ?? "Sandbox") as "Produção" | "Sandbox",
+    keyFrozen: false,
+    orders: 0,
+    conversionRate: 0,
+    revenue: 0,
+    estimatedDailyRevenueByCurrency: { BRL: 0, USD: 0, EUR: 0, GBP: 0 },
+  }
+}
+
+export async function loadWhopAccountForSession(input: { accountId?: string | null; userId: string }) {
+  const supabaseAdmin = getSupabaseAdmin()
+
+  let accountQuery = supabaseAdmin
+    .from("managed_accounts")
+    .select(
+      "id, profile_id, name, whop_key, whop_company_id, whop_integration_status, whop_last_validation, whop_permissions_valid, whop_checkout_ready, whop_webhook_active, whop_environment, billing_cycle_days, payment_mode, settlement_started_at, fee_rate"
+    )
+
+  if (input.accountId) {
+    accountQuery = accountQuery.eq("id", input.accountId)
+  } else {
+    accountQuery = accountQuery.eq("profile_id", input.userId)
+  }
+
+  const { data: account, error: accountError } = await accountQuery.maybeSingle()
+
+  if (accountError || !account) {
+    return { account: null }
+  }
+
+  const { data: profile } = await supabaseAdmin
+    .from("profiles")
+    .select("email, role, status")
+    .eq("id", account.profile_id)
+    .maybeSingle()
+
+  return {
+    account: mapManagedAccountToWhopState(account as WhopManagedAccount, profile),
   }
 }
 

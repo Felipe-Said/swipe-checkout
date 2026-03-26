@@ -2,7 +2,11 @@
 
 import * as React from "react"
 
-import { saveWhopAccountCredentials, validateWhopAccount } from "@/app/actions/whop"
+import {
+  loadWhopAccountForSession,
+  saveWhopAccountCredentials,
+  validateWhopAccount,
+} from "@/app/actions/whop"
 import { getCurrentAppSession } from "@/lib/app-session"
 import {
   getManagedAccounts,
@@ -110,27 +114,21 @@ export default function WhopPage() {
 
   const reloadAccounts = React.useCallback(async () => {
     const session = await getCurrentAppSession()
-    const loadedAccounts = await getManagedAccounts()
-
-    if (loadedAccounts.length === 0) {
+    if (!session) {
       return
     }
 
-    setAccounts(loadedAccounts)
-
-    const preferredAccountId =
-      (session?.accountId &&
-      loadedAccounts.some((account) => account.id === session.accountId)
-        ? session.accountId
-        : loadedAccounts[0]?.id) ?? ""
-
-    setSelectedAccountId((current) => {
-      if (current && loadedAccounts.some((account) => account.id === current)) {
-        return current
-      }
-
-      return preferredAccountId
+    const result = await loadWhopAccountForSession({
+      accountId: session.accountId,
+      userId: session.userId,
     })
+
+    if (!result.account) {
+      return
+    }
+
+    setAccounts([result.account])
+    setSelectedAccountId(result.account.id)
   }, [])
 
   const currentAccount =
