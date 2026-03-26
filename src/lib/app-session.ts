@@ -51,11 +51,6 @@ export function clearAppSession() {
 }
 
 export async function getCurrentAppSession(): Promise<AppSession | null> {
-  const storedSession = readAppSession()
-  if (storedSession) {
-    return storedSession
-  }
-
   const demoSession = readDemoSession()
   if (demoSession) {
     return {
@@ -85,12 +80,16 @@ export async function getCurrentAppSession(): Promise<AppSession | null> {
       .maybeSingle(),
   ])
 
-  return {
+  const resolvedSession: AppSession = {
     userId: user.id,
-    name: profile?.name || user.user_metadata?.name || user.email?.split("@")[0] || "Usuário",
+    name: profile?.name || user.user_metadata?.name || user.email?.split("@")[0] || "Usuario",
     email: profile?.email || user.email || "",
     role: profile?.role === "admin" ? "admin" : "user",
     accountId: managedAccount?.id ?? null,
     keyFrozen: false,
   }
+
+  writeAppSession(resolvedSession)
+
+  return resolvedSession
 }
