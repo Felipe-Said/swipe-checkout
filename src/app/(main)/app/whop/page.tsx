@@ -6,6 +6,7 @@ import { validateWhopAccount } from "@/app/actions/whop"
 import { getCurrentAppSession } from "@/lib/app-session"
 import {
   getManagedAccounts,
+  updateManagedAccount,
   type ManagedAccount,
 } from "@/lib/account-metrics"
 import { toast } from "sonner"
@@ -108,32 +109,49 @@ export default function WhopPage() {
     )
   }
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!currentAccount) return
 
-    setAccounts((current) =>
-      current.map((account) =>
-        account.id === currentAccount.id
-          ? {
-              ...account,
-              whopIntegrationStatus: PENDING_STATUS,
-              whopPermissionsValid: false,
-              whopCheckoutReady: false,
-            }
-          : account
-      )
-    )
+    try {
+      await updateManagedAccount(currentAccount.id, {
+        whopKey: currentAccount.whopKey || "",
+        whopIntegrationStatus: PENDING_STATUS,
+        whopPermissionsValid: false,
+        whopCheckoutReady: false,
+        whopWebhookActive: false,
+      })
 
-    setEvents([
-      {
-        id: "save",
-        timestamp: new Date().toLocaleTimeString(),
-        type: "info",
-        message: "Chave salva na conta",
-        description:
-          "A credencial foi registrada. Inicie a validacao para confirmar a conexao.",
-      },
-    ])
+      setAccounts((current) =>
+        current.map((account) =>
+          account.id === currentAccount.id
+            ? {
+                ...account,
+                whopIntegrationStatus: PENDING_STATUS,
+                whopPermissionsValid: false,
+                whopCheckoutReady: false,
+                whopWebhookActive: false,
+              }
+            : account
+        )
+      )
+
+      setEvents([
+        {
+          id: "save",
+          timestamp: new Date().toLocaleTimeString(),
+          type: "info",
+          message: "Chave salva na conta",
+          description:
+            "A credencial foi registrada no banco. Inicie a validacao para confirmar a conexao.",
+        },
+      ])
+
+      toast.success("Chave da Whop salva com sucesso.")
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Nao foi possivel salvar a chave da Whop."
+      toast.error(message)
+    }
   }
 
   const handleValidate = () => {

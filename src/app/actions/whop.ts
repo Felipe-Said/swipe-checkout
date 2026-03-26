@@ -168,11 +168,29 @@ export async function validateWhopAccount(input: { accountId: string; apiKey: st
       webhookId: webhook.id,
     }
   } catch (error) {
+    const message =
+      error instanceof Error
+        ? error.message
+        : "Nao foi possivel validar a API key da Whop."
+
+    const normalizedMessage = message.includes("company:basic:read")
+      ? "A API key foi aceita pela Whop, mas esta sem permissao para ler a empresa (company:basic:read). Gere uma Company API key com leitura de informacoes da empresa e tente novamente."
+      : message
+
+    await supabaseAdmin
+      .from("managed_accounts")
+      .update({
+        whop_key: apiKey,
+        whop_integration_status: "Falha",
+        whop_last_validation: new Date().toISOString(),
+        whop_permissions_valid: false,
+        whop_checkout_ready: false,
+        whop_webhook_active: false,
+      })
+      .eq("id", input.accountId)
+
     return {
-      error:
-        error instanceof Error
-          ? error.message
-          : "Nao foi possivel validar a API key da Whop.",
+      error: normalizedMessage,
     }
   }
 }
