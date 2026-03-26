@@ -1,8 +1,8 @@
 "use client"
 
 import * as React from "react"
-import { readDemoSession, writeDemoSession, type DemoSession } from "@/lib/demo-auth"
-import { readManagedAccounts } from "@/lib/account-metrics"
+import { supabase } from "@/lib/supabase"
+import { getManagedAccounts } from "@/lib/account-metrics"
 import { SettingsHeader } from "@/components/settings/settings-header"
 import { SettingsProfileCard } from "@/components/settings/settings-profile-card"
 import { SettingsSecurityCard } from "@/components/settings/settings-security-card"
@@ -38,7 +38,7 @@ const loginHistory = [
 
 export default function SettingsPage() {
   const { t } = useI18n()
-  const [session, setSession] = React.useState<DemoSession | null>(null)
+  const [session, setSession] = React.useState<any | null>(null)
   const [profileName, setProfileName] = React.useState("")
   const [profileEmail, setProfileEmail] = React.useState("")
   const [profileImage, setProfileImage] = React.useState<string | undefined>(undefined)
@@ -46,32 +46,32 @@ export default function SettingsPage() {
   const [isSaving, setIsSaving] = React.useState(false)
 
   React.useEffect(() => {
-    const activeSession = readDemoSession()
-    setSession(activeSession)
-    if (activeSession) {
-      setProfileName(activeSession.name)
-      setProfileEmail(activeSession.email)
-    }
+    async function load() {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        setSession(user)
+        setProfileName(user.user_metadata?.name || user.email?.split('@')[0] || "")
+        setProfileEmail(user.email || "")
+      }
 
-    const accounts = readManagedAccounts()
-    const total = accounts.reduce((acc, curr) => acc + curr.revenue, 0)
-    setTotalRevenue(total)
+      const accounts = await getManagedAccounts()
+      const total = accounts.reduce((acc, curr) => acc + (curr.revenue || 0), 0)
+      setTotalRevenue(total)
 
-    const savedPhoto = localStorage.getItem("swipe-profile-photo")
-    if (savedPhoto) {
-      setProfileImage(savedPhoto)
+      const savedPhoto = localStorage.getItem("swipe-profile-photo")
+      if (savedPhoto) {
+        setProfileImage(savedPhoto)
+      }
     }
+    load()
   }, [])
 
   const handleSaveProfile = () => {
     if (!session) return
     setIsSaving(true)
     
-    // Simulate save
+    // Simulate save or use supabase.auth.updateUser in production
     setTimeout(() => {
-      const updatedSession = { ...session, name: profileName, email: profileEmail }
-      writeDemoSession(updatedSession)
-      
       if (profileImage) {
         localStorage.setItem("swipe-profile-photo", profileImage)
       } else {
@@ -79,7 +79,6 @@ export default function SettingsPage() {
       }
       
       setIsSaving(false)
-      // Provide visual feedback if needed, but the button state change is enough for prototype
     }, 800)
   }
 
