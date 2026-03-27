@@ -7,7 +7,7 @@ const SHOPIFY_STOREFRONT_API_VERSION = "2026-01"
 
 type ShopifyProbeResult = {
   shopName: string
-  shopDomain: string
+  primaryDomain: string
   productCount: number
   variantCount: number
 }
@@ -101,7 +101,7 @@ async function probeShopifyStorefront(shopDomain: string, storefrontToken: strin
 
   return {
     shopName,
-    shopDomain: normalizeShopDomain(resolvedDomain),
+    primaryDomain: normalizeShopDomain(resolvedDomain),
     productCount: products.length,
     variantCount,
   }
@@ -200,7 +200,7 @@ async function probeShopifyAdminApp(
 
   return {
     shopName,
-    shopDomain: normalizeShopDomain(resolvedDomain),
+    primaryDomain: normalizeShopDomain(resolvedDomain),
     productCount: products.length,
     variantCount,
   }
@@ -265,7 +265,7 @@ export async function connectShopifyStore(input: {
     const payload = {
       account_id: input.accountId,
       name: input.storeName.trim(),
-      shop_domain: probe.shopDomain,
+      shop_domain: normalizedDomain,
       storefront_token: "",
       client_id: input.clientId.trim(),
       client_secret: input.clientSecret.trim(),
@@ -281,7 +281,7 @@ export async function connectShopifyStore(input: {
       .from("shopify_stores")
       .select("id")
       .eq("account_id", input.accountId)
-      .eq("shop_domain", probe.shopDomain)
+      .eq("shop_domain", normalizedDomain)
       .maybeSingle()
 
     if (existing?.id) {
@@ -300,7 +300,7 @@ export async function connectShopifyStore(input: {
       success: true,
       store: {
         name: probe.shopName,
-        shopDomain: probe.shopDomain,
+        shopDomain: normalizedDomain,
         productCount: probe.productCount,
         variantCount: probe.variantCount,
       },
