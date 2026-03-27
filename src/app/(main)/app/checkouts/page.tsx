@@ -19,6 +19,7 @@ import Link from "next/link"
 import { deleteCheckoutForAccount, loadCheckoutsForAccount } from "@/app/actions/whop"
 import { getCurrentAppSession } from "@/lib/app-session"
 import { readConnectedDomains, type ConnectedDomain } from "@/lib/domain-data"
+import { supabase } from "@/lib/supabase"
 import { readPushcutConfigs, writePushcutConfigs, type PushcutCheckoutConfig } from "@/lib/pushcut-data"
 import { readCampaignPerformance, readPixelConfigs, writePixelConfigs, type CheckoutPixelConfig } from "@/lib/pixels-data"
 import { readConnectedShopifyStores, type ConnectedShopifyStore } from "@/lib/shopify-store-data"
@@ -93,6 +94,11 @@ export default function CheckoutsPage() {
         return
       }
 
+      const { data: orders } = await supabase
+        .from("orders")
+        .select("checkout_id,total,paid")
+        .eq("account_id", session.accountId)
+
       const result = await loadCheckoutsForAccount({ accountId: session.accountId })
       const nextCheckouts = (result.checkouts || []).map((checkout) => ({
         id: checkout.id,
@@ -101,7 +107,12 @@ export default function CheckoutsPage() {
         selectedStoreId: String(checkout.config?.selectedStoreId || ""),
         selectedDomainId: String(checkout.config?.selectedDomainId || ""),
         conversions: "0%",
-        total: formatCheckoutTotal(checkout.config?.currency),
+        total: formatCheckoutTotal(
+          orders
+            ?.filter((order) => order.checkout_id === checkout.id && order.paid !== false)
+            .reduce((sum, order) => sum + Number(order.total ?? 0), 0) ?? 0,
+          checkout.config?.currency
+        ),
         date: formatCheckoutDate(checkout.created_at),
       }))
 
@@ -434,7 +445,7 @@ function formatCheckoutDate(value: string) {
   return new Intl.DateTimeFormat("pt-BR").format(new Date(value))
 }
 
-function formatCheckoutTotal(currency: unknown) {
+function formatCheckoutTotal(amount: number, currency: unknown) {
   const normalized =
     currency === "USD" || currency === "EUR" || currency === "GBP" ? currency : "BRL"
   const locale =
@@ -449,7 +460,7 @@ function formatCheckoutTotal(currency: unknown) {
   return new Intl.NumberFormat(locale, {
     style: "currency",
     currency: normalized,
-  }).format(1250)
+  }).format(amount)
 }
 
 function ConnectionsCell({
@@ -459,7 +470,7 @@ function ConnectionsCell({
   store?: ConnectedShopifyStore
   domain?: ConnectedDomain
 }) {
-  const storeConnected = store?.status === "Conectada"
+  const storeConnected = store?.status === "Conectada" || store?.status === "Pronta"
   const domainConnected = domain?.status === "Pronto"
 
   return (
