@@ -485,6 +485,7 @@ export async function saveCheckoutFromEditor(input: {
           swipeCheckoutName: cleanName,
         },
         plan: {
+          company_id: whopAccount.whop_company_id,
           currency: normalizeWhopCurrency(input.config.currency),
           plan_type: "one_time",
           initial_price: DEFAULT_CHECKOUT_AMOUNT,
