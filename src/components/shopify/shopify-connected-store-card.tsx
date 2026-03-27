@@ -200,7 +200,7 @@ export function ShopifyConnectedStoreCard({
                   {hasIssues
                     ? '"A loja perdeu o estado valido da conexao. Use Reconectar para testar Client ID, Secret e escopos de novo."'
                     : isReady
-                      ? '"Conexao validada com Client ID e Secret reais do app Shopify."'
+                      ? '"Conexao validada. Ative o App Embed do Swipe no tema para redirecionar a storefront."'
                       : '"A conexao esta em validacao e pode demorar alguns instantes para estabilizar."'}
                 </div>
               </div>
@@ -251,6 +251,10 @@ export function ShopifyConnectedStoreCard({
                 Salvar Fluxo
               </Button>
             </div>
+          </div>
+
+          <div className="mt-3 rounded-xl border border-dashed border-primary/20 bg-primary/5 p-3 text-[11px] text-muted-foreground">
+            Ative o App Embed <span className="font-bold text-foreground">Swipe Checkout Redirect</span> no tema da Shopify e informe a URL publica do Swipe para liberar o redirecionamento da loja.
           </div>
         </div>
 

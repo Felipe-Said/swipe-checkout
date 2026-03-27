@@ -5,23 +5,6 @@ import { normalizeShopDomain, type ConnectedShopifyStore } from "@/lib/shopify-s
 
 const SHOPIFY_STOREFRONT_API_VERSION = "2026-01"
 
-function getAppBaseUrl() {
-  const explicit =
-    process.env.NEXT_PUBLIC_APP_URL ||
-    process.env.NEXT_PUBLIC_SITE_URL ||
-    process.env.SITE_URL
-
-  if (explicit) {
-    return explicit.replace(/\/$/, "")
-  }
-
-  if (process.env.VERCEL_URL) {
-    return `https://${process.env.VERCEL_URL}`
-  }
-
-  return "http://localhost:3000"
-}
-
 type ShopifyProbeResult = {
   shopName: string
   primaryDomain: string
@@ -262,69 +245,6 @@ function mapDbToStore(db: any): ConnectedShopifyStore {
   }
 }
 
-async function ensureStorefrontScriptTag(input: {
-  shopDomain: string
-  accessToken: string
-  storeId: string
-}) {
-  const scriptSrc = `${getAppBaseUrl()}/api/shopify/storefront-script?storeId=${input.storeId}`
-  const listResponse = await fetch(
-    `https://${input.shopDomain}/admin/api/${SHOPIFY_STOREFRONT_API_VERSION}/script_tags.json`,
-    {
-      headers: {
-        "Content-Type": "application/json",
-        "X-Shopify-Access-Token": input.accessToken,
-      },
-      cache: "no-store",
-    }
-  )
-  const listPayload = await listResponse.json().catch(() => null)
-  if (!listResponse.ok) {
-    throw new Error(
-      listPayload?.errors ||
-        listPayload?.error ||
-        "Nao foi possivel listar os Script Tags da Shopify."
-    )
-  }
-
-  const existingTag = Array.isArray(listPayload?.script_tags)
-    ? listPayload.script_tags.find((tag: { src?: string }) => tag?.src === scriptSrc)
-    : null
-
-  if (existingTag?.id) {
-    return String(existingTag.id)
-  }
-
-  const createResponse = await fetch(
-    `https://${input.shopDomain}/admin/api/${SHOPIFY_STOREFRONT_API_VERSION}/script_tags.json`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Shopify-Access-Token": input.accessToken,
-      },
-      body: JSON.stringify({
-        script_tag: {
-          event: "onload",
-          src: scriptSrc,
-          display_scope: "online_store",
-        },
-      }),
-      cache: "no-store",
-    }
-  )
-  const createPayload = await createResponse.json().catch(() => null)
-  if (!createResponse.ok || !createPayload?.script_tag?.id) {
-    throw new Error(
-      createPayload?.errors ||
-        createPayload?.error ||
-        "Nao foi possivel instalar o script do Swipe na Shopify."
-    )
-  }
-
-  return String(createPayload.script_tag.id)
-}
-
 async function fetchShopifyStorePreview(input: { storeId: string; accountId: string }) {
   const supabaseAdmin = getSupabaseAdmin()
   const { data: store, error } = await supabaseAdmin
@@ -496,11 +416,6 @@ export async function connectShopifyStore(input: {
 
   try {
     const normalizedDomain = normalizeShopDomain(input.shopDomain)
-    const accessToken = await exchangeShopifyAdminToken(
-      normalizedDomain,
-      input.clientId.trim(),
-      input.clientSecret.trim()
-    )
     const probe = await probeShopifyAdminApp(
       normalizedDomain,
       input.clientId.trim(),
@@ -510,18 +425,12 @@ export async function connectShopifyStore(input: {
 
     const { data: existing } = await supabaseAdmin
       .from("shopify_stores")
-      .select("id, default_checkout_id, skip_cart_redirect")
+      .select("id, default_checkout_id, skip_cart_redirect, script_tag_id")
       .eq("account_id", input.accountId)
       .eq("shop_domain", normalizedDomain)
       .maybeSingle()
 
     const storeId = existing?.id ?? crypto.randomUUID()
-    const scriptTagId = await ensureStorefrontScriptTag({
-      shopDomain: normalizedDomain,
-      accessToken,
-      storeId,
-    })
-
     const payload = {
       id: storeId,
       account_id: input.accountId,
@@ -532,7 +441,7 @@ export async function connectShopifyStore(input: {
       client_secret: input.clientSecret.trim(),
       default_checkout_id: existing?.default_checkout_id ?? null,
       skip_cart_redirect: existing?.skip_cart_redirect ?? false,
-      script_tag_id: scriptTagId,
+      script_tag_id: existing?.script_tag_id ?? "",
       checkout_type: "Shopify Hosted Checkout",
       status: "Pronta",
       product_count: probe.productCount,
@@ -582,7 +491,7 @@ export async function syncShopifyStore(input: {
   const supabaseAdmin = getSupabaseAdmin()
   const { data: store, error } = await supabaseAdmin
     .from("shopify_stores")
-    .select("id, account_id, shop_domain, storefront_token, client_id, client_secret")
+    .select("id, account_id, shop_domain, storefront_token, client_id, client_secret, script_tag_id")
     .eq("id", input.storeId)
     .eq("account_id", input.accountId)
     .maybeSingle()
@@ -596,28 +505,18 @@ export async function syncShopifyStore(input: {
   }
 
   try {
-    const accessToken = await exchangeShopifyAdminToken(
-      store.shop_domain,
-      store.client_id,
-      store.client_secret
-    )
     const probe = await probeShopifyAdminApp(
       store.shop_domain,
       store.client_id,
       store.client_secret
     )
-    const scriptTagId = await ensureStorefrontScriptTag({
-      shopDomain: store.shop_domain,
-      accessToken,
-      storeId: input.storeId,
-    })
     const { error: updateError } = await supabaseAdmin
       .from("shopify_stores")
       .update({
         status: "Pronta",
         product_count: probe.productCount,
         variant_count: probe.variantCount,
-        script_tag_id: scriptTagId,
+        script_tag_id: store.script_tag_id ?? "",
         last_sync: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
@@ -679,7 +578,7 @@ export async function updateShopifyStoreBehavior(input: {
   const supabaseAdmin = getSupabaseAdmin()
   const { data: store, error } = await supabaseAdmin
     .from("shopify_stores")
-    .select("id, account_id, shop_domain, client_id, client_secret")
+    .select("id, account_id, shop_domain, client_id, client_secret, script_tag_id")
     .eq("id", input.storeId)
     .eq("account_id", input.accountId)
     .maybeSingle()
@@ -692,28 +591,12 @@ export async function updateShopifyStoreBehavior(input: {
     return { error: "Selecione um checkout padrao para ativar o redirecionamento." }
   }
 
-  if (!store.client_id || !store.client_secret) {
-    return { error: "A loja nao possui credenciais validas para instalar o script." }
-  }
-
   try {
-    const accessToken = await exchangeShopifyAdminToken(
-      store.shop_domain,
-      store.client_id,
-      store.client_secret
-    )
-    const scriptTagId = await ensureStorefrontScriptTag({
-      shopDomain: store.shop_domain,
-      accessToken,
-      storeId: store.id,
-    })
-
     const { error: updateError } = await supabaseAdmin
       .from("shopify_stores")
       .update({
         default_checkout_id: input.defaultCheckoutId,
         skip_cart_redirect: input.skipCartRedirect,
-        script_tag_id: scriptTagId,
         updated_at: new Date().toISOString(),
       })
       .eq("id", input.storeId)

@@ -102,6 +102,9 @@ export function ShopifySetupTutorial() {
                   "Acompanhe o progresso da validacao inicial.",
                   "Confira a leitura real da loja e do catalogo.",
                   'Verifique se o selo "Pronta" aparece no card da loja.',
+                  "Escolha o checkout padrao no card da loja e salve o fluxo.",
+                  "Ative o App Embed Swipe Checkout Redirect no tema da Shopify.",
+                  "No App Embed, informe a URL publica do Swipe.",
                   "Se houver qualquer erro, consulte a area de troubleshooting abaixo.",
                 ].map((step, i) => (
                   <li key={i} className="flex gap-3 text-sm">

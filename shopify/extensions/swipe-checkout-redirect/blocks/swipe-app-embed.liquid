@@ -1,0 +1,36 @@
+{% liquid
+  assign swipe_app_url = block.settings.app_url | strip
+  assign swipe_shop_domain = shop.permanent_domain | strip
+%}
+
+{% if swipe_app_url != blank %}
+  <div
+    id="swipe-checkout-redirect-config"
+    data-app-url="{{ swipe_app_url | escape }}"
+    data-shop-domain="{{ swipe_shop_domain | escape }}"
+    data-enabled="{{ block.settings.enabled }}"
+  ></div>
+  <script src="{{ 'swipe-checkout-redirect.js' | asset_url }}" defer></script>
+{% endif %}
+
+{% schema %}
+{
+  "name": "Swipe Checkout Redirect",
+  "target": "body",
+  "settings": [
+    {
+      "type": "checkbox",
+      "id": "enabled",
+      "label": "Ativar redirecionamento do Swipe",
+      "default": true
+    },
+    {
+      "type": "text",
+      "id": "app_url",
+      "label": "URL da aplicacao Swipe",
+      "info": "Exemplo: https://seu-projeto.vercel.app"
+    }
+  ]
+}
+{% endschema %}
+
