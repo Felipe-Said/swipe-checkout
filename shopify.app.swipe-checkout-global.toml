@@ -1,11 +1,9 @@
 # Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
 
 client_id = "cd8f371c8e414bfdd51688672351ab7c"
-extension_directories = [ "extensions" ]
-name = "Swipe Checkout"
+name = "Swipe Checkout Global"
 application_url = "https://swipe-checkout.vercel.app/"
 embedded = true
-handle = "swipe-checkout-saidlabs"
 
 [webhooks]
 api_version = "2026-01"
