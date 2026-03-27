@@ -24,9 +24,17 @@ import { ShopifySetupTutorial } from "@/components/shopify/shopify-setup-tutoria
 import { ShopifyConnectedStoreCard } from "@/components/shopify/shopify-connected-store-card"
 import { ShopifyTroubleshootingCenter } from "@/components/shopify/shopify-troubleshooting-center"
 import { toast } from "sonner"
+import { loadCheckoutsForAccount } from "@/app/actions/whop"
+import { updateShopifyStoreBehavior } from "@/app/actions/shopify"
+
+type CheckoutOption = {
+  id: string
+  name: string
+}
 
 export default function StoresPage() {
   const [stores, setStores] = React.useState<ConnectedShopifyStore[]>([])
+  const [checkoutOptions, setCheckoutOptions] = React.useState<CheckoutOption[]>([])
   const [currentStep, setCurrentStep] = React.useState<ShopifyStep>("identifying")
   const [isConnecting, setIsConnecting] = React.useState(false)
   const [searchTerm, setSearchTerm] = React.useState("")
@@ -47,6 +55,21 @@ export default function StoresPage() {
     setStores(result.stores)
   }, [])
 
+  const loadCheckouts = React.useCallback(async (nextAccountId: string) => {
+    const result = await loadCheckoutsForAccount({ accountId: nextAccountId })
+    if (result.error) {
+      toast.error(result.error)
+      return
+    }
+
+    setCheckoutOptions(
+      (result.checkouts ?? []).map((checkout) => ({
+        id: checkout.id,
+        name: checkout.name,
+      }))
+    )
+  }, [])
+
   React.useEffect(() => {
     async function load() {
       const session = await getCurrentAppSession()
@@ -57,10 +80,11 @@ export default function StoresPage() {
       setAccountId(session.accountId)
       setUserId(session.userId)
       await loadStores(session.accountId, session.userId)
+      await loadCheckouts(session.accountId)
     }
 
     load()
-  }, [loadStores])
+  }, [loadCheckouts, loadStores])
 
   const handleConnect = async (
     storeName: string,
@@ -152,6 +176,26 @@ export default function StoresPage() {
     await handleSync(id)
   }
 
+  const handleSaveBehavior = async (storeId: string, defaultCheckoutId: string, skipCartRedirect: boolean) => {
+    if (!accountId || !userId) return
+
+    const result = await updateShopifyStoreBehavior({
+      storeId,
+      accountId,
+      userId,
+      defaultCheckoutId,
+      skipCartRedirect,
+    })
+
+    if (result.error) {
+      toast.error(result.error)
+      return
+    }
+
+    await loadStores(accountId, userId)
+    toast.success("Comportamento da loja atualizado.")
+  }
+
   const filteredStores = stores.filter(
     (store) =>
       store.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -229,9 +273,11 @@ export default function StoresPage() {
                   <ShopifyConnectedStoreCard
                     key={store.id}
                     store={store}
+                    checkoutOptions={checkoutOptions}
                     onSync={handleSync}
                     onDelete={handleDelete}
                     onReconnect={handleReconnect}
+                    onSaveBehavior={handleSaveBehavior}
                   />
                 ))
               ) : (

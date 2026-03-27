@@ -17,6 +17,8 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
+import { Label } from "@/components/ui/label"
+import { Switch } from "@/components/ui/switch"
 import { Progress } from "@/components/ui/progress"
 import {
   Tooltip,
@@ -44,21 +46,34 @@ interface ShopifyConnectedStoreCardProps {
     productCount?: number
     variantCount?: number
     connectionMode?: string
+    defaultCheckoutId?: string
+    skipCartRedirect?: boolean
   }
+  checkoutOptions: Array<{ id: string; name: string }>
   onSync: (id: string) => void
   onDelete: (id: string) => void
   onReconnect: (id: string) => void
+  onSaveBehavior: (storeId: string, defaultCheckoutId: string, skipCartRedirect: boolean) => void
 }
 
 export function ShopifyConnectedStoreCard({
   store,
+  checkoutOptions,
   onSync,
   onDelete,
   onReconnect,
+  onSaveBehavior,
 }: ShopifyConnectedStoreCardProps) {
   const isSyncing = store.status === "Sincronizando"
   const isReady = store.status === "Conectada" || store.status === "Pronta"
   const hasIssues = store.status === "Atencao necessaria" || store.status === "Falha"
+  const [defaultCheckoutId, setDefaultCheckoutId] = React.useState(store.defaultCheckoutId ?? "")
+  const [skipCartRedirect, setSkipCartRedirect] = React.useState(Boolean(store.skipCartRedirect))
+
+  React.useEffect(() => {
+    setDefaultCheckoutId(store.defaultCheckoutId ?? "")
+    setSkipCartRedirect(Boolean(store.skipCartRedirect))
+  }, [store.defaultCheckoutId, store.skipCartRedirect])
 
   return (
     <Card className="group overflow-hidden border-primary/10 bg-card/40 backdrop-blur-sm transition-all duration-300 hover:border-primary/30">
@@ -189,6 +204,52 @@ export function ShopifyConnectedStoreCard({
                       : '"A conexao esta em validacao e pode demorar alguns instantes para estabilizar."'}
                 </div>
               </div>
+            </div>
+          </div>
+
+          <div className="mt-6 grid gap-4 rounded-2xl border border-primary/10 bg-primary/5 p-4 md:grid-cols-[minmax(0,1fr)_220px_auto]">
+            <div className="space-y-2">
+              <Label className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
+                Checkout Padrao da Loja
+              </Label>
+              <select
+                value={defaultCheckoutId}
+                onChange={(event) => setDefaultCheckoutId(event.target.value)}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              >
+                <option value="">Selecione um checkout</option>
+                {checkoutOptions.map((checkout) => (
+                  <option key={checkout.id} value={checkout.id}>
+                    {checkout.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
+                Pular Carrinho Shopify
+              </Label>
+              <div className="flex h-10 items-center gap-3 rounded-md border border-input bg-background px-3">
+                <Switch
+                  checked={skipCartRedirect}
+                  onCheckedChange={setSkipCartRedirect}
+                  aria-label="Pular carrinho Shopify"
+                />
+                <span className="text-sm">
+                  {skipCartRedirect ? "Sim, ir direto ao Swipe" : "Nao, redirecionar no carrinho"}
+                </span>
+              </div>
+            </div>
+
+            <div className="flex items-end">
+              <Button
+                className="h-10 rounded-xl px-4"
+                onClick={() => onSaveBehavior(store.id, defaultCheckoutId, skipCartRedirect)}
+                disabled={!defaultCheckoutId}
+              >
+                Salvar Fluxo
+              </Button>
             </div>
           </div>
         </div>

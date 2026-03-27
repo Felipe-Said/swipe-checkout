@@ -1,0 +1,4 @@
+ALTER TABLE shopify_stores
+ADD COLUMN IF NOT EXISTS default_checkout_id UUID REFERENCES checkouts(id) ON DELETE SET NULL,
+ADD COLUMN IF NOT EXISTS skip_cart_redirect BOOLEAN DEFAULT FALSE,
+ADD COLUMN IF NOT EXISTS script_tag_id TEXT;
