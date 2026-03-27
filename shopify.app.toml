@@ -1,10 +1,23 @@
+# Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
+
+client_id = "1307128392b3afe1731f2a617f04e4c9"
+extension_directories = [ "extensions" ]
 name = "Swipe Checkout"
-client_id = "2ca99ae4e77ba075e6aece45705ef3aa"
-application_url = "https://shopify.dev/apps/default-app-home"
-embedded = false
-handle = "swipe-checkout"
-extension_directories = ["shopify/extensions/"]
+application_url = "https://swipe-checkout.vercel.app/"
+embedded = true
+handle = "swipe-checkout-saidlabs"
+
+[webhooks]
+api_version = "2026-01"
 
 [access_scopes]
-scopes = "read_products"
+# Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
+scopes = "read_products,write_products"
+optional_scopes = [ ]
+use_legacy_install_flow = false
 
+[auth]
+redirect_urls = [ ]
+
+[app_preferences]
+url = "https://swipe-checkout.vercel.app/"

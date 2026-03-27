@@ -91,3 +91,4 @@
       console.warn("Swipe: nao foi possivel carregar a configuracao do checkout.");
     });
 })();
+
