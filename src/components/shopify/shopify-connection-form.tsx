@@ -1,18 +1,16 @@
 "use client"
 
 import * as React from "react"
-import { Store, Settings2, Info, ArrowRight, ShieldCheck } from "lucide-react"
+import { Store, Settings2, Info, ArrowRight, ShieldCheck, KeyRound } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { Switch } from "@/components/ui/switch"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { cn } from "@/lib/utils"
 
 interface ShopifyConnectionFormProps {
-  onConnect: (storeName: string, shopDomain: string, manualToken?: string) => void
+  onConnect: (storeName: string, shopDomain: string, clientId: string, clientSecret: string) => void
   isConnecting?: boolean
 }
 
@@ -22,18 +20,19 @@ export function ShopifyConnectionForm({
 }: ShopifyConnectionFormProps) {
   const [storeName, setStoreName] = React.useState("")
   const [shopDomain, setShopDomain] = React.useState("")
-  const [manualToken, setManualToken] = React.useState("")
-  const [isAdvanced, setIsAdvanced] = React.useState(true)
+  const [clientId, setClientId] = React.useState("")
+  const [clientSecret, setClientSecret] = React.useState("")
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!storeName || !shopDomain || !manualToken) return
-    onConnect(storeName, shopDomain, isAdvanced ? manualToken : undefined)
+    if (!storeName || !shopDomain || !clientId || !clientSecret) return
+    onConnect(storeName, shopDomain, clientId, clientSecret)
 
     if (!isConnecting) {
       setStoreName("")
       setShopDomain("")
-      setManualToken("")
+      setClientId("")
+      setClientSecret("")
     }
   }
 
@@ -47,12 +46,12 @@ export function ShopifyConnectionForm({
             </div>
             <div>
               <CardTitle>Conectar Nova Loja</CardTitle>
-              <CardDescription>Valide o dominio e o Storefront API token reais da loja.</CardDescription>
+              <CardDescription>Valide o dominio e as credenciais reais do app Shopify.</CardDescription>
             </div>
           </div>
           <div className="flex items-center gap-2 rounded-full border bg-muted/50 px-3 py-1.5">
-            <span className="text-[10px] font-bold text-muted-foreground">TOKEN REAL</span>
-            <Switch checked={isAdvanced} onCheckedChange={setIsAdvanced} className="scale-75" />
+            <span className="text-[10px] font-bold text-muted-foreground">DEV DASHBOARD</span>
+            <Settings2 className="h-3.5 w-3.5 text-muted-foreground" />
           </div>
         </div>
       </CardHeader>
@@ -105,38 +104,53 @@ export function ShopifyConnectionForm({
             </div>
           </div>
 
-          <div
-            className={cn(
-              "space-y-4 overflow-hidden transition-all duration-300",
-              isAdvanced ? "mt-2 max-h-32 opacity-100" : "max-h-0 overflow-hidden py-0 opacity-0"
-            )}
-          >
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <Label
-                htmlFor="manual-token"
+                htmlFor="client-id"
                 className="flex items-center gap-2 text-xs font-bold uppercase text-muted-foreground"
               >
-                <Settings2 className="h-3 w-3" />
-                Token Manual (Storefront API)
+                <KeyRound className="h-3 w-3" />
+                Client ID
               </Label>
               <Input
-                id="manual-token"
-                value={manualToken}
-                onChange={(e) => setManualToken(e.target.value)}
-                placeholder="shptka_xxxxxxxxxxxxxxxxxxxx"
+                id="client-id"
+                value={clientId}
+                onChange={(e) => setClientId(e.target.value)}
+                placeholder="Client ID do app Shopify"
                 className="h-11 border-primary/5 bg-muted/20 font-mono text-sm focus-visible:ring-primary/20"
                 disabled={isConnecting}
               />
-              <p className="rounded-lg border border-amber-500/20 bg-amber-500/10 p-2 text-[10px] text-amber-500">
-                Use o Storefront API token da propria Shopify. O Swipe valida esse token em tempo real antes de salvar a loja.
-              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label
+                htmlFor="client-secret"
+                className="flex items-center gap-2 text-xs font-bold uppercase text-muted-foreground"
+              >
+                <KeyRound className="h-3 w-3" />
+                Secret
+              </Label>
+              <Input
+                id="client-secret"
+                type="password"
+                value={clientSecret}
+                onChange={(e) => setClientSecret(e.target.value)}
+                placeholder="Secret do app Shopify"
+                className="h-11 border-primary/5 bg-muted/20 font-mono text-sm focus-visible:ring-primary/20"
+                disabled={isConnecting}
+              />
             </div>
           </div>
+
+          <p className="rounded-lg border border-amber-500/20 bg-amber-500/10 p-2 text-[10px] text-amber-500">
+            Use exatamente o Client ID e o Secret que aparecem em Settings no Dev Dashboard do app Shopify.
+          </p>
 
           <Button
             className="group h-12 w-full text-lg font-black tracking-tight shadow-lg shadow-primary/20"
             type="submit"
-            disabled={isConnecting || !storeName || !shopDomain || !manualToken}
+            disabled={isConnecting || !storeName || !shopDomain || !clientId || !clientSecret}
           >
             {isConnecting ? (
               <>Iniciando Conexao...</>
@@ -149,7 +163,7 @@ export function ShopifyConnectionForm({
           </Button>
 
           <p className="px-4 text-center text-[11px] text-muted-foreground">
-            O Swipe valida o dominio .myshopify.com e o Storefront API token em tempo real antes de liberar a loja no painel.
+            O Swipe valida o dominio da loja e tenta adquirir o token de acesso do app Shopify antes de salvar a conexao.
           </p>
         </form>
       </CardContent>

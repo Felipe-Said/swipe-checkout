@@ -17,7 +17,7 @@ export function ShopifySetupTutorial() {
           </div>
           <div>
             <CardTitle className="text-xl">Como conectar sua loja</CardTitle>
-            <CardDescription>Siga o passo a passo para validar a Shopify sem erros.</CardDescription>
+            <CardDescription>Siga o passo a passo para validar a Shopify nova sem erros.</CardDescription>
           </div>
         </div>
       </CardHeader>
@@ -28,18 +28,18 @@ export function ShopifySetupTutorial() {
             <AccordionTrigger className="hover:no-underline">
               <div className="flex items-center gap-3 text-left">
                 <Store className="h-5 w-5 text-primary" />
-                <span className="font-bold">1. Acoes no Admin Shopify</span>
+                <span className="font-bold">1. Acoes no Dev Dashboard</span>
               </div>
             </AccordionTrigger>
             <AccordionContent>
               <ul className="space-y-4 pb-4 pt-2">
                 {[
-                  "Entre no painel administrativo da sua loja Shopify.",
-                  "Confirme se voce esta logado na loja correta.",
-                  "Tenha o dominio .myshopify.com em maos.",
-                  "Crie ou copie um Storefront API token com acesso de leitura do catalogo.",
-                  "Garanta que o token possa ler produtos publicados na Storefront API.",
-                  "Volte ao Swipe com o dominio e o token prontos.",
+                  "Abra o app certo no Dev Dashboard da Shopify.",
+                  "Entre em Settings.",
+                  "Copie o Client ID.",
+                  "Copie o Secret.",
+                  "Tenha o dominio .myshopify.com da loja em maos.",
+                  "Volte ao Swipe com essas 3 informacoes.",
                 ].map((step, i) => (
                   <li key={i} className="flex gap-3 text-sm">
                     <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-primary/20 bg-primary/10 text-[10px] font-bold text-primary">
@@ -66,9 +66,9 @@ export function ShopifySetupTutorial() {
                 {[
                   "Informe o dominio .myshopify.com no assistente ao lado.",
                   "De um nome interno para identificar sua loja no Swipe.",
-                  "Cole o Storefront API token da loja no campo de token real.",
+                  "Cole o Client ID do app Shopify.",
+                  "Cole o Secret do app Shopify.",
                   'Clique em "Conectar com Shopify" para validar o acesso.',
-                  "Aguarde a leitura real do dominio e do catalogo da loja.",
                   'Verifique o status de "Pronta" apos a validacao.',
                 ].map((step, i) => (
                   <li key={i} className="flex gap-3 text-sm">
@@ -94,13 +94,13 @@ export function ShopifySetupTutorial() {
             <AccordionContent>
               <div className="mb-4 rounded-xl border border-dashed border-primary/20 bg-muted/30 p-4">
                 <p className="text-xs italic font-medium text-muted-foreground">
-                  "O Swipe valida a loja em tempo real pela Storefront API antes de liberar a conexao."
+                  "O Swipe tenta adquirir o access token do app e validar a loja antes de liberar a conexao."
                 </p>
               </div>
               <ul className="space-y-4 pb-4 pt-2">
                 {[
-                  "Acompanhe o progresso da sincronizacao inicial.",
-                  "Confira a contagem lida pela validacao real da Storefront API.",
+                  "Acompanhe o progresso da validacao inicial.",
+                  "Confira a leitura real da loja e do catalogo.",
                   'Verifique se o selo "Pronta" aparece no card da loja.',
                   "Se houver qualquer erro, consulte a area de troubleshooting abaixo.",
                 ].map((step, i) => (

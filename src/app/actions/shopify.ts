@@ -107,6 +107,105 @@ async function probeShopifyStorefront(shopDomain: string, storefrontToken: strin
   }
 }
 
+async function exchangeShopifyAdminToken(shopDomain: string, clientId: string, clientSecret: string) {
+  const response = await fetch(`https://${shopDomain}/admin/oauth/access_token`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      client_id: clientId,
+      client_secret: clientSecret,
+      grant_type: "client_credentials",
+    }),
+    cache: "no-store",
+  })
+
+  const payload = await response.json().catch(() => null)
+  if (!response.ok || !payload?.access_token) {
+    throw new Error(
+      payload?.error_description ||
+        payload?.error ||
+        "Nao foi possivel gerar o access token da Shopify."
+    )
+  }
+
+  return payload.access_token as string
+}
+
+async function probeShopifyAdminApp(
+  shopDomain: string,
+  clientId: string,
+  clientSecret: string
+): Promise<ShopifyProbeResult> {
+  const accessToken = await exchangeShopifyAdminToken(shopDomain, clientId, clientSecret)
+  const endpoint = `https://${shopDomain}/admin/api/${SHOPIFY_STOREFRONT_API_VERSION}/graphql.json`
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Shopify-Access-Token": accessToken,
+    },
+    body: JSON.stringify({
+      query: `
+        query SwipeAdminConnectionProbe($productsFirst: Int!, $variantsFirst: Int!) {
+          shop {
+            name
+            primaryDomain {
+              host
+            }
+          }
+          products(first: $productsFirst) {
+            nodes {
+              id
+              variants(first: $variantsFirst) {
+                nodes {
+                  id
+                }
+              }
+            }
+          }
+        }
+      `,
+      variables: {
+        productsFirst: 25,
+        variantsFirst: 25,
+      },
+    }),
+    cache: "no-store",
+  })
+
+  const payload = await response.json().catch(() => null)
+  const errors = Array.isArray(payload?.errors) ? payload.errors : []
+
+  if (!response.ok || errors.length > 0) {
+    const message =
+      errors[0]?.message ||
+      payload?.message ||
+      "Nao foi possivel validar o app Shopify nesta loja."
+    throw new Error(message)
+  }
+
+  const shopName = payload?.data?.shop?.name
+  const resolvedDomain = payload?.data?.shop?.primaryDomain?.host
+  const products = Array.isArray(payload?.data?.products?.nodes) ? payload.data.products.nodes : []
+  const variantCount = products.reduce((total: number, product: { variants?: { nodes?: Array<unknown> } }) => {
+    const count = Array.isArray(product?.variants?.nodes) ? product.variants.nodes.length : 0
+    return total + count
+  }, 0)
+
+  if (!shopName || !resolvedDomain) {
+    throw new Error("A Shopify nao retornou os dados basicos da loja.")
+  }
+
+  return {
+    shopName,
+    shopDomain: normalizeShopDomain(resolvedDomain),
+    productCount: products.length,
+    variantCount,
+  }
+}
+
 function mapDbToStore(db: any): ConnectedShopifyStore {
   return {
     id: db.id,
@@ -145,24 +244,31 @@ export async function connectShopifyStore(input: {
   userId: string
   storeName: string
   shopDomain: string
-  storefrontToken: string
+  clientId: string
+  clientSecret: string
 }) {
-  if (!input.storeName.trim() || !input.shopDomain.trim() || !input.storefrontToken.trim()) {
-    return { error: "Nome interno, dominio Shopify e Storefront API token sao obrigatorios." }
+  if (!input.storeName.trim() || !input.shopDomain.trim() || !input.clientId.trim() || !input.clientSecret.trim()) {
+    return { error: "Nome interno, dominio Shopify, Client ID e Secret sao obrigatorios." }
   }
 
   await assertAccountAccess(input.accountId, input.userId)
 
   try {
     const normalizedDomain = normalizeShopDomain(input.shopDomain)
-    const probe = await probeShopifyStorefront(normalizedDomain, input.storefrontToken.trim())
+    const probe = await probeShopifyAdminApp(
+      normalizedDomain,
+      input.clientId.trim(),
+      input.clientSecret.trim()
+    )
     const supabaseAdmin = getSupabaseAdmin()
 
     const payload = {
       account_id: input.accountId,
       name: input.storeName.trim(),
       shop_domain: probe.shopDomain,
-      storefront_token: input.storefrontToken.trim(),
+      storefront_token: "",
+      client_id: input.clientId.trim(),
+      client_secret: input.clientSecret.trim(),
       checkout_type: "Shopify Hosted Checkout",
       status: "Pronta",
       product_count: probe.productCount,
@@ -219,7 +325,7 @@ export async function syncShopifyStore(input: {
   const supabaseAdmin = getSupabaseAdmin()
   const { data: store, error } = await supabaseAdmin
     .from("shopify_stores")
-    .select("id, account_id, shop_domain, storefront_token")
+    .select("id, account_id, shop_domain, storefront_token, client_id, client_secret")
     .eq("id", input.storeId)
     .eq("account_id", input.accountId)
     .maybeSingle()
@@ -228,12 +334,16 @@ export async function syncShopifyStore(input: {
     return { error: "Loja nao encontrada." }
   }
 
-  if (!store.storefront_token) {
-    return { error: "A loja nao possui Storefront API token salvo." }
+  if (!store.client_id || !store.client_secret) {
+    return { error: "A loja nao possui Client ID e Secret salvos." }
   }
 
   try {
-    const probe = await probeShopifyStorefront(store.shop_domain, store.storefront_token)
+    const probe = await probeShopifyAdminApp(
+      store.shop_domain,
+      store.client_id,
+      store.client_secret
+    )
     const { error: updateError } = await supabaseAdmin
       .from("shopify_stores")
       .update({

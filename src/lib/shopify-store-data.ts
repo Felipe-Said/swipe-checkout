@@ -5,6 +5,8 @@ export type ConnectedShopifyStore = {
   name: string
   shopDomain: string
   storefrontToken: string
+  clientId?: string
+  clientSecret?: string
   checkoutType: "Shopify Hosted Checkout"
   status:
     | "Conectada"
@@ -30,6 +32,8 @@ function mapDbToStore(db: any): ConnectedShopifyStore {
     name: db.name,
     shopDomain: db.shop_domain,
     storefrontToken: db.storefront_token ?? "",
+    clientId: db.client_id ?? "",
+    clientSecret: db.client_secret ?? "",
     checkoutType: "Shopify Hosted Checkout",
     status: (db.status ?? "Em configuracao") as ConnectedShopifyStore["status"],
     productCount: db.product_count ?? 0,

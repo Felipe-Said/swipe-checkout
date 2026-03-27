@@ -1,0 +1,3 @@
+ALTER TABLE shopify_stores
+ADD COLUMN IF NOT EXISTS client_id TEXT,
+ADD COLUMN IF NOT EXISTS client_secret TEXT;

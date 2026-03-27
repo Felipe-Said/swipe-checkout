@@ -65,7 +65,8 @@ export default function StoresPage() {
   const handleConnect = async (
     storeName: string,
     shopDomain: string,
-    manualToken?: string
+    clientId: string,
+    clientSecret: string
   ) => {
     if (!accountId || !userId) return
 
@@ -84,7 +85,8 @@ export default function StoresPage() {
             userId,
             storeName,
             shopDomain,
-            storefrontToken: manualToken ?? "",
+            clientId,
+            clientSecret,
           })
 
           if (result.error) {
