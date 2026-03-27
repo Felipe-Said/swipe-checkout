@@ -239,6 +239,19 @@ export async function loadShopifyStoresForSession(input: { accountId: string; us
   }
 }
 
+export async function loadShopifyStoreOptionsForSession(input: { accountId: string; userId: string }) {
+  const result = await loadShopifyStoresForSession(input)
+  if (result.error) {
+    return result
+  }
+
+  return {
+    stores: result.stores.filter(
+      (store) => store.status === "Pronta" || store.status === "Conectada"
+    ),
+  }
+}
+
 export async function connectShopifyStore(input: {
   accountId: string
   userId: string

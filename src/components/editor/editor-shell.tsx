@@ -23,6 +23,7 @@ import {
   loadWhopAccountForSession,
   saveCheckoutFromEditor,
 } from "@/app/actions/whop"
+import { loadShopifyStoreOptionsForSession } from "@/app/actions/shopify"
 import { cn } from "@/lib/utils"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -36,7 +37,7 @@ import { getCurrentAppSession } from "@/lib/app-session"
 import { getManagedAccounts, type ManagedAccount } from "@/lib/account-metrics"
 import { getConnectedDomains, type ConnectedDomain } from "@/lib/domain-data"
 import { readShippingMethods, type ShippingMethod } from "@/lib/shipping-data"
-import { getConnectedShopifyStores, type ConnectedShopifyStore } from "@/lib/shopify-store-data"
+import { type ConnectedShopifyStore } from "@/lib/shopify-store-data"
 
 type PolicyMode = "link" | "text"
 type SupportedLocale = "pt-BR" | "en-US" | "es-ES" | "fr-FR" | "de-DE"
@@ -340,9 +341,13 @@ export function EditorShell() {
       const availableDomains = session?.accountId
         ? await getConnectedDomains(session.accountId)
         : []
-      const availableStores = session?.accountId
-        ? await getConnectedShopifyStores(session.accountId)
-        : []
+      const availableStoresResult = session?.accountId && session?.userId
+        ? await loadShopifyStoreOptionsForSession({
+            accountId: session.accountId,
+            userId: session.userId,
+          })
+        : { stores: [] as ConnectedShopifyStore[] }
+      const availableStores = availableStoresResult.stores ?? []
       const availableWhopAccounts =
         session?.role === "admin"
           ? [
