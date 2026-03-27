@@ -158,7 +158,9 @@ export default function StoresPage() {
       store.shopDomain.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
-  const activeConnections = stores.filter((store) => store.status === "Conectada").length
+  const activeConnections = stores.filter(
+    (store) => store.status === "Conectada" || store.status === "Pronta"
+  ).length
   const hasIssues = stores.some(
     (store) => store.status === "Atencao necessaria" || store.status === "Falha"
   )

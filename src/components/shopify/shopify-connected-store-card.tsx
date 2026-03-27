@@ -57,6 +57,7 @@ export function ShopifyConnectedStoreCard({
   onReconnect,
 }: ShopifyConnectedStoreCardProps) {
   const isSyncing = store.status === "Sincronizando"
+  const isReady = store.status === "Conectada" || store.status === "Pronta"
   const hasIssues = store.status === "Atencao necessaria" || store.status === "Falha"
 
   return (
@@ -150,9 +151,11 @@ export function ShopifyConnectedStoreCard({
                 <div className="space-y-1.5">
                   <div className="flex justify-between text-[11px]">
                     <span className="text-muted-foreground">Integridade</span>
-                    <span className="font-bold text-emerald-500">100%</span>
+                    <span className={cn("font-bold", hasIssues ? "text-destructive" : "text-emerald-500")}>
+                      {hasIssues ? "0%" : isSyncing ? "45%" : "100%"}
+                    </span>
                   </div>
-                  <Progress value={isSyncing ? 45 : 100} className="h-1.5" />
+                  <Progress value={hasIssues ? 0 : isSyncing ? 45 : 100} className="h-1.5" />
                 </div>
               </div>
             </div>
@@ -164,11 +167,26 @@ export function ShopifyConnectedStoreCard({
               </div>
               <div className="space-y-3 rounded-2xl border border-primary/5 bg-muted/30 p-4">
                 <div className="flex items-center gap-2">
-                  <div className="h-2 w-2 rounded-full bg-emerald-500 shadow-lg shadow-emerald-500/50" />
-                  <span className="text-[11px] font-bold">Client Credentials</span>
+                  <div
+                    className={cn(
+                      "h-2 w-2 rounded-full shadow-lg",
+                      hasIssues
+                        ? "bg-destructive shadow-destructive/50"
+                        : isSyncing
+                          ? "bg-primary shadow-primary/50"
+                          : "bg-emerald-500 shadow-emerald-500/50"
+                    )}
+                  />
+                  <span className="text-[11px] font-bold">
+                    {hasIssues ? "Credenciais exigem revisao" : isReady ? "Client Credentials" : "Validacao em andamento"}
+                  </span>
                 </div>
                 <div className="text-[10px] italic leading-relaxed text-muted-foreground">
-                  "Conexao validada com Client ID e Secret reais do app Shopify."
+                  {hasIssues
+                    ? '"A loja perdeu o estado valido da conexao. Use Reconectar para testar Client ID, Secret e escopos de novo."'
+                    : isReady
+                      ? '"Conexao validada com Client ID e Secret reais do app Shopify."'
+                      : '"A conexao esta em validacao e pode demorar alguns instantes para estabilizar."'}
                 </div>
               </div>
             </div>
