@@ -52,6 +52,7 @@ type ShopifyStorePreview = {
   productName: string
   variantLabel: string
   amount: number
+  imageSrc?: string
 }
 
 type EditorConfig = {

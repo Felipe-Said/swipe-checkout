@@ -20,6 +20,7 @@ type ShopifyStorePreview = {
   productName: string
   variantLabel: string
   amount: number
+  imageSrc?: string
 }
 
 async function assertAccountAccess(accountId: string, userId: string) {
@@ -239,19 +240,13 @@ function mapDbToStore(db: any): ConnectedShopifyStore {
   }
 }
 
-export async function loadShopifyStorePreviewForSession(input: {
-  storeId: string
-  accountId: string
-  userId: string
-}) {
-  await assertAccountAccess(input.accountId, input.userId)
-
+async function fetchShopifyStorePreview(input: { storeId: string; accountId: string }) {
   const supabaseAdmin = getSupabaseAdmin()
   const { data: store, error } = await supabaseAdmin
     .from("shopify_stores")
     .select("id, account_id, name, shop_domain, client_id, client_secret")
-    .eq("id", input.storeId)
     .eq("account_id", input.accountId)
+    .eq("id", input.storeId)
     .maybeSingle()
 
   if (error || !store) {
@@ -290,7 +285,7 @@ export async function loadShopifyStorePreviewForSession(input: {
     }
 
     const productsResponse = await fetch(
-      `https://${store.shop_domain}/admin/api/${SHOPIFY_STOREFRONT_API_VERSION}/products.json?limit=10&status=active&fields=id,title,variants`,
+      `https://${store.shop_domain}/admin/api/${SHOPIFY_STOREFRONT_API_VERSION}/products.json?limit=10&status=active&fields=id,title,image,variants`,
       {
         headers: {
           "Content-Type": "application/json",
@@ -338,6 +333,7 @@ export async function loadShopifyStorePreviewForSession(input: {
             ? firstVariant.title
             : "Variante padrao",
         amount: Number.isFinite(amount) ? amount : 0,
+        imageSrc: firstProduct?.image?.src ?? undefined,
       },
     }
   } catch (error) {
@@ -349,6 +345,22 @@ export async function loadShopifyStorePreviewForSession(input: {
       preview: null as ShopifyStorePreview | null,
     }
   }
+}
+
+export async function loadShopifyStorePreviewForSession(input: {
+  storeId: string
+  accountId: string
+  userId: string
+}) {
+  await assertAccountAccess(input.accountId, input.userId)
+  return fetchShopifyStorePreview(input)
+}
+
+export async function loadShopifyStorePreviewForPublishing(input: {
+  storeId: string
+  accountId: string
+}) {
+  return fetchShopifyStorePreview(input)
 }
 
 export async function loadShopifyStoresForSession(input: { accountId: string; userId: string }) {

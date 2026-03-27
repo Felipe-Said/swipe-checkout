@@ -4,6 +4,7 @@ import Whop from "@whop/sdk"
 
 import { getSupabaseAdmin } from "@/lib/supabase"
 import { type ManagedAccount } from "@/lib/account-metrics"
+import { loadShopifyStorePreviewForPublishing } from "@/app/actions/shopify"
 
 const DEFAULT_CHECKOUT_AMOUNT = 1250
 
@@ -470,6 +471,22 @@ export async function saveCheckoutFromEditor(input: {
             .maybeSingle()
         : { data: null }
 
+      const storePreviewResult =
+        input.config.selectedStoreId
+          ? await loadShopifyStorePreviewForPublishing({
+              storeId: input.config.selectedStoreId,
+              accountId: input.accountId,
+            })
+          : { preview: null as null | { amount: number; currency: string; productName: string } }
+
+      const storePreview = storePreviewResult.preview
+      const checkoutAmount =
+        storePreview && Number.isFinite(storePreview.amount) && storePreview.amount > 0
+          ? storePreview.amount
+          : DEFAULT_CHECKOUT_AMOUNT
+      const checkoutCurrency = storePreview?.currency ?? input.config.currency
+      const checkoutTitle = (storePreview?.productName || cleanName).slice(0, 30)
+
       const redirectUrl = buildThankYouRedirectUrl(checkoutId, selectedDomain?.host)
       const sourceUrl = selectedDomain?.host
         ? `https://${selectedDomain.host.replace(/^https?:\/\//, "")}`
@@ -485,10 +502,10 @@ export async function saveCheckoutFromEditor(input: {
         },
         plan: {
           company_id: whopAccount.whop_company_id,
-          currency: normalizeWhopCurrency(input.config.currency),
+          currency: normalizeWhopCurrency(checkoutCurrency),
           plan_type: "one_time",
-          initial_price: DEFAULT_CHECKOUT_AMOUNT,
-          title: cleanName.slice(0, 30),
+          initial_price: checkoutAmount,
+          title: checkoutTitle,
         },
       } as any)
 
@@ -499,7 +516,7 @@ export async function saveCheckoutFromEditor(input: {
         purchaseUrl: checkoutConfiguration.purchase_url,
         companyId: checkoutConfiguration.company_id ?? whopAccount.whop_company_id,
         publishedAt: new Date().toISOString(),
-        amount: DEFAULT_CHECKOUT_AMOUNT,
+        amount: checkoutAmount,
       }
       currentConfig = {
         ...currentConfig,

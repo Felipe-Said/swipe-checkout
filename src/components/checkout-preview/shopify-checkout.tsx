@@ -29,6 +29,7 @@ type ShopifyStorePreview = {
   productName: string
   variantLabel: string
   amount: number
+  imageSrc?: string
 }
 
 interface CheckoutConfig {
@@ -465,6 +466,7 @@ export function ShopifyCheckout({
   const effectiveCurrency = storePreview?.currency ?? resolvedCurrency
   const productName = storePreview?.productName || copy.productName
   const variantLabel = storePreview?.variantLabel || copy.variantDefault
+  const productImageSrc = storePreview?.imageSrc
   const basePrice = storePreview?.amount ?? ORDER_TOTAL
   const shippingPrice = selectedShipping?.price ?? 0
   const totalPrice = basePrice + shippingPrice
@@ -506,7 +508,7 @@ export function ShopifyCheckout({
           </div>
           {isSummaryOpen ? (
             <div className="mt-4 space-y-4">
-              <OrderItem config={config} name={productName} price={formattedPrice} variantLabel={variantLabel} />
+              <OrderItem config={config} name={productName} price={formattedPrice} variantLabel={variantLabel} imageSrc={productImageSrc} />
               <Separator style={{ backgroundColor: config.checkoutMutedColor }} />
               <SummaryRows copy={copy} config={config} subtotalPrice={formattedPrice} shippingPrice={shippingPrice} totalPrice={formattedTotalPrice} locale={resolvedLocale} currency={effectiveCurrency} />
             </div>
@@ -553,7 +555,7 @@ export function ShopifyCheckout({
                 <div className="border-b pb-4" style={{ borderColor: config.checkoutMutedColor }}>
                   <p className="text-xs uppercase tracking-[0.2em]" style={{ color: config.checkoutMutedColor }}>{copy.orderSummary}</p>
                 </div>
-                <OrderItem config={config} name={productName} price={formattedPrice} variantLabel={variantLabel} />
+                <OrderItem config={config} name={productName} price={formattedPrice} variantLabel={variantLabel} imageSrc={productImageSrc} />
                 <CouponBar config={config} copy={copy} />
                 <SummaryRows copy={copy} config={config} subtotalPrice={formattedPrice} shippingPrice={shippingPrice} totalPrice={formattedTotalPrice} locale={resolvedLocale} currency={effectiveCurrency} />
                 <InfoBanner config={config} text={copy.shippingBeforeConfirm} />
@@ -606,7 +608,7 @@ export function ShopifyCheckout({
             {!isMobile ? (
               <div className="flex-1 border-l p-12 pl-8" style={{ backgroundColor: config.checkoutSurfaceColor, borderColor: config.checkoutMutedColor }}>
                 <div className="max-w-[400px] space-y-6">
-                  <OrderItem config={config} name={productName} price={formattedPrice} variantLabel={variantLabel} />
+                  <OrderItem config={config} name={productName} price={formattedPrice} variantLabel={variantLabel} imageSrc={productImageSrc} />
                   <CouponBar config={config} copy={copy} />
                   <SummaryRows copy={copy} config={config} subtotalPrice={formattedPrice} shippingPrice={shippingPrice} totalPrice={formattedTotalPrice} locale={resolvedLocale} currency={effectiveCurrency} />
                   <InfoBanner config={config} text={copy.shippingNextStep} />
@@ -1506,11 +1508,32 @@ function PolicyLink({
   )
 }
 
-function OrderItem({ config, name, price, variantLabel }: { config: CheckoutConfig; name: string; price: string; variantLabel: string }) {
+function OrderItem({
+  config,
+  name,
+  price,
+  variantLabel,
+  imageSrc,
+}: {
+  config: CheckoutConfig
+  name: string
+  price: string
+  variantLabel: string
+  imageSrc?: string
+}) {
   return (
     <div className="flex items-center gap-4">
       <div className="relative flex h-16 w-16 items-center justify-center rounded-md border bg-white" style={{ borderColor: config.checkoutMutedColor }}>
-        <ShoppingBag className="h-8 w-8" style={{ color: config.checkoutMutedColor }} />
+        {imageSrc ? (
+          // External product image from Shopify catalog.
+          <img
+            src={imageSrc}
+            alt={name}
+            className="h-full w-full rounded-md object-cover"
+          />
+        ) : (
+          <ShoppingBag className="h-8 w-8" style={{ color: config.checkoutMutedColor }} />
+        )}
         <span className="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full text-[10px] text-white" style={{ backgroundColor: config.checkoutMutedColor }}>
           1
         </span>
