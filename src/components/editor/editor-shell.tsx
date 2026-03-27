@@ -23,7 +23,10 @@ import {
   loadWhopAccountForSession,
   saveCheckoutFromEditor,
 } from "@/app/actions/whop"
-import { loadShopifyStoreOptionsForSession } from "@/app/actions/shopify"
+import {
+  loadShopifyStoreOptionsForSession,
+  loadShopifyStorePreviewForSession,
+} from "@/app/actions/shopify"
 import { cn } from "@/lib/utils"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -42,6 +45,14 @@ import { type ConnectedShopifyStore } from "@/lib/shopify-store-data"
 type PolicyMode = "link" | "text"
 type SupportedLocale = "pt-BR" | "en-US" | "es-ES" | "fr-FR" | "de-DE"
 type SupportedCurrency = "BRL" | "USD" | "EUR" | "GBP"
+
+type ShopifyStorePreview = {
+  storeName: string
+  currency: SupportedCurrency
+  productName: string
+  variantLabel: string
+  amount: number
+}
 
 type EditorConfig = {
   primaryColor: string
@@ -281,8 +292,10 @@ export function EditorShell() {
   const [shippingMethods, setShippingMethods] = React.useState<ShippingMethod[]>([])
   const [domains, setDomains] = React.useState<ConnectedDomain[]>([])
   const [stores, setStores] = React.useState<ConnectedShopifyStore[]>([])
+  const [storePreview, setStorePreview] = React.useState<ShopifyStorePreview | null>(null)
   const [whopAccounts, setWhopAccounts] = React.useState<ManagedAccount[]>([])
   const [sessionAccountId, setSessionAccountId] = React.useState("")
+  const [sessionUserId, setSessionUserId] = React.useState("")
   const [checkoutName, setCheckoutName] = React.useState("Checkout Premium")
   const [isSaving, setIsSaving] = React.useState(false)
 
@@ -324,6 +337,7 @@ export function EditorShell() {
     async function loadEditorData() {
       const session = await getCurrentAppSession()
       setSessionAccountId(session?.accountId ?? "")
+      setSessionUserId(session?.userId ?? "")
       setShippingMethods(readShippingMethods())
 
       const availableAccounts = await getManagedAccounts()
@@ -403,6 +417,38 @@ export function EditorShell() {
     loadEditorData()
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params?.id])
+
+  React.useEffect(() => {
+    async function loadStorePreview() {
+      if (!config.selectedStoreId || !sessionAccountId || !sessionUserId) {
+        setStorePreview(null)
+        return
+      }
+
+      const result = await loadShopifyStorePreviewForSession({
+        storeId: config.selectedStoreId,
+        accountId: sessionAccountId,
+        userId: sessionUserId,
+      })
+
+      if (result.preview) {
+        setStorePreview(result.preview)
+        updateConfig(
+          (prev) => ({
+            ...prev,
+            currencyMode: "manual",
+            currency: result.preview?.currency ?? prev.currency,
+          }),
+          { trackHistory: false }
+        )
+        return
+      }
+
+      setStorePreview(null)
+    }
+
+    loadStorePreview()
+  }, [config.selectedStoreId, sessionAccountId, sessionUserId, updateConfig])
 
   const handleUpdate = (key: keyof EditorConfig, value: string | boolean | number) => {
     if (key === "thankYouDragEnabled") {
@@ -1355,6 +1401,7 @@ export function EditorShell() {
                 device={activeDevice}
                 previewPage={previewPage}
                 shippingMethods={shippingMethods}
+                storePreview={storePreview}
                 onConfigUpdate={handleUpdate}
               />
             </ScrollArea>

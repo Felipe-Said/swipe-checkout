@@ -476,7 +476,6 @@ export async function saveCheckoutFromEditor(input: {
         : `${getAppBaseUrl()}/app/checkouts/${checkoutId}/editor`
       const client = new Whop({ apiKey: whopAccount.whop_key })
       const checkoutConfiguration = await client.checkoutConfigurations.create({
-        company_id: whopAccount.whop_company_id,
         redirect_url: redirectUrl,
         source_url: sourceUrl,
         metadata: {
@@ -498,7 +497,7 @@ export async function saveCheckoutFromEditor(input: {
         checkoutConfigurationId: checkoutConfiguration.id,
         planId: checkoutConfiguration.plan?.id ?? null,
         purchaseUrl: checkoutConfiguration.purchase_url,
-        companyId: checkoutConfiguration.company_id,
+        companyId: checkoutConfiguration.company_id ?? whopAccount.whop_company_id,
         publishedAt: new Date().toISOString(),
         amount: DEFAULT_CHECKOUT_AMOUNT,
       }

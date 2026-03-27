@@ -12,6 +12,16 @@ type ShopifyProbeResult = {
   variantCount: number
 }
 
+type ShopifyStorePreviewCurrency = "BRL" | "USD" | "EUR" | "GBP"
+
+type ShopifyStorePreview = {
+  storeName: string
+  currency: ShopifyStorePreviewCurrency
+  productName: string
+  variantLabel: string
+  amount: number
+}
+
 async function assertAccountAccess(accountId: string, userId: string) {
   const supabaseAdmin = getSupabaseAdmin()
   const { data: profile } = await supabaseAdmin
@@ -133,6 +143,15 @@ async function exchangeShopifyAdminToken(shopDomain: string, clientId: string, c
   return payload.access_token as string
 }
 
+function normalizeStoreCurrency(value?: string | null): ShopifyStorePreviewCurrency {
+  if (!value) return "BRL"
+  const currency = value.toUpperCase()
+  if (currency === "USD" || currency === "EUR" || currency === "GBP") {
+    return currency
+  }
+  return "BRL"
+}
+
 async function probeShopifyAdminApp(
   shopDomain: string,
   clientId: string,
@@ -217,6 +236,118 @@ function mapDbToStore(db: any): ConnectedShopifyStore {
     productCount: db.product_count ?? 0,
     variantCount: db.variant_count ?? 0,
     lastSync: db.last_sync ? new Date(db.last_sync).toLocaleString("pt-BR") : undefined,
+  }
+}
+
+export async function loadShopifyStorePreviewForSession(input: {
+  storeId: string
+  accountId: string
+  userId: string
+}) {
+  await assertAccountAccess(input.accountId, input.userId)
+
+  const supabaseAdmin = getSupabaseAdmin()
+  const { data: store, error } = await supabaseAdmin
+    .from("shopify_stores")
+    .select("id, account_id, name, shop_domain, client_id, client_secret")
+    .eq("id", input.storeId)
+    .eq("account_id", input.accountId)
+    .maybeSingle()
+
+  if (error || !store) {
+    return { error: "Loja Shopify nao encontrada.", preview: null as ShopifyStorePreview | null }
+  }
+
+  if (!store.client_id || !store.client_secret) {
+    return {
+      error: "A loja conectada ainda nao possui Client ID e Secret validos.",
+      preview: null as ShopifyStorePreview | null,
+    }
+  }
+
+  try {
+    const accessToken = await exchangeShopifyAdminToken(
+      store.shop_domain,
+      store.client_id,
+      store.client_secret
+    )
+
+    const shopResponse = await fetch(
+      `https://${store.shop_domain}/admin/api/${SHOPIFY_STOREFRONT_API_VERSION}/shop.json?fields=name,currency`,
+      {
+        headers: {
+          "Content-Type": "application/json",
+          "X-Shopify-Access-Token": accessToken,
+        },
+        cache: "no-store",
+      }
+    )
+    const shopPayload = await shopResponse.json().catch(() => null)
+    if (!shopResponse.ok) {
+      throw new Error(
+        shopPayload?.errors || shopPayload?.error || "Nao foi possivel ler a moeda da loja."
+      )
+    }
+
+    const productsResponse = await fetch(
+      `https://${store.shop_domain}/admin/api/${SHOPIFY_STOREFRONT_API_VERSION}/products.json?limit=10&status=active&fields=id,title,variants`,
+      {
+        headers: {
+          "Content-Type": "application/json",
+          "X-Shopify-Access-Token": accessToken,
+        },
+        cache: "no-store",
+      }
+    )
+    const productsPayload = await productsResponse.json().catch(() => null)
+    if (!productsResponse.ok) {
+      throw new Error(
+        productsPayload?.errors ||
+          productsPayload?.error ||
+          "Nao foi possivel ler os produtos da loja."
+      )
+    }
+
+    const products = Array.isArray(productsPayload?.products) ? productsPayload.products : []
+    const firstProduct = products.find(
+      (product: { title?: string; variants?: Array<{ price?: string; title?: string }> }) =>
+        product?.title &&
+        Array.isArray(product.variants) &&
+        product.variants.some((variant) => Number.parseFloat(variant?.price ?? "") >= 0)
+    )
+
+    if (!firstProduct) {
+      return { preview: null as ShopifyStorePreview | null }
+    }
+
+    const firstVariant =
+      (Array.isArray(firstProduct.variants) ? firstProduct.variants : []).find(
+        (variant: { price?: string; title?: string }) =>
+          Number.isFinite(Number.parseFloat(variant?.price ?? ""))
+      ) ?? null
+
+    const amount = Number.parseFloat(firstVariant?.price ?? "0")
+
+    return {
+      preview: {
+        storeName: shopPayload?.shop?.name || store.name,
+        currency: normalizeStoreCurrency(shopPayload?.shop?.currency),
+        productName: firstProduct.title,
+        variantLabel:
+          firstVariant?.title && firstVariant.title !== "Default Title"
+            ? firstVariant.title
+            : "Variante padrao",
+        amount: Number.isFinite(amount) ? amount : 0,
+      },
+    }
+  } catch (error) {
+    return {
+      error:
+        error instanceof Error
+          ? error.message
+          : "Nao foi possivel carregar os produtos reais da Shopify.",
+      preview: null as ShopifyStorePreview | null,
+    }
   }
 }
 

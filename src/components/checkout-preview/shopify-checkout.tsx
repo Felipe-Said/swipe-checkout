@@ -23,6 +23,14 @@ type PolicyMode = "link" | "text"
 type SupportedLocale = "pt-BR" | "en-US" | "es-ES" | "fr-FR" | "de-DE"
 type SupportedCurrency = "BRL" | "USD" | "EUR" | "GBP"
 
+type ShopifyStorePreview = {
+  storeName: string
+  currency: SupportedCurrency
+  productName: string
+  variantLabel: string
+  amount: number
+}
+
 interface CheckoutConfig {
   primaryColor: string
   borderRadius: string
@@ -393,12 +401,14 @@ export function ShopifyCheckout({
   device,
   previewPage,
   shippingMethods,
+  storePreview,
   onConfigUpdate,
 }: {
   config: CheckoutConfig
   device: "desktop" | "mobile"
   previewPage: "checkout" | "thank-you"
   shippingMethods: ShippingMethod[]
+  storePreview?: ShopifyStorePreview | null
   onConfigUpdate?: (key: keyof CheckoutConfig, value: string | boolean | number) => void
 }) {
   const [isSummaryOpen, setIsSummaryOpen] = React.useState(false)
@@ -452,11 +462,14 @@ export function ShopifyCheckout({
   const deliveryCompleted = Object.values(deliveryData).every((value) => value.trim().length > 0)
   const selectedShipping =
     availableShippingMethods.find((method) => method.id === selectedShippingId) ?? null
-  const basePrice = ORDER_TOTAL
+  const effectiveCurrency = storePreview?.currency ?? resolvedCurrency
+  const productName = storePreview?.productName || copy.productName
+  const variantLabel = storePreview?.variantLabel || copy.variantDefault
+  const basePrice = storePreview?.amount ?? ORDER_TOTAL
   const shippingPrice = selectedShipping?.price ?? 0
   const totalPrice = basePrice + shippingPrice
-  const formattedPrice = formatPrice(ORDER_TOTAL, resolvedLocale, resolvedCurrency)
-  const formattedTotalPrice = formatPrice(totalPrice, resolvedLocale, resolvedCurrency)
+  const formattedPrice = formatPrice(basePrice, resolvedLocale, effectiveCurrency)
+  const formattedTotalPrice = formatPrice(totalPrice, resolvedLocale, effectiveCurrency)
 
   if (previewPage === "thank-you") {
     return (
@@ -465,8 +478,10 @@ export function ShopifyCheckout({
         copy={copy}
         formattedPrice={formattedTotalPrice}
         locale={resolvedLocale}
-        currency={resolvedCurrency}
+        currency={effectiveCurrency}
         device={device}
+        productName={productName}
+        variantLabel={variantLabel}
         onConfigUpdate={onConfigUpdate}
       />
     )
@@ -491,9 +506,9 @@ export function ShopifyCheckout({
           </div>
           {isSummaryOpen ? (
             <div className="mt-4 space-y-4">
-              <OrderItem config={config} name={copy.productName} price={formattedPrice} variantLabel={copy.variantDefault} />
+              <OrderItem config={config} name={productName} price={formattedPrice} variantLabel={variantLabel} />
               <Separator style={{ backgroundColor: config.checkoutMutedColor }} />
-              <SummaryRows copy={copy} config={config} subtotalPrice={formattedPrice} shippingPrice={shippingPrice} totalPrice={formattedTotalPrice} locale={resolvedLocale} currency={resolvedCurrency} />
+              <SummaryRows copy={copy} config={config} subtotalPrice={formattedPrice} shippingPrice={shippingPrice} totalPrice={formattedTotalPrice} locale={resolvedLocale} currency={effectiveCurrency} />
             </div>
           ) : null}
         </div>
@@ -521,7 +536,7 @@ export function ShopifyCheckout({
                 selectedShippingId={selectedShippingId}
                 onSelect={setSelectedShippingId}
                 locale={resolvedLocale}
-                currency={resolvedCurrency}
+                currency={effectiveCurrency}
               />
               <PaymentSection
                 config={config}
@@ -538,9 +553,9 @@ export function ShopifyCheckout({
                 <div className="border-b pb-4" style={{ borderColor: config.checkoutMutedColor }}>
                   <p className="text-xs uppercase tracking-[0.2em]" style={{ color: config.checkoutMutedColor }}>{copy.orderSummary}</p>
                 </div>
-                <OrderItem config={config} name={copy.productName} price={formattedPrice} variantLabel={copy.variantDefault} />
+                <OrderItem config={config} name={productName} price={formattedPrice} variantLabel={variantLabel} />
                 <CouponBar config={config} copy={copy} />
-                <SummaryRows copy={copy} config={config} subtotalPrice={formattedPrice} shippingPrice={shippingPrice} totalPrice={formattedTotalPrice} locale={resolvedLocale} currency={resolvedCurrency} />
+                <SummaryRows copy={copy} config={config} subtotalPrice={formattedPrice} shippingPrice={shippingPrice} totalPrice={formattedTotalPrice} locale={resolvedLocale} currency={effectiveCurrency} />
                 <InfoBanner config={config} text={copy.shippingBeforeConfirm} />
                 {!hasRealWhopPayment ? <BuyButton config={config} label={config.buttonText} /> : null}
                 <PolicyLinks config={config} compact={isMobile} copy={copy} />
@@ -569,7 +584,7 @@ export function ShopifyCheckout({
                   selectedShippingId={selectedShippingId}
                   onSelect={setSelectedShippingId}
                   locale={resolvedLocale}
-                  currency={resolvedCurrency}
+                  currency={effectiveCurrency}
                 />
                 <PaymentSection
                   config={config}
@@ -591,9 +606,9 @@ export function ShopifyCheckout({
             {!isMobile ? (
               <div className="flex-1 border-l p-12 pl-8" style={{ backgroundColor: config.checkoutSurfaceColor, borderColor: config.checkoutMutedColor }}>
                 <div className="max-w-[400px] space-y-6">
-                  <OrderItem config={config} name={copy.productName} price={formattedPrice} variantLabel={copy.variantDefault} />
+                  <OrderItem config={config} name={productName} price={formattedPrice} variantLabel={variantLabel} />
                   <CouponBar config={config} copy={copy} />
-                  <SummaryRows copy={copy} config={config} subtotalPrice={formattedPrice} shippingPrice={shippingPrice} totalPrice={formattedTotalPrice} locale={resolvedLocale} currency={resolvedCurrency} />
+                  <SummaryRows copy={copy} config={config} subtotalPrice={formattedPrice} shippingPrice={shippingPrice} totalPrice={formattedTotalPrice} locale={resolvedLocale} currency={effectiveCurrency} />
                   <InfoBanner config={config} text={copy.shippingNextStep} />
                 </div>
               </div>
@@ -612,6 +627,8 @@ function ThankYouPage({
   locale,
   currency,
   device,
+  productName,
+  variantLabel,
   onConfigUpdate,
 }: {
   config: CheckoutConfig
@@ -620,6 +637,8 @@ function ThankYouPage({
   locale: SupportedLocale
   currency: SupportedCurrency
   device: "desktop" | "mobile"
+  productName: string
+  variantLabel: string
   onConfigUpdate?: (key: keyof CheckoutConfig, value: string | boolean | number) => void
 }) {
   const [upsellAccepted, setUpsellAccepted] = React.useState(false)
@@ -767,8 +786,8 @@ function ThankYouPage({
                     </span>
                   </div>
                   <div className="mt-3 flex items-center justify-between text-xs">
-                    <span style={{ color: config.checkoutMutedColor }}>{copy.productName}</span>
-                    <span style={{ color: config.checkoutMutedColor }}>{copy.variantDefault}</span>
+                    <span style={{ color: config.checkoutMutedColor }}>{productName}</span>
+                    <span style={{ color: config.checkoutMutedColor }}>{variantLabel}</span>
                   </div>
                 </div>
               </DraggableThankYouElement>
@@ -873,8 +892,8 @@ function ThankYouPage({
                   </span>
                 </div>
                 <div className="mt-3 flex items-center justify-between text-xs">
-                  <span style={{ color: config.checkoutMutedColor }}>{copy.productName}</span>
-                  <span style={{ color: config.checkoutMutedColor }}>{copy.variantDefault}</span>
+                  <span style={{ color: config.checkoutMutedColor }}>{productName}</span>
+                  <span style={{ color: config.checkoutMutedColor }}>{variantLabel}</span>
                 </div>
               </div>
             ) : null}
