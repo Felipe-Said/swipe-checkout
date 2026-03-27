@@ -2,6 +2,8 @@
 
 Esta pasta contem a base do App Embed oficial da Shopify para o redirecionamento do Swipe na storefront.
 
+O arquivo raiz [shopify.app.toml](/C:/Users/samue/Desktop/Chechout/shopify.app.toml) permite que a Shopify CLI reconheca este repositorio como um app Shopify com extensoes.
+
 ## Estrutura
 
 - `extensions/swipe-checkout-redirect/shopify.extension.toml`
@@ -26,4 +28,3 @@ Esta pasta contem a base do App Embed oficial da Shopify para o redirecionamento
 ## Endpoint usado pelo embed
 
 - `GET /api/shopify/storefront-config?shop=<loja.myshopify.com>`
-

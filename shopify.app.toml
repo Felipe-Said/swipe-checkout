@@ -1,0 +1,10 @@
+name = "Swipe Checkout"
+client_id = "2ca99ae4e77ba075e6aece45705ef3aa"
+application_url = "https://shopify.dev/apps/default-app-home"
+embedded = false
+handle = "swipe-checkout"
+extension_directories = ["shopify/extensions/"]
+
+[access_scopes]
+scopes = "read_products"
+
