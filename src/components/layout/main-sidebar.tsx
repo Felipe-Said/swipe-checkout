@@ -131,10 +131,10 @@ export function MainSidebar({
       <div className="flex h-full min-h-0 flex-col">
         <SidebarHeader>
           <div className="flex items-center gap-2 px-3 py-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white text-[#fb4303]">
               <CreditCard className="h-4 w-4" />
             </div>
-            <span className="text-xl font-bold tracking-tight">Swipe</span>
+            <span className="text-xl font-bold tracking-tight text-white">Swipe</span>
           </div>
         </SidebarHeader>
         <SidebarContent className="min-h-0 flex-1">
