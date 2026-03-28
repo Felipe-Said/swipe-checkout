@@ -98,16 +98,16 @@ function mapRealtimeState(input: {
   dbSslStatus: string | null | undefined
   config?: DomainConfigResponse | null
   projectDomain?: ProjectDomainResponse | null
-}): Pick<
-  ConnectedDomain,
-  | "status"
-  | "verificationStatus"
-  | "sslStatus"
-  | "ownershipStatus"
-  | "recordType"
-  | "recordName"
-  | "recordValue"
-> {
+}): {
+  status: ConnectedDomain["status"]
+  verificationStatus: ConnectedDomain["verificationStatus"]
+  sslStatus: ConnectedDomain["sslStatus"]
+  ownershipStatus: ConnectedDomain["ownershipStatus"]
+  recordType: ConnectedDomain["recordType"]
+  recordName: ConnectedDomain["recordName"]
+  recordValue: ConnectedDomain["recordValue"]
+  secondaryRecordValue: string
+} {
   const verified = Boolean(input.projectDomain?.verified)
   const hasVerificationFailure = (input.projectDomain?.verification ?? []).some((item) =>
     Boolean(item.reason)
@@ -147,6 +147,8 @@ function mapRealtimeState(input: {
     recordType,
     recordName: toRecordName(input.host, input.mode),
     recordValue,
+    secondaryRecordValue:
+      input.mode === "custom_apex" && recordType === "A" ? recommendedCname || "" : "",
   }
 }
 
@@ -348,6 +350,14 @@ export async function addDomainForSession(input: {
         recordType: realtime.recordType,
         recordName: realtime.recordName,
         recordValue: realtime.recordValue,
+        secondaryRecordType:
+          mode === "custom_apex" ? ("CNAME" as const) : undefined,
+        secondaryRecordName:
+          mode === "custom_apex" ? "www" : undefined,
+        secondaryRecordValue:
+          mode === "custom_apex"
+            ? realtime.secondaryRecordValue || "cname.vercel-dns-0.com"
+            : undefined,
       },
     }
   } catch (error) {

@@ -26,7 +26,8 @@ export function DomainTutorial() {
       icon: <Globe className="h-4 w-4" />,
       items: [
         "Acesse o painel onde o seu domínio é administrado.",
-        "Crie o novo registro DNS exatamente com o tipo e valor mostrados pelo Swipe.",
+          "Crie os registros DNS exatamente com o tipo e valor mostrados pelo Swipe.",
+          "Para domÃ­nio raiz, o Swipe pode exibir um registro A principal e um CNAME complementar.",
         "Certifique-se de que o host e o valor estão idênticos aos exibidos.",
         "Salve a alteração e aguarde a propagação conforme o seu provedor.",
         "Não é necessário fazer nenhuma configuração manual na Vercel.",

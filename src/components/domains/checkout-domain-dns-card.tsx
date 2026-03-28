@@ -12,6 +12,9 @@ interface DomainDNSCardProps {
   type: string
   name: string
   value: string
+  secondaryType?: string
+  secondaryName?: string
+  secondaryValue?: string
   isVerified?: boolean
   onVerify?: () => void
 }
@@ -21,6 +24,9 @@ export function DomainDNSCard({
   type,
   name,
   value,
+  secondaryType,
+  secondaryName,
+  secondaryValue,
   isVerified = false,
   onVerify,
 }: DomainDNSCardProps) {
@@ -83,6 +89,35 @@ export function DomainDNSCard({
                    </Button>
                 </div>
              </div>
+
+             {secondaryType && secondaryName && secondaryValue ? (
+               <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                     <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">Registro complementar</span>
+                     <div className="h-10 px-4 bg-background border border-primary/10 rounded-xl flex items-center font-black text-primary">
+                        {secondaryType}
+                     </div>
+                  </div>
+                  <div className="space-y-1.5">
+                     <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">Host / Nome</span>
+                     <div className="h-10 px-4 bg-background border border-primary/10 rounded-xl flex items-center justify-between group">
+                        <span className="font-bold truncate">{secondaryName}</span>
+                        <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => copyToClipboard(secondaryName)}>
+                          <Copy className="h-3 w-3" />
+                        </Button>
+                     </div>
+                  </div>
+                  <div className="space-y-1.5 col-span-2">
+                     <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">Valor / Destino complementar</span>
+                     <div className="h-12 px-5 bg-background border border-primary/10 rounded-xl flex items-center justify-between group">
+                        <code className="text-sm font-mono font-bold text-primary truncate">{secondaryValue}</code>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 ml-2" onClick={() => copyToClipboard(secondaryValue)}>
+                           <Copy className="h-4 w-4" />
+                        </Button>
+                     </div>
+                  </div>
+               </div>
+             ) : null}
           </div>
 
           <div className="flex gap-2">

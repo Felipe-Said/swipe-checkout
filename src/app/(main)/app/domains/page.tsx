@@ -30,6 +30,9 @@ export default function DomainsPage() {
     recordType: string
     recordName: string
     recordValue: string
+    secondaryRecordType?: string
+    secondaryRecordName?: string
+    secondaryRecordValue?: string
   } | null>(null)
   const [activeAccountId, setActiveAccountId] = React.useState("")
   const [sessionUserId, setSessionUserId] = React.useState("")
@@ -85,12 +88,15 @@ export default function DomainsPage() {
     if (mode !== "platform" && result.setup) {
       setSelectedSetup({
         host: formattedHost,
-        mode: result.setup.mode,
-        recordType: result.setup.recordType,
-        recordName: result.setup.recordName,
-        recordValue: result.setup.recordValue,
-      })
-    }
+          mode: result.setup.mode,
+          recordType: result.setup.recordType,
+          recordName: result.setup.recordName,
+          recordValue: result.setup.recordValue,
+          secondaryRecordType: result.setup.secondaryRecordType,
+          secondaryRecordName: result.setup.secondaryRecordName,
+          secondaryRecordValue: result.setup.secondaryRecordValue,
+        })
+      }
 
     toast.success("Dominio adicionado com sucesso!")
   }
@@ -214,6 +220,9 @@ export default function DomainsPage() {
               type={selectedSetup.recordType}
               name={selectedSetup.recordName}
               value={selectedSetup.recordValue}
+              secondaryType={selectedSetup.secondaryRecordType}
+              secondaryName={selectedSetup.secondaryRecordName}
+              secondaryValue={selectedSetup.secondaryRecordValue}
               isVerified={selectedSetupDomain?.verificationStatus === "verified"}
               onVerify={() => {
                 if (!selectedSetupDomain) return
