@@ -583,12 +583,13 @@ export async function createPublicWhopCheckoutSession(input: {
   accountId: string
   config: EditorCheckoutConfig
   storePreview?: ShopifyStorePreview | null
+  requireResolvedStorePreview?: boolean
 }) {
   if (!input.config.selectedWhopAccountId) {
     return { whop: input.config.whop ?? null }
   }
 
-  if (input.config.selectedStoreId && !hasValidStorePreview(input.storePreview)) {
+  if ((input.requireResolvedStorePreview || input.config.selectedStoreId) && !hasValidStorePreview(input.storePreview)) {
     return {
       error: "Nao foi possivel resolver o produto real da Shopify para este checkout.",
       whop: null,

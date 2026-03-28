@@ -45,6 +45,9 @@ export default async function PublicCheckoutPage({
     checkout.config && typeof checkout.config === "object" && !Array.isArray(checkout.config)
       ? checkout.config
       : {}
+  const requiresShopifyResolution = Boolean(
+    storeIdFromRedirect || shopDomain || productId || variantId || config.selectedStoreId
+  )
 
   const storePreviewResult =
     storeIdFromRedirect
@@ -106,12 +109,23 @@ export default async function PublicCheckoutPage({
   const whopSessionResult = await createPublicWhopCheckoutSession({
     checkoutId: checkout.id,
     accountId: checkout.account_id,
-    config: config as any,
+    config: {
+      ...(config as any),
+      selectedStoreId:
+        typeof (config as any).selectedStoreId === "string" && (config as any).selectedStoreId
+          ? (config as any).selectedStoreId
+          : storeIdFromRedirect,
+    } as any,
     storePreview: storePreviewResult.preview ?? null,
+    requireResolvedStorePreview: requiresShopifyResolution,
   })
 
   const checkoutConfigWithLiveWhop = {
     ...(config as any),
+    selectedStoreId:
+      typeof (config as any).selectedStoreId === "string" && (config as any).selectedStoreId
+        ? (config as any).selectedStoreId
+        : storeIdFromRedirect,
     whop: (config as any).selectedWhopAccountId
       ? whopSessionResult.whop ?? null
       : (config as any).whop,
