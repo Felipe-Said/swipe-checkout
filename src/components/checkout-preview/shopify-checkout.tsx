@@ -22,6 +22,36 @@ import { type ShippingMethod } from "@/lib/shipping-data"
 type PolicyMode = "link" | "text"
 type SupportedLocale = "pt-BR" | "en-US" | "es-ES" | "fr-FR" | "de-DE"
 type SupportedCurrency = "BRL" | "USD" | "EUR" | "GBP"
+type WhopTheme = "light" | "dark" | "system"
+type WhopAccentColor =
+  | "tomato"
+  | "red"
+  | "ruby"
+  | "crimson"
+  | "pink"
+  | "plum"
+  | "purple"
+  | "violet"
+  | "iris"
+  | "cyan"
+  | "teal"
+  | "jade"
+  | "green"
+  | "grass"
+  | "brown"
+  | "blue"
+  | "orange"
+  | "indigo"
+  | "sky"
+  | "mint"
+  | "yellow"
+  | "amber"
+  | "lime"
+  | "lemon"
+  | "magenta"
+  | "gold"
+  | "bronze"
+  | "gray"
 
 type ShopifyStorePreview = {
   storeName: string
@@ -107,6 +137,12 @@ interface CheckoutConfig {
   selectedShippingMethodIds: string[]
   selectedStoreId?: string
   selectedWhopAccountId?: string
+  whopTheme: WhopTheme
+  whopAccentColor: WhopAccentColor
+  whopHighContrast: boolean
+  whopHidePrice: boolean
+  whopHideTermsAndConditions: boolean
+  whopPaddingY: number
   whop?: {
     checkoutConfigurationId?: string | null
     planId?: string | null
@@ -1269,7 +1305,16 @@ function PaymentSection({
   const hasEmbeddedSession = Boolean(config.whop?.checkoutConfigurationId || config.whop?.planId)
   const inferredFullName = contactData.fullName.trim() || `${deliveryData.firstName} ${deliveryData.lastName}`.trim()
   const shouldHideEmbedEmail = Boolean(contactData.email.trim())
-  const embedKey = `${locale}:${config.whop?.checkoutConfigurationId ?? config.whop?.planId ?? "default"}`
+  const embedKey = [
+    locale,
+    config.whop?.checkoutConfigurationId ?? config.whop?.planId ?? "default",
+    config.whopTheme,
+    config.whopAccentColor,
+    config.whopHighContrast ? "contrast" : "normal",
+    config.whopHidePrice ? "hide-price" : "show-price",
+    config.whopHideTermsAndConditions ? "hide-terms" : "show-terms",
+    config.whopPaddingY,
+  ].join(":")
   const embedPrefill = React.useMemo(
     () => ({
       email: contactData.email.trim() || undefined,
@@ -1285,6 +1330,21 @@ function PaymentSection({
     [contactData.email, deliveryData.address, deliveryData.city, deliveryData.state, deliveryData.zip, inferredFullName, locale]
   )
   const embedReturnUrl = config.whop?.purchaseUrl ?? undefined
+  const embedThemeOptions = React.useMemo(
+    () => ({
+      accentColor: config.whopAccentColor,
+      highContrast: config.whopHighContrast,
+    }),
+    [config.whopAccentColor, config.whopHighContrast]
+  )
+  const embedStyles = React.useMemo(
+    () => ({
+      container: {
+        paddingY: config.whopPaddingY,
+      },
+    }),
+    [config.whopPaddingY]
+  )
 
   return (
     <section className="space-y-4 pt-4">
@@ -1299,7 +1359,11 @@ function PaymentSection({
             <WhopCheckoutEmbed
               key={embedKey}
               sessionId={config.whop.checkoutConfigurationId}
-              theme="light"
+              theme={config.whopTheme}
+              themeOptions={embedThemeOptions}
+              styles={embedStyles}
+              hidePrice={config.whopHidePrice}
+              hideTermsAndConditions={config.whopHideTermsAndConditions}
               skipRedirect
               hideEmail={shouldHideEmbedEmail}
               disableEmail={shouldHideEmbedEmail}
@@ -1311,7 +1375,11 @@ function PaymentSection({
             <WhopCheckoutEmbed
               key={embedKey}
               planId={config.whop?.planId ?? ""}
-              theme="light"
+              theme={config.whopTheme}
+              themeOptions={embedThemeOptions}
+              styles={embedStyles}
+              hidePrice={config.whopHidePrice}
+              hideTermsAndConditions={config.whopHideTermsAndConditions}
               skipRedirect
               hideEmail={shouldHideEmbedEmail}
               disableEmail={shouldHideEmbedEmail}

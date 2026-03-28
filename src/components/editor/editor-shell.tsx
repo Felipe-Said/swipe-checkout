@@ -45,6 +45,36 @@ import { type ConnectedShopifyStore } from "@/lib/shopify-store-data"
 type PolicyMode = "link" | "text"
 type SupportedLocale = "pt-BR" | "en-US" | "es-ES" | "fr-FR" | "de-DE"
 type SupportedCurrency = "BRL" | "USD" | "EUR" | "GBP"
+type WhopTheme = "light" | "dark" | "system"
+type WhopAccentColor =
+  | "tomato"
+  | "red"
+  | "ruby"
+  | "crimson"
+  | "pink"
+  | "plum"
+  | "purple"
+  | "violet"
+  | "iris"
+  | "cyan"
+  | "teal"
+  | "jade"
+  | "green"
+  | "grass"
+  | "brown"
+  | "blue"
+  | "orange"
+  | "indigo"
+  | "sky"
+  | "mint"
+  | "yellow"
+  | "amber"
+  | "lime"
+  | "lemon"
+  | "magenta"
+  | "gold"
+  | "bronze"
+  | "gray"
 
 type ShopifyStorePreview = {
   storeName: string
@@ -131,6 +161,12 @@ type EditorConfig = {
   selectedDomainId: string
   selectedStoreId: string
   selectedWhopAccountId: string
+  whopTheme: WhopTheme
+  whopAccentColor: WhopAccentColor
+  whopHighContrast: boolean
+  whopHidePrice: boolean
+  whopHideTermsAndConditions: boolean
+  whopPaddingY: number
   whop?: {
     checkoutConfigurationId?: string | null
     planId?: string | null
@@ -219,6 +255,12 @@ const initialConfig: EditorConfig = {
   selectedDomainId: "",
   selectedStoreId: "",
   selectedWhopAccountId: "",
+  whopTheme: "light",
+  whopAccentColor: "blue",
+  whopHighContrast: false,
+  whopHidePrice: false,
+  whopHideTermsAndConditions: false,
+  whopPaddingY: 0,
 }
 
 const THANK_YOU_DEFAULT_POSITIONS = {
@@ -261,6 +303,27 @@ const currencyOptions: Array<{ value: SupportedCurrency; label: string }> = [
   { value: "USD", label: "USD - Dollar" },
   { value: "EUR", label: "EUR - Euro" },
   { value: "GBP", label: "GBP - Pound" },
+]
+
+const whopThemeOptions: Array<{ value: WhopTheme; label: string }> = [
+  { value: "light", label: "Claro" },
+  { value: "dark", label: "Escuro" },
+  { value: "system", label: "Sistema" },
+]
+
+const whopAccentOptions: Array<{ value: WhopAccentColor; label: string }> = [
+  { value: "blue", label: "Blue" },
+  { value: "green", label: "Green" },
+  { value: "red", label: "Red" },
+  { value: "orange", label: "Orange" },
+  { value: "purple", label: "Purple" },
+  { value: "pink", label: "Pink" },
+  { value: "indigo", label: "Indigo" },
+  { value: "cyan", label: "Cyan" },
+  { value: "teal", label: "Teal" },
+  { value: "yellow", label: "Yellow" },
+  { value: "amber", label: "Amber" },
+  { value: "gray", label: "Gray" },
 ]
 
 const upsellSelections = {
@@ -1255,6 +1318,106 @@ export function EditorShell() {
                     </button>
                   )}
                 </div>
+
+                {config.selectedWhopAccountId ? (
+                  <div className="space-y-4 rounded-lg border p-3">
+                    <div className="space-y-1">
+                      <Label>Aparencia do Box Whop</Label>
+                      <p className="text-xs text-muted-foreground">
+                        Controles reais suportados pelo embed da Whop.
+                      </p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="whop-theme">Tema do box</Label>
+                      <select
+                        id="whop-theme"
+                        value={config.whopTheme}
+                        onChange={(e) => handleUpdate("whopTheme", e.target.value)}
+                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                      >
+                        {whopThemeOptions.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="whop-accent-color">Cor de destaque</Label>
+                      <select
+                        id="whop-accent-color"
+                        value={config.whopAccentColor}
+                        onChange={(e) => handleUpdate("whopAccentColor", e.target.value)}
+                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                      >
+                        {whopAccentOptions.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-1">
+                        <Label htmlFor="whop-high-contrast">Alto contraste</Label>
+                        <p className="text-xs text-muted-foreground">
+                          Melhor quando a cor de destaque for `gray`.
+                        </p>
+                      </div>
+                      <input
+                        type="checkbox"
+                        id="whop-high-contrast"
+                        checked={config.whopHighContrast}
+                        onChange={(e) => handleUpdate("whopHighContrast", e.target.checked)}
+                        className="h-4 w-4"
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="whop-hide-price">Ocultar preco no box</Label>
+                      <input
+                        type="checkbox"
+                        id="whop-hide-price"
+                        checked={config.whopHidePrice}
+                        onChange={(e) => handleUpdate("whopHidePrice", e.target.checked)}
+                        className="h-4 w-4"
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="whop-hide-terms">Ocultar termos e condicoes</Label>
+                      <input
+                        type="checkbox"
+                        id="whop-hide-terms"
+                        checked={config.whopHideTermsAndConditions}
+                        onChange={(e) => handleUpdate("whopHideTermsAndConditions", e.target.checked)}
+                        className="h-4 w-4"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="whop-padding-y">Espacamento vertical do box</Label>
+                        <span className="text-xs text-muted-foreground">
+                          {config.whopPaddingY}px
+                        </span>
+                      </div>
+                      <input
+                        id="whop-padding-y"
+                        type="range"
+                        min="0"
+                        max="32"
+                        step="2"
+                        value={config.whopPaddingY}
+                        onChange={(e) => handleUpdate("whopPaddingY", Number(e.target.value))}
+                        className="w-full"
+                      />
+                    </div>
+                  </div>
+                ) : null}
 
                 <div className="space-y-2">
                   <Label htmlFor="locale-mode">Idioma do Checkout</Label>
