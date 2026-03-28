@@ -140,11 +140,11 @@ function LoginContent() {
       <div className="lg:p-8">
         <div className="mx-auto flex w-full flex-col justify-center space-y-6 sm:w-[380px]">
           <div className="flex flex-col space-y-2 text-center">
-            <h1 className="text-2xl font-semibold tracking-tight">Acessar Painel</h1>
-            <p className="text-sm text-muted-foreground">
-              Entre com uma conta demo para navegar como admin ou usuario.
-            </p>
-          </div>
+              <h1 className="text-2xl font-semibold tracking-tight">Acessar Painel</h1>
+              <p className="text-sm text-muted-foreground">
+              Entre com suas credenciais aprovadas.
+              </p>
+            </div>
           <Card>
             <CardHeader className="space-y-1">
               <CardTitle className="text-xl">Login</CardTitle>
