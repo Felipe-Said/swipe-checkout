@@ -847,20 +847,6 @@ function ThankYouPage({
     device === "mobile"
       ? config.thankYouBackgroundMobileSrc
       : config.thankYouBackgroundDesktopSrc
-  const thankYouCardBackgroundSrc =
-    device === "mobile"
-      ? config.thankYouCardBackgroundMobileSrc
-      : config.thankYouCardBackgroundDesktopSrc
-  const thankYouCardBackgroundSize =
-    device === "mobile"
-      ? config.thankYouCardBackgroundMobileSize
-      : config.thankYouCardBackgroundDesktopSize
-  const baseCardWidth = device === "mobile" ? 311 : 640
-  const baseCardHeight = device === "mobile" ? 640 : 760
-  const computedCardWidth = `${Math.round((baseCardWidth * thankYouCardBackgroundSize) / 100)}px`
-  const computedCardMinHeight = `${Math.round((baseCardHeight * thankYouCardBackgroundSize) / 100)}px`
-  const containerRef = React.useRef<HTMLDivElement | null>(null)
-  const shouldUseDragLayout = config.thankYouDragEnabled
   const thankYouTitle = config.thankYouTitle?.trim() || "Pedido confirmado com sucesso"
   const thankYouButtonText = config.thankYouButtonText?.trim() || "Ir para minha conta"
   const thankYouButtonHref = config.thankYouButtonUrl?.trim() || "/app"
@@ -883,7 +869,7 @@ function ThankYouPage({
 
   return (
     <div
-      className={cn("flex min-h-full items-center justify-center px-6 py-10", config.fontFamily)}
+      className={cn("flex min-h-full items-center justify-center px-4 py-8 sm:px-6 sm:py-10", config.fontFamily)}
       style={{
         backgroundColor: config.checkoutBackgroundColor,
         color: config.checkoutTextColor,
@@ -893,244 +879,71 @@ function ThankYouPage({
       }}
     >
       <div
-        ref={containerRef}
-        className="rounded-[28px] border p-8 text-center shadow-sm"
+        className="w-full max-w-[520px] rounded-[28px] border p-5 text-center shadow-sm sm:p-8"
         style={{
-          width: `min(100%, ${computedCardWidth})`,
           backgroundColor: config.checkoutSurfaceColor,
           borderColor: config.checkoutMutedColor,
-          backgroundImage: thankYouCardBackgroundSrc ? `url(${thankYouCardBackgroundSrc})` : undefined,
-          backgroundSize: `${thankYouCardBackgroundSize}%`,
-          backgroundPosition: "center",
-          backgroundRepeat: "no-repeat",
-          minHeight: computedCardMinHeight,
-          position: shouldUseDragLayout ? "relative" : "static",
         }}
       >
-        {shouldUseDragLayout ? (
-          <>
-            {config.thankYouShowIcon ? (
-              <DraggableThankYouElement
-                containerRef={containerRef}
-                disabled={!config.thankYouDragEnabled}
-                x={config.thankYouIconX}
-                y={config.thankYouIconY}
-                onMove={(x, y) => {
-                  onConfigUpdate?.("thankYouIconX", x)
-                  onConfigUpdate?.("thankYouIconY", y)
-                }}
-              >
-                <div
-                  className="flex h-16 w-16 items-center justify-center rounded-full border"
-                  style={{
-                    borderColor: withAlpha(config.checkoutAccentColor, 0.2),
-                    backgroundColor: withAlpha(config.checkoutAccentColor, 0.08),
-                    color: config.checkoutAccentColor,
-                  }}
-                >
-                  <ShieldCheck className="h-8 w-8" />
-                </div>
-              </DraggableThankYouElement>
-            ) : null}
-
-            {config.thankYouShowBrand ? (
-              <DraggableThankYouElement
-                containerRef={containerRef}
-                disabled={!config.thankYouDragEnabled}
-                x={config.thankYouBrandX}
-                y={config.thankYouBrandY}
-                onMove={(x, y) => {
-                  onConfigUpdate?.("thankYouBrandX", x)
-                  onConfigUpdate?.("thankYouBrandY", y)
-                }}
-              >
-                <div className="flex items-center justify-center">
-                  <CheckoutBrand config={config} />
-                </div>
-              </DraggableThankYouElement>
-            ) : null}
-
-            {config.thankYouShowTitle ? (
-              <DraggableThankYouElement
-                containerRef={containerRef}
-                disabled={!config.thankYouDragEnabled}
-                x={config.thankYouTitleX}
-                y={config.thankYouTitleY}
-                onMove={(x, y) => {
-                  onConfigUpdate?.("thankYouTitleX", x)
-                  onConfigUpdate?.("thankYouTitleY", y)
-                }}
-              >
-                <h1 className="max-w-[520px] text-3xl font-semibold tracking-tight" style={{ color: config.checkoutTextColor }}>
-                  {config.thankYouTitle}
-                </h1>
-              </DraggableThankYouElement>
-            ) : null}
-            {config.thankYouShowMessage ? (
-              <DraggableThankYouElement
-                containerRef={containerRef}
-                disabled={!config.thankYouDragEnabled}
-                x={config.thankYouMessageX}
-                y={config.thankYouMessageY}
-                onMove={(x, y) => {
-                  onConfigUpdate?.("thankYouMessageX", x)
-                  onConfigUpdate?.("thankYouMessageY", y)
-                }}
-              >
-                <p className="max-w-[46ch] text-sm leading-6" style={{ color: config.checkoutMutedColor }}>
-                  {config.thankYouMessage}
-                </p>
-              </DraggableThankYouElement>
-            ) : null}
-
-            {config.thankYouShowSummary ? (
-              <DraggableThankYouElement
-                containerRef={containerRef}
-                disabled={!config.thankYouDragEnabled}
-                x={config.thankYouSummaryX}
-                y={config.thankYouSummaryY}
-                onMove={(x, y) => {
-                  onConfigUpdate?.("thankYouSummaryX", x)
-                  onConfigUpdate?.("thankYouSummaryY", y)
-                }}
-              >
-                <div
-                  className="w-[min(100%,520px)] rounded-2xl border p-4 text-left"
-                  style={{ borderColor: config.checkoutMutedColor, backgroundColor: config.checkoutBackgroundColor }}
-                >
-                  <div className="flex items-center justify-between text-sm">
-                    <span style={{ color: config.checkoutMutedColor }}>{copy.thankYouOrderSummary}</span>
-                    <span className="font-medium" style={{ color: config.checkoutTextColor }}>
-                      {formattedPrice}
-                    </span>
-                  </div>
-                  <div className="mt-3 flex items-center justify-between text-xs">
-                    <span style={{ color: config.checkoutMutedColor }}>{productName}</span>
-                    <span style={{ color: config.checkoutMutedColor }}>{variantLabel}</span>
-                  </div>
-                </div>
-              </DraggableThankYouElement>
-            ) : null}
-
-            {config.upsellEnabled ? (
-              <DraggableThankYouElement
-                containerRef={containerRef}
-                disabled={!config.thankYouDragEnabled}
-                x={config.thankYouUpsellX}
-                y={config.thankYouUpsellY}
-                onMove={(x, y) => {
-                  onConfigUpdate?.("thankYouUpsellX", x)
-                  onConfigUpdate?.("thankYouUpsellY", y)
-                }}
-              >
-                <div
-                  className="w-[min(100%,520px)] rounded-2xl border p-5 text-left"
-                  style={{ borderColor: withAlpha(config.checkoutAccentColor, 0.22), backgroundColor: withAlpha(config.checkoutAccentColor, 0.06) }}
-                >
-                  <div className="mb-3 inline-flex rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em]" style={{ backgroundColor: withAlpha(config.checkoutAccentColor, 0.12), color: config.checkoutAccentColor }}>
-                    {copy.upsellBadge}
-                  </div>
-                  <h2 className="text-xl font-semibold" style={{ color: config.checkoutTextColor }}>
-                    {config.upsellHeadline}
-                  </h2>
-                  <p className="mt-2 text-sm leading-6" style={{ color: config.checkoutMutedColor }}>
-                    {config.upsellDescription}
-                  </p>
-                  <div className="mt-4 flex items-center justify-between text-sm">
-                    <span style={{ color: config.checkoutMutedColor }}>{resolveUpsellLabel(config)}</span>
-                    <span className="font-semibold" style={{ color: config.checkoutTextColor }}>
-                      {upsellPrice}
-                    </span>
-                  </div>
-                  <div className="mt-4">
-                    <BuyButton
-                      config={config}
-                      label={upsellAccepted ? copy.upsellAccepted : config.upsellButtonText}
-                      onClick={() => setUpsellAccepted(true)}
-                    />
-                  </div>
-                </div>
-              </DraggableThankYouElement>
-            ) : null}
-
-            {config.thankYouButtonEnabled ? (
-              <DraggableThankYouElement
-                containerRef={containerRef}
-                disabled={!config.thankYouDragEnabled}
-                x={config.thankYouButtonX}
-                y={config.thankYouButtonY}
-                onMove={(x, y) => {
-                  onConfigUpdate?.("thankYouButtonX", x)
-                  onConfigUpdate?.("thankYouButtonY", y)
-                }}
-              >
-                <div className="w-[min(100%,520px)]">
-                  <BuyButton config={config} label={config.thankYouButtonText} href={config.thankYouButtonUrl} />
-                </div>
-              </DraggableThankYouElement>
-            ) : null}
-          </>
-        ) : (
-          <div className="mx-auto flex min-h-full max-w-[520px] flex-col items-center justify-center gap-6 py-6">
-            {config.thankYouShowBrand ? (
-              <div className="flex items-center justify-center">
-                <CheckoutBrand config={config} />
+        <div className="mx-auto flex min-h-full w-full max-w-[420px] flex-col items-center justify-center gap-5 py-3 sm:gap-6 sm:py-6">
+          {config.thankYouShowBrand ? (
+            <div className="flex items-center justify-center">
+              <CheckoutBrand config={config} />
+            </div>
+          ) : null}
+          {confirmationCard}
+          {config.thankYouShowMessage ? (
+            <p className="max-w-[46ch] text-sm leading-6" style={{ color: config.checkoutMutedColor }}>
+              {config.thankYouMessage}
+            </p>
+          ) : null}
+          {config.thankYouShowSummary ? (
+            <div
+              className="w-full rounded-2xl border p-4 text-left"
+              style={{ borderColor: config.checkoutMutedColor, backgroundColor: config.checkoutBackgroundColor }}
+            >
+              <div className="flex items-center justify-between gap-3 text-sm">
+                <span style={{ color: config.checkoutMutedColor }}>{copy.thankYouOrderSummary}</span>
+                <span className="font-medium" style={{ color: config.checkoutTextColor }}>
+                  {formattedPrice}
+                </span>
               </div>
-            ) : null}
-            {confirmationCard}
-            {config.thankYouShowMessage ? (
-              <p className="max-w-[46ch] text-sm leading-6" style={{ color: config.checkoutMutedColor }}>
-                {config.thankYouMessage}
+              <div className="mt-3 space-y-1 text-xs" style={{ color: config.checkoutMutedColor }}>
+                <p className="break-words">{productName}</p>
+                <p className="break-words">{variantLabel}</p>
+              </div>
+            </div>
+          ) : null}
+          {config.upsellEnabled ? (
+            <div
+              className="w-full rounded-2xl border p-5 text-left"
+              style={{ borderColor: withAlpha(config.checkoutAccentColor, 0.22), backgroundColor: withAlpha(config.checkoutAccentColor, 0.06) }}
+            >
+              <div className="mb-3 inline-flex rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em]" style={{ backgroundColor: withAlpha(config.checkoutAccentColor, 0.12), color: config.checkoutAccentColor }}>
+                {copy.upsellBadge}
+              </div>
+              <h2 className="text-xl font-semibold" style={{ color: config.checkoutTextColor }}>
+                {config.upsellHeadline}
+              </h2>
+              <p className="mt-2 text-sm leading-6" style={{ color: config.checkoutMutedColor }}>
+                {config.upsellDescription}
               </p>
-            ) : null}
-            {config.thankYouShowSummary ? (
-              <div
-                className="w-full max-w-[420px] rounded-2xl border p-4 text-left"
-                style={{ borderColor: config.checkoutMutedColor, backgroundColor: config.checkoutBackgroundColor }}
-              >
-                <div className="flex items-center justify-between text-sm">
-                  <span style={{ color: config.checkoutMutedColor }}>{copy.thankYouOrderSummary}</span>
-                  <span className="font-medium" style={{ color: config.checkoutTextColor }}>
-                    {formattedPrice}
-                  </span>
-                </div>
-                <div className="mt-3 flex items-center justify-between gap-4 text-xs">
-                  <span style={{ color: config.checkoutMutedColor }}>{productName}</span>
-                  <span style={{ color: config.checkoutMutedColor }}>{variantLabel}</span>
-                </div>
+              <div className="mt-4 flex items-center justify-between gap-3 text-sm">
+                <span className="break-words" style={{ color: config.checkoutMutedColor }}>{resolveUpsellLabel(config)}</span>
+                <span className="font-semibold" style={{ color: config.checkoutTextColor }}>
+                  {upsellPrice}
+                </span>
               </div>
-            ) : null}
-            {config.upsellEnabled ? (
-              <div
-                className="w-full max-w-[420px] rounded-2xl border p-5 text-left"
-                style={{ borderColor: withAlpha(config.checkoutAccentColor, 0.22), backgroundColor: withAlpha(config.checkoutAccentColor, 0.06) }}
-              >
-                <div className="mb-3 inline-flex rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em]" style={{ backgroundColor: withAlpha(config.checkoutAccentColor, 0.12), color: config.checkoutAccentColor }}>
-                  {copy.upsellBadge}
-                </div>
-                <h2 className="text-xl font-semibold" style={{ color: config.checkoutTextColor }}>
-                  {config.upsellHeadline}
-                </h2>
-                <p className="mt-2 text-sm leading-6" style={{ color: config.checkoutMutedColor }}>
-                  {config.upsellDescription}
-                </p>
-                <div className="mt-4 flex items-center justify-between text-sm">
-                  <span style={{ color: config.checkoutMutedColor }}>{resolveUpsellLabel(config)}</span>
-                  <span className="font-semibold" style={{ color: config.checkoutTextColor }}>
-                    {upsellPrice}
-                  </span>
-                </div>
-                <div className="mt-4">
-                  <BuyButton
-                    config={config}
-                    label={upsellAccepted ? copy.upsellAccepted : config.upsellButtonText}
-                    onClick={() => setUpsellAccepted(true)}
-                  />
-                </div>
+              <div className="mt-4">
+                <BuyButton
+                  config={config}
+                  label={upsellAccepted ? copy.upsellAccepted : config.upsellButtonText}
+                  onClick={() => setUpsellAccepted(true)}
+                />
               </div>
-            ) : null}
-          </div>
-        )}
+            </div>
+          ) : null}
+        </div>
       </div>
     </div>
   )
@@ -1147,66 +960,6 @@ function CheckCircleBadge({ accentColor }: { accentColor: string }) {
       }}
     >
       <ShieldCheck className="h-8 w-8" />
-    </div>
-  )
-}
-
-function DraggableThankYouElement({
-  children,
-  containerRef,
-  disabled,
-  x,
-  y,
-  onMove,
-}: {
-  children: React.ReactNode
-  containerRef: React.RefObject<HTMLDivElement | null>
-  disabled: boolean
-  x: number
-  y: number
-  onMove: (x: number, y: number) => void
-}) {
-  const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
-    if (disabled) {
-      return
-    }
-
-    const container = containerRef.current
-    if (!container) {
-      return
-    }
-
-    event.preventDefault()
-
-    const handlePointerMove = (moveEvent: PointerEvent) => {
-      const rect = container.getBoundingClientRect()
-      const nextX = ((moveEvent.clientX - rect.left) / rect.width) * 100
-      const nextY = ((moveEvent.clientY - rect.top) / rect.height) * 100
-      onMove(
-        Math.min(90, Math.max(10, Number(nextX.toFixed(2)))),
-        Math.min(95, Math.max(5, Number(nextY.toFixed(2))))
-      )
-    }
-
-    const handlePointerUp = () => {
-      window.removeEventListener("pointermove", handlePointerMove)
-      window.removeEventListener("pointerup", handlePointerUp)
-    }
-
-    window.addEventListener("pointermove", handlePointerMove)
-    window.addEventListener("pointerup", handlePointerUp)
-  }
-
-  return (
-    <div
-      className={cn(
-        "absolute -translate-x-1/2 -translate-y-1/2",
-        disabled ? "cursor-default" : "cursor-move"
-      )}
-      style={{ left: `${x}%`, top: `${y}%` }}
-      onPointerDown={handlePointerDown}
-    >
-      {children}
     </div>
   )
 }
