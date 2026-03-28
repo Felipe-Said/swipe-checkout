@@ -155,6 +155,21 @@ export default function DomainsPage() {
     toast.success("Dominio principal atualizado.")
   }
 
+  const handleViewDns = (domain: ConnectedDomain) => {
+    const shouldShowSecondaryCname = domain.mode === "custom_apex" && domain.recordType === "A"
+
+    setSelectedSetup({
+      host: domain.host,
+      mode: domain.mode,
+      recordType: domain.recordType,
+      recordName: domain.recordName,
+      recordValue: domain.recordValue,
+      secondaryRecordType: shouldShowSecondaryCname ? "CNAME" : undefined,
+      secondaryRecordName: shouldShowSecondaryCname ? "www" : undefined,
+      secondaryRecordValue: shouldShowSecondaryCname ? "cname.vercel-dns-0.com" : undefined,
+    })
+  }
+
   const filteredDomains = domains.filter(
     (domain) =>
       domain.host.toLowerCase().includes(search.toLowerCase()) ||
@@ -255,6 +270,7 @@ export default function DomainsPage() {
                   onDelete={handleDeleteDomain}
                   onRefresh={handleRefreshStatus}
                   onSetPrimary={handleSetPrimary}
+                  onViewDns={handleViewDns}
                 />
               ))
             ) : (
