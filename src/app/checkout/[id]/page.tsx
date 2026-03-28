@@ -2,14 +2,23 @@ import { notFound } from "next/navigation"
 
 import { ShopifyCheckout } from "@/components/checkout-preview/shopify-checkout"
 import { getSupabaseAdmin } from "@/lib/supabase"
-import { loadShopifyStorePreviewForPublishing } from "@/app/actions/shopify"
+import {
+  loadShopifyStorePreviewForPublishing,
+  loadShopifyVariantPreviewForPublishing,
+} from "@/app/actions/shopify"
+import { createPublicWhopCheckoutSession } from "@/app/actions/whop"
 
 export default async function PublicCheckoutPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>
+  searchParams?: Promise<Record<string, string | string[] | undefined>>
 }) {
   const { id } = await params
+  const resolvedSearchParams = searchParams ? await searchParams : {}
+  const variantId =
+    typeof resolvedSearchParams.variant === "string" ? resolvedSearchParams.variant : undefined
   const supabaseAdmin = getSupabaseAdmin()
 
   const { data: checkout } = await supabaseAdmin
@@ -29,17 +38,35 @@ export default async function PublicCheckoutPage({
 
   const storePreviewResult =
     config.selectedStoreId
-      ? await loadShopifyStorePreviewForPublishing({
-          storeId: String(config.selectedStoreId),
-          accountId: checkout.account_id,
-        })
+      ? variantId
+        ? await loadShopifyVariantPreviewForPublishing({
+            storeId: String(config.selectedStoreId),
+            accountId: checkout.account_id,
+            variantId,
+          })
+        : await loadShopifyStorePreviewForPublishing({
+            storeId: String(config.selectedStoreId),
+            accountId: checkout.account_id,
+          })
       : { preview: null }
+
+  const whopSessionResult = await createPublicWhopCheckoutSession({
+    checkoutId: checkout.id,
+    accountId: checkout.account_id,
+    config: config as any,
+    storePreview: storePreviewResult.preview ?? null,
+  })
+
+  const checkoutConfigWithLiveWhop = {
+    ...(config as any),
+    whop: whopSessionResult.whop ?? (config as any).whop,
+  }
 
   return (
     <main className="min-h-screen bg-[#111111] px-4 py-8 md:px-8">
       <div className="mx-auto max-w-[1200px] overflow-hidden rounded-[28px] border border-white/10 bg-white shadow-2xl">
         <ShopifyCheckout
-          config={config as any}
+          config={checkoutConfigWithLiveWhop as any}
           device="desktop"
           previewPage="checkout"
           shippingMethods={[]}

@@ -10,13 +10,29 @@
 
   var configUrl = appUrl + "/api/shopify/storefront-config?shop=" + encodeURIComponent(shopDomain);
 
-  function redirectToSwipe(url, event) {
+  function redirectToSwipe(url, event, variantId) {
     if (!url) return;
     if (event) {
       event.preventDefault();
       event.stopPropagation();
     }
-    window.location.href = url;
+    var nextUrl = new URL(url, window.location.origin);
+    if (variantId) {
+      nextUrl.searchParams.set("variant", String(variantId));
+    }
+    window.location.href = nextUrl.toString();
+  }
+
+  function resolveVariantId(form) {
+    if (!form) return "";
+
+    var variantInput =
+      form.querySelector('input[name="id"]') ||
+      form.querySelector('select[name="id"]') ||
+      form.querySelector('[name="id"]');
+
+    if (!variantInput) return "";
+    return variantInput.value || variantInput.getAttribute("value") || "";
   }
 
   function bindProductButtons(root, checkoutUrl, skipCartRedirect) {
@@ -29,7 +45,7 @@
       form.addEventListener(
         "submit",
         function (event) {
-          redirectToSwipe(checkoutUrl, event);
+          redirectToSwipe(checkoutUrl, event, resolveVariantId(form));
         },
         true
       );
@@ -44,7 +60,7 @@
         function (event) {
           var form = button.closest('form[action*="/cart/add"]');
           if (!form) return;
-          redirectToSwipe(checkoutUrl, event);
+          redirectToSwipe(checkoutUrl, event, resolveVariantId(form));
         },
         true
       );
@@ -61,7 +77,7 @@
       button.addEventListener(
         "click",
         function (event) {
-          redirectToSwipe(checkoutUrl, event);
+          redirectToSwipe(checkoutUrl, event, "");
         },
         true
       );
@@ -91,4 +107,3 @@
       console.warn("Swipe: nao foi possivel carregar a configuracao do checkout.");
     });
 })();
-

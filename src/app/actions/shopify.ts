@@ -352,6 +352,110 @@ async function fetchShopifyStorePreview(input: { storeId: string; accountId: str
   }
 }
 
+async function fetchShopifyVariantPreview(input: {
+  storeId: string
+  accountId: string
+  variantId: string
+}) {
+  const supabaseAdmin = getSupabaseAdmin()
+  const { data: store, error } = await supabaseAdmin
+    .from("shopify_stores")
+    .select("id, account_id, name, shop_domain, client_id, client_secret")
+    .eq("account_id", input.accountId)
+    .eq("id", input.storeId)
+    .maybeSingle()
+
+  if (error || !store) {
+    return { error: "Loja Shopify nao encontrada.", preview: null as ShopifyStorePreview | null }
+  }
+
+  if (!store.client_id || !store.client_secret) {
+    return {
+      error: "A loja conectada ainda nao possui Client ID e Secret validos.",
+      preview: null as ShopifyStorePreview | null,
+    }
+  }
+
+  try {
+    const accessToken = await exchangeShopifyAdminToken(
+      store.shop_domain,
+      store.client_id,
+      store.client_secret
+    )
+
+    const variantResponse = await fetch(
+      `https://${store.shop_domain}/admin/api/${SHOPIFY_STOREFRONT_API_VERSION}/variants/${input.variantId}.json?fields=id,product_id,title,price`,
+      {
+        headers: {
+          "Content-Type": "application/json",
+          "X-Shopify-Access-Token": accessToken,
+        },
+        cache: "no-store",
+      }
+    )
+    const variantPayload = await variantResponse.json().catch(() => null)
+    if (!variantResponse.ok || !variantPayload?.variant?.product_id) {
+      return fetchShopifyStorePreview({ storeId: input.storeId, accountId: input.accountId })
+    }
+
+    const shopResponse = await fetch(
+      `https://${store.shop_domain}/admin/api/${SHOPIFY_STOREFRONT_API_VERSION}/shop.json?fields=name,currency`,
+      {
+        headers: {
+          "Content-Type": "application/json",
+          "X-Shopify-Access-Token": accessToken,
+        },
+        cache: "no-store",
+      }
+    )
+    const shopPayload = await shopResponse.json().catch(() => null)
+    if (!shopResponse.ok) {
+      throw new Error(
+        shopPayload?.errors || shopPayload?.error || "Nao foi possivel ler a moeda da loja."
+      )
+    }
+
+    const productResponse = await fetch(
+      `https://${store.shop_domain}/admin/api/${SHOPIFY_STOREFRONT_API_VERSION}/products/${variantPayload.variant.product_id}.json?fields=id,title,image`,
+      {
+        headers: {
+          "Content-Type": "application/json",
+          "X-Shopify-Access-Token": accessToken,
+        },
+        cache: "no-store",
+      }
+    )
+    const productPayload = await productResponse.json().catch(() => null)
+    if (!productResponse.ok || !productPayload?.product?.title) {
+      return fetchShopifyStorePreview({ storeId: input.storeId, accountId: input.accountId })
+    }
+
+    const amount = Number.parseFloat(variantPayload.variant.price ?? "0")
+
+    return {
+      preview: {
+        storeName: shopPayload?.shop?.name || store.name,
+        currency: normalizeStoreCurrency(shopPayload?.shop?.currency),
+        productName: productPayload.product.title,
+        variantLabel:
+          variantPayload.variant.title && variantPayload.variant.title !== "Default Title"
+            ? variantPayload.variant.title
+            : "Variante padrao",
+        amount: Number.isFinite(amount) ? amount : 0,
+        imageSrc: productPayload.product?.image?.src ?? undefined,
+      },
+    }
+  } catch (error) {
+    return {
+      error:
+        error instanceof Error
+          ? error.message
+          : "Nao foi possivel carregar o produto real da Shopify.",
+      preview: null as ShopifyStorePreview | null,
+    }
+  }
+}
+
 export async function loadShopifyStorePreviewForSession(input: {
   storeId: string
   accountId: string
@@ -366,6 +470,14 @@ export async function loadShopifyStorePreviewForPublishing(input: {
   accountId: string
 }) {
   return fetchShopifyStorePreview(input)
+}
+
+export async function loadShopifyVariantPreviewForPublishing(input: {
+  storeId: string
+  accountId: string
+  variantId: string
+}) {
+  return fetchShopifyVariantPreview(input)
 }
 
 export async function loadShopifyStoresForSession(input: { accountId: string; userId: string }) {

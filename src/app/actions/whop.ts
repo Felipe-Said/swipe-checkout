@@ -4,7 +4,10 @@ import Whop from "@whop/sdk"
 
 import { getSupabaseAdmin } from "@/lib/supabase"
 import { type ManagedAccount } from "@/lib/account-metrics"
-import { loadShopifyStorePreviewForPublishing } from "@/app/actions/shopify"
+import {
+  loadShopifyStorePreviewForPublishing,
+  loadShopifyVariantPreviewForPublishing,
+} from "@/app/actions/shopify"
 
 const DEFAULT_CHECKOUT_AMOUNT = 1250
 
@@ -23,6 +26,15 @@ type EditorCheckoutConfig = {
     amount?: number
   }
   [key: string]: unknown
+}
+
+type ShopifyStorePreview = {
+  storeName: string
+  currency: "BRL" | "USD" | "EUR" | "GBP"
+  productName: string
+  variantLabel: string
+  amount: number
+  imageSrc?: string
 }
 
 type CheckoutRecord = {
@@ -553,5 +565,84 @@ export async function saveCheckoutFromEditor(input: {
     checkoutId,
     purchaseUrl,
     whop: publishedWhopConfig,
+  }
+}
+
+export async function createPublicWhopCheckoutSession(input: {
+  checkoutId: string
+  accountId: string
+  config: EditorCheckoutConfig
+  storePreview?: ShopifyStorePreview | null
+}) {
+  if (!input.config.selectedWhopAccountId) {
+    return { whop: input.config.whop ?? null }
+  }
+
+  const supabaseAdmin = getSupabaseAdmin()
+  const { data: whopAccount, error: whopAccountError } = await supabaseAdmin
+    .from("managed_accounts")
+    .select("id, whop_key, whop_company_id")
+    .eq("id", input.config.selectedWhopAccountId)
+    .single()
+
+  if (whopAccountError || !whopAccount?.whop_key || !whopAccount?.whop_company_id) {
+    return { error: "A conta Whop selecionada ainda nao esta validada." }
+  }
+
+  try {
+    const { data: selectedDomain } = input.config.selectedDomainId
+      ? await supabaseAdmin
+          .from("domains")
+          .select("host")
+          .eq("id", input.config.selectedDomainId)
+          .maybeSingle()
+      : { data: null }
+
+    const checkoutAmount =
+      input.storePreview && Number.isFinite(input.storePreview.amount) && input.storePreview.amount > 0
+        ? input.storePreview.amount
+        : DEFAULT_CHECKOUT_AMOUNT
+    const checkoutCurrency = input.storePreview?.currency ?? input.config.currency
+    const checkoutTitle = (input.storePreview?.productName || "Checkout Swipe").slice(0, 30)
+    const redirectUrl = buildThankYouRedirectUrl(input.checkoutId, selectedDomain?.host)
+    const sourceUrl = selectedDomain?.host
+      ? `https://${selectedDomain.host.replace(/^https?:\/\//, "")}`
+      : `${getAppBaseUrl()}/checkout/${input.checkoutId}`
+
+    const client = new Whop({ apiKey: whopAccount.whop_key })
+    const checkoutConfiguration = await client.checkoutConfigurations.create({
+      redirect_url: redirectUrl,
+      source_url: sourceUrl,
+      metadata: {
+        swipeCheckoutId: input.checkoutId,
+        swipeAccountId: input.accountId,
+        swipeCheckoutName: checkoutTitle,
+      },
+      plan: {
+        company_id: whopAccount.whop_company_id,
+        currency: normalizeWhopCurrency(checkoutCurrency),
+        plan_type: "one_time",
+        initial_price: checkoutAmount,
+        title: checkoutTitle,
+      },
+    } as any)
+
+    return {
+      whop: {
+        checkoutConfigurationId: checkoutConfiguration.id,
+        planId: checkoutConfiguration.plan?.id ?? null,
+        purchaseUrl: checkoutConfiguration.purchase_url,
+        companyId: checkoutConfiguration.company_id ?? whopAccount.whop_company_id,
+        publishedAt: new Date().toISOString(),
+        amount: checkoutAmount,
+      },
+    }
+  } catch (error) {
+    return {
+      error:
+        error instanceof Error
+          ? error.message
+          : "Nao foi possivel publicar a sessao real da Whop.",
+    }
   }
 }
