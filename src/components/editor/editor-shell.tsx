@@ -84,6 +84,7 @@ type ShopifyStorePreview = {
   variantLabel: string
   amount: number
   imageSrc?: string
+  storeUrl?: string
 }
 
 type EditorConfig = {
@@ -152,6 +153,11 @@ type EditorConfig = {
   thankYouButtonEnabled: boolean
   thankYouButtonText: string
   thankYouButtonUrl: string
+  thankYouButtonTarget: "store" | "manual"
+  thankYouAutoRedirectEnabled: boolean
+  thankYouAutoRedirectDelaySeconds: number
+  thankYouAutoRedirectTarget: "store" | "manual"
+  thankYouAutoRedirectUrl: string
   upsellEnabled: boolean
   upsellOfferType: "product" | "collection" | "random"
   upsellSelection: string
@@ -247,6 +253,11 @@ const initialConfig: EditorConfig = {
   thankYouButtonEnabled: true,
   thankYouButtonText: "Voltar para a loja",
   thankYouButtonUrl: "",
+  thankYouButtonTarget: "store",
+  thankYouAutoRedirectEnabled: false,
+  thankYouAutoRedirectDelaySeconds: 10,
+  thankYouAutoRedirectTarget: "store",
+  thankYouAutoRedirectUrl: "",
   upsellEnabled: true,
   upsellOfferType: "product",
   upsellSelection: "premium",
@@ -503,7 +514,11 @@ export function EditorShell() {
       })
 
       if (result.preview) {
-        setStorePreview(result.preview)
+        const selectedStore = stores.find((store) => store.id === config.selectedStoreId)
+        setStorePreview({
+          ...result.preview,
+          storeUrl: selectedStore?.shopDomain ? `https://${selectedStore.shopDomain}` : undefined,
+        })
         updateConfig(
           (prev) => ({
             ...prev,
@@ -519,7 +534,7 @@ export function EditorShell() {
     }
 
     loadStorePreview()
-  }, [config.selectedStoreId, sessionAccountId, sessionUserId, updateConfig])
+  }, [config.selectedStoreId, sessionAccountId, sessionUserId, stores, updateConfig])
 
   const handleUpdate = (key: keyof EditorConfig, value: string | boolean | number) => {
     if (key === "thankYouDragEnabled") {
@@ -845,31 +860,8 @@ export function EditorShell() {
 
                 <div className="space-y-4 rounded-lg border p-4">
                   <Label>Pagina de Agradecimento</Label>
-                  <div className="grid gap-3 rounded-lg border p-3">
-                    <div className="flex items-center justify-between">
-                      <Label htmlFor="thank-you-drag-enabled">Permitir arrastar elementos</Label>
-                      <input type="checkbox" id="thank-you-drag-enabled" checked={config.thankYouDragEnabled} onChange={(e) => handleUpdate("thankYouDragEnabled", e.target.checked)} className="h-4 w-4" />
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <Label htmlFor="thank-you-show-icon">Exibir icone</Label>
-                      <input type="checkbox" id="thank-you-show-icon" checked={config.thankYouShowIcon} onChange={(e) => handleUpdate("thankYouShowIcon", e.target.checked)} className="h-4 w-4" />
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <Label htmlFor="thank-you-show-brand">Exibir marca</Label>
-                      <input type="checkbox" id="thank-you-show-brand" checked={config.thankYouShowBrand} onChange={(e) => handleUpdate("thankYouShowBrand", e.target.checked)} className="h-4 w-4" />
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <Label htmlFor="thank-you-show-title">Exibir titulo</Label>
-                      <input type="checkbox" id="thank-you-show-title" checked={config.thankYouShowTitle} onChange={(e) => handleUpdate("thankYouShowTitle", e.target.checked)} className="h-4 w-4" />
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <Label htmlFor="thank-you-show-message">Exibir mensagem</Label>
-                      <input type="checkbox" id="thank-you-show-message" checked={config.thankYouShowMessage} onChange={(e) => handleUpdate("thankYouShowMessage", e.target.checked)} className="h-4 w-4" />
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <Label htmlFor="thank-you-show-summary">Exibir resumo</Label>
-                      <input type="checkbox" id="thank-you-show-summary" checked={config.thankYouShowSummary} onChange={(e) => handleUpdate("thankYouShowSummary", e.target.checked)} className="h-4 w-4" />
-                    </div>
+                  <div className="rounded-lg border p-3 text-sm text-muted-foreground">
+                    Esta pagina segue automaticamente as cores, a moeda e o idioma do checkout principal. Aqui voce edita o conteudo, o fundo e os redirects do thank-you.
                   </div>
 
                   <div className="space-y-3 rounded-lg border p-3">
@@ -930,12 +922,6 @@ export function EditorShell() {
                       onChange={(e) => handleUpdate("thankYouCardBackgroundMobileSize", Number(e.target.value))}
                       className="w-full"
                     />
-                  </div>
-
-                  <div className="space-y-3 rounded-lg border p-3 text-xs text-muted-foreground">
-                    {config.thankYouDragEnabled
-                      ? "Arraste os elementos diretamente no preview para reposicionar dentro do card de agradecimento."
-                      : "Ative `Permitir arrastar elementos` para reposicionar os blocos diretamente no preview."}
                   </div>
 
                   <div className="space-y-3 rounded-lg border p-3">
@@ -1002,16 +988,92 @@ export function EditorShell() {
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="thank-you-button-url">Link do Botao</Label>
-                        <Input
-                          id="thank-you-button-url"
-                          placeholder="https://sualoja.com"
-                          value={config.thankYouButtonUrl}
-                          onChange={(e) => handleUpdate("thankYouButtonUrl", e.target.value)}
-                        />
+                        <Label htmlFor="thank-you-button-target">Destino do Botao</Label>
+                        <select
+                          id="thank-you-button-target"
+                          value={config.thankYouButtonTarget}
+                          onChange={(e) => handleUpdate("thankYouButtonTarget", e.target.value)}
+                          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                        >
+                          <option value="store">Site da loja conectada</option>
+                          <option value="manual">Link manual</option>
+                        </select>
                       </div>
+                      {config.thankYouButtonTarget === "manual" ? (
+                        <div className="space-y-2">
+                          <Label htmlFor="thank-you-button-url">Link do Botao</Label>
+                          <Input
+                            id="thank-you-button-url"
+                            placeholder="https://sualoja.com"
+                            value={config.thankYouButtonUrl}
+                            onChange={(e) => handleUpdate("thankYouButtonUrl", e.target.value)}
+                          />
+                        </div>
+                      ) : (
+                        <div className="rounded-lg border p-3 text-xs text-muted-foreground">
+                          O botao usara automaticamente o dominio principal da loja Shopify conectada a este checkout.
+                        </div>
+                      )}
                     </>
                   ) : null}
+
+                  <div className="space-y-3 rounded-lg border p-3">
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="thank-you-auto-redirect-enabled">Redirecionar automaticamente</Label>
+                      <input
+                        type="checkbox"
+                        id="thank-you-auto-redirect-enabled"
+                        checked={config.thankYouAutoRedirectEnabled}
+                        onChange={(e) => handleUpdate("thankYouAutoRedirectEnabled", e.target.checked)}
+                        className="h-4 w-4"
+                      />
+                    </div>
+                    {config.thankYouAutoRedirectEnabled ? (
+                      <>
+                        <div className="space-y-2">
+                          <Label htmlFor="thank-you-auto-redirect-delay">Tempo do redirect</Label>
+                          <Input
+                            id="thank-you-auto-redirect-delay"
+                            type="number"
+                            min={1}
+                            step={1}
+                            value={config.thankYouAutoRedirectDelaySeconds}
+                            onChange={(e) => handleUpdate("thankYouAutoRedirectDelaySeconds", Number(e.target.value) || 10)}
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            Use `10` para redirecionar automaticamente apos dez segundos.
+                          </p>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="thank-you-auto-redirect-target">Destino automatico</Label>
+                          <select
+                            id="thank-you-auto-redirect-target"
+                            value={config.thankYouAutoRedirectTarget}
+                            onChange={(e) => handleUpdate("thankYouAutoRedirectTarget", e.target.value)}
+                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                          >
+                            <option value="store">Site da loja conectada</option>
+                            <option value="manual">Link manual</option>
+                          </select>
+                        </div>
+                        {config.thankYouAutoRedirectTarget === "manual" ? (
+                          <div className="space-y-2">
+                            <Label htmlFor="thank-you-auto-redirect-url">Link do redirect automatico</Label>
+                            <Input
+                              id="thank-you-auto-redirect-url"
+                              placeholder="https://sualoja.com"
+                              value={config.thankYouAutoRedirectUrl}
+                              onChange={(e) => handleUpdate("thankYouAutoRedirectUrl", e.target.value)}
+                            />
+                          </div>
+                        ) : (
+                          <div className="rounded-lg border p-3 text-xs text-muted-foreground">
+                            O redirect automatico usara o dominio principal da loja Shopify conectada.
+                          </div>
+                        )}
+                      </>
+                    ) : null}
+                  </div>
 
                   <div className="flex items-center justify-between">
                     <Label htmlFor="upsell-enabled">One-click upsell</Label>

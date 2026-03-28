@@ -62,12 +62,14 @@ type ShopifyStorePreview = {
   variantLabel: string
   amount: number
   imageSrc?: string
+  storeUrl?: string
 }
 
 type ThankYouMeta = {
   orderId: string
   paymentMethod: string
-  dateTime: string
+  dateTime?: string
+  paidAt?: string
 }
 
 type CheckoutBehaviorTracking = {
@@ -142,6 +144,11 @@ interface CheckoutConfig {
   thankYouButtonEnabled: boolean
   thankYouButtonText: string
   thankYouButtonUrl: string
+  thankYouButtonTarget: "store" | "manual"
+  thankYouAutoRedirectEnabled: boolean
+  thankYouAutoRedirectDelaySeconds: number
+  thankYouAutoRedirectTarget: "store" | "manual"
+  thankYouAutoRedirectUrl: string
   upsellEnabled: boolean
   upsellOfferType: "product" | "collection" | "random"
   upsellSelection: string
@@ -626,6 +633,7 @@ export function ShopifyCheckout({
         config={config}
         formattedPrice={formattedTotalPrice}
         device={device}
+        storePreview={storePreview}
         thankYouMeta={thankYouMeta}
       />
     )
@@ -816,34 +824,161 @@ function ThankYouPage({
   config,
   formattedPrice,
   device,
+  storePreview,
   thankYouMeta,
 }: {
   config: CheckoutConfig
   formattedPrice: string
   device: "desktop" | "mobile"
+  storePreview?: ShopifyStorePreview | null
   thankYouMeta?: ThankYouMeta
 }) {
+  const locale = resolveLocale(config.localeMode, config.locale)
+  const copy = COPY[locale] ?? COPY[FALLBACK_LOCALE]
   const thankYouBackgroundSrc =
     device === "mobile"
       ? config.thankYouBackgroundMobileSrc
       : config.thankYouBackgroundDesktopSrc
+  const thankYouCardBackgroundSrc =
+    device === "mobile"
+      ? config.thankYouCardBackgroundMobileSrc
+      : config.thankYouCardBackgroundDesktopSrc
+  const thankYouCardBackgroundSize =
+    device === "mobile"
+      ? config.thankYouCardBackgroundMobileSize
+      : config.thankYouCardBackgroundDesktopSize
   const thankYouTitle = config.thankYouTitle?.trim() || "Pedido confirmado com sucesso"
+  const thankYouMessage = config.thankYouMessage?.trim()
   const thankYouButtonText = config.thankYouButtonText?.trim() || "Ir para minha conta"
-  const thankYouButtonHref = config.thankYouButtonUrl?.trim() || "/app"
+  const resolvedStoreUrl = normalizeThankYouUrl(storePreview?.storeUrl)
+  const thankYouButtonHref = resolveThankYouTargetUrl({
+    mode: config.thankYouButtonTarget,
+    manualUrl: config.thankYouButtonUrl,
+    storeUrl: resolvedStoreUrl,
+  })
+  const autoRedirectHref = resolveThankYouTargetUrl({
+    mode: config.thankYouAutoRedirectTarget,
+    manualUrl: config.thankYouAutoRedirectUrl,
+    storeUrl: resolvedStoreUrl,
+  })
+  const autoRedirectDelaySeconds =
+    Number.isFinite(config.thankYouAutoRedirectDelaySeconds) &&
+    config.thankYouAutoRedirectDelaySeconds > 0
+      ? Math.round(config.thankYouAutoRedirectDelaySeconds)
+      : 10
+  const autoRedirectEnabled = Boolean(config.thankYouAutoRedirectEnabled && autoRedirectHref)
+  const [secondsRemaining, setSecondsRemaining] = React.useState(autoRedirectDelaySeconds)
+  const formattedDateTime = React.useMemo(() => {
+    if (thankYouMeta?.paidAt) {
+      try {
+        return new Intl.DateTimeFormat(locale, {
+          dateStyle: "short",
+          timeStyle: "short",
+        }).format(new Date(thankYouMeta.paidAt))
+      } catch {
+        return thankYouMeta.dateTime ?? new Date().toLocaleString(locale)
+      }
+    }
+
+    return thankYouMeta?.dateTime ?? new Date().toLocaleString(locale)
+  }, [locale, thankYouMeta?.dateTime, thankYouMeta?.paidAt])
+
+  React.useEffect(() => {
+    setSecondsRemaining(autoRedirectDelaySeconds)
+  }, [autoRedirectDelaySeconds, autoRedirectHref])
+
+  React.useEffect(() => {
+    if (!autoRedirectEnabled || !autoRedirectHref || typeof window === "undefined") {
+      return
+    }
+
+    const startedAt = Date.now()
+    const countdown = window.setInterval(() => {
+      const elapsedSeconds = Math.floor((Date.now() - startedAt) / 1000)
+      const nextRemaining = Math.max(autoRedirectDelaySeconds - elapsedSeconds, 0)
+      setSecondsRemaining(nextRemaining)
+    }, 250)
+
+    const timeout = window.setTimeout(() => {
+      window.location.href = autoRedirectHref
+    }, autoRedirectDelaySeconds * 1000)
+
+    return () => {
+      window.clearInterval(countdown)
+      window.clearTimeout(timeout)
+    }
+  }, [autoRedirectDelaySeconds, autoRedirectEnabled, autoRedirectHref])
+
+  const countdownText = autoRedirectEnabled
+    ? locale === "en-US"
+      ? `Redirecting automatically in ${secondsRemaining}s.`
+      : locale === "es-ES"
+        ? `Redireccionamiento automatico en ${secondsRemaining}s.`
+        : locale === "fr-FR"
+          ? `Redirection automatique dans ${secondsRemaining}s.`
+          : locale === "de-DE"
+            ? `Automatische Weiterleitung in ${secondsRemaining}s.`
+            : `Redirecionando automaticamente em ${secondsRemaining}s.`
+    : undefined
   const confirmationCard = (
     <OrderConfirmationCard
       orderId={thankYouMeta?.orderId ?? "SWIPE"}
       paymentMethod={thankYouMeta?.paymentMethod ?? "Whop"}
-      dateTime={thankYouMeta?.dateTime ?? new Date().toLocaleString("pt-BR")}
+      dateTime={formattedDateTime}
       totalAmount={formattedPrice}
+      productName={storePreview?.productName}
+      productVariant={storePreview?.variantLabel}
       title={thankYouTitle}
+      description={thankYouMessage}
       buttonText={thankYouButtonText}
+      buttonVisible={Boolean(config.thankYouButtonEnabled && thankYouButtonHref)}
+      labels={{
+        orderId: locale === "en-US" ? "Order ID" : locale === "es-ES" ? "Pedido" : locale === "fr-FR" ? "Commande" : locale === "de-DE" ? "Bestellung" : "Pedido",
+        paymentMethod:
+          locale === "en-US"
+            ? "Payment Method"
+            : locale === "es-ES"
+              ? "Metodo de pago"
+              : locale === "fr-FR"
+                ? "Paiement"
+                : locale === "de-DE"
+                  ? "Zahlungsart"
+                  : "Pagamento",
+        dateTime:
+          locale === "en-US"
+            ? "Date & Time"
+            : locale === "es-ES"
+              ? "Fecha y hora"
+              : locale === "fr-FR"
+                ? "Date et heure"
+                : locale === "de-DE"
+                  ? "Datum und Uhrzeit"
+                  : "Data e hora",
+        total: copy.total,
+        product:
+          locale === "en-US"
+            ? "Product"
+            : locale === "es-ES"
+              ? "Producto"
+              : locale === "fr-FR"
+                ? "Produit"
+                : locale === "de-DE"
+                  ? "Produkt"
+                  : "Produto",
+      }}
+      countdownText={countdownText}
+      borderRadius={config.borderRadius}
+      surfaceColor={config.checkoutSurfaceColor}
+      borderColor={config.checkoutMutedColor}
+      textColor={config.checkoutTextColor}
+      mutedColor={withAlpha(config.checkoutTextColor, 0.7)}
+      accentColor={config.primaryColor || config.checkoutAccentColor}
       icon={<CheckCircleBadge accentColor={config.checkoutAccentColor} />}
       onGoToAccount={() => {
-        if (typeof window === "undefined") return
+        if (typeof window === "undefined" || !thankYouButtonHref) return
         window.location.href = thankYouButtonHref
       }}
-      className="max-w-[420px] border-white/40 shadow-[0_20px_60px_rgba(15,23,42,0.12)]"
+      className="max-w-[420px] shadow-[0_20px_60px_rgba(15,23,42,0.12)]"
     />
   )
 
@@ -863,6 +998,10 @@ function ThankYouPage({
         style={{
           backgroundColor: config.checkoutSurfaceColor,
           borderColor: config.checkoutMutedColor,
+          backgroundImage: thankYouCardBackgroundSrc ? `url(${thankYouCardBackgroundSrc})` : undefined,
+          backgroundRepeat: "no-repeat",
+          backgroundPosition: "center",
+          backgroundSize: `${thankYouCardBackgroundSize}%`,
         }}
       >
         <div className="mx-auto flex min-h-full w-full max-w-[420px] items-center justify-center py-3 sm:py-6">
@@ -871,6 +1010,30 @@ function ThankYouPage({
       </div>
     </div>
   )
+}
+
+function normalizeThankYouUrl(value?: string | null) {
+  if (!value) return ""
+  const trimmed = value.trim()
+  if (!trimmed) return ""
+  if (/^https?:\/\//i.test(trimmed)) return trimmed
+  return `https://${trimmed.replace(/^\/+/, "")}`
+}
+
+function resolveThankYouTargetUrl(input: {
+  mode?: "store" | "manual"
+  manualUrl?: string | null
+  storeUrl?: string | null
+}) {
+  if (input.mode === "store") {
+    return normalizeThankYouUrl(input.storeUrl)
+  }
+
+  if (input.mode === "manual") {
+    return normalizeThankYouUrl(input.manualUrl)
+  }
+
+  return normalizeThankYouUrl(input.manualUrl) || normalizeThankYouUrl(input.storeUrl) || "/app"
 }
 
 function CheckCircleBadge({ accentColor }: { accentColor: string }) {

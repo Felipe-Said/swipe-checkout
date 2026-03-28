@@ -61,6 +61,28 @@ export default async function PublicCheckoutThankYouPage({
       }
     : null
 
+  const selectedStoreId =
+    checkout.config && typeof checkout.config === "object"
+      ? String((checkout.config as Record<string, unknown>).selectedStoreId ?? "")
+      : ""
+  const shopParam =
+    typeof resolvedSearchParams.shop === "string" ? resolvedSearchParams.shop : ""
+  const { data: selectedStore } =
+    selectedStoreId || shopParam
+      ? await supabaseAdmin
+          .from("shopify_stores")
+          .select("shop_domain")
+          .or(
+            [
+              selectedStoreId ? `id.eq.${selectedStoreId}` : null,
+              shopParam ? `shop_domain.eq.${shopParam}` : null,
+            ]
+              .filter(Boolean)
+              .join(",")
+          )
+          .maybeSingle()
+      : { data: null }
+
   const productName =
     typeof resolvedSearchParams.product_name === "string"
       ? resolvedSearchParams.product_name
@@ -127,6 +149,7 @@ export default async function PublicCheckoutThankYouPage({
             variantLabel,
             amount,
             imageSrc,
+            storeUrl: selectedStore?.shop_domain ? `https://${selectedStore.shop_domain}` : undefined,
           }}
           behaviorTracking={{
             enabled: true,
@@ -137,6 +160,7 @@ export default async function PublicCheckoutThankYouPage({
             orderId,
             paymentMethod,
             dateTime: formattedDateTime,
+            paidAt,
           }}
         />
       </div>
