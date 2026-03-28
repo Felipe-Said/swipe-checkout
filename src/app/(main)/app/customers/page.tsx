@@ -10,6 +10,7 @@ import {
   adminUpdateCustomerAccount,
   loadAdminCustomersData,
 } from "@/app/actions/customers"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -28,6 +29,7 @@ type AdminCustomerAccount = {
   profileId: string | null
   name: string
   email: string
+  photoUrl: string
   role: "admin" | "user"
   status: "Ativa" | "Bloqueada"
   orders: number
@@ -281,9 +283,19 @@ export default function CustomersAdminPage() {
                   selectedAccount.id === account.id ? "border-primary bg-muted" : ""
                 }`}
               >
-                <div className="font-medium">{account.name}</div>
-                <div className="text-sm text-muted-foreground">{account.email}</div>
-                <div className="mt-2 text-xs text-muted-foreground">{account.status}</div>
+                <div className="flex items-center gap-3">
+                  <Avatar className="h-11 w-11 border">
+                    <AvatarImage src={account.photoUrl} alt={account.name} />
+                    <AvatarFallback className="text-sm font-medium">
+                      {getAccountInitials(account.name, account.email)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="min-w-0">
+                    <div className="font-medium">{account.name}</div>
+                    <div className="truncate text-sm text-muted-foreground">{account.email}</div>
+                    <div className="mt-2 text-xs text-muted-foreground">{account.status}</div>
+                  </div>
+                </div>
               </button>
             ))}
           </CardContent>
@@ -627,4 +639,19 @@ function formatDate(value: string) {
     dateStyle: "short",
     timeStyle: "short",
   }).format(new Date(value))
+}
+
+function getAccountInitials(name: string, email: string) {
+  const source = name.trim() || email.trim()
+  const parts = source.split(/\s+/).filter(Boolean)
+
+  if (parts.length === 0) {
+    return "?"
+  }
+
+  if (parts.length === 1) {
+    return parts[0].slice(0, 2).toUpperCase()
+  }
+
+  return `${parts[0][0] ?? ""}${parts[1][0] ?? ""}`.toUpperCase()
 }

@@ -7,6 +7,7 @@ type AdminCustomerAccount = {
   profileId: string | null
   name: string
   email: string
+  photoUrl: string
   role: "admin" | "user"
   status: "Ativa" | "Bloqueada"
   orders: number
@@ -88,7 +89,7 @@ export async function loadAdminCustomersData(input: { userId: string }) {
         .order("created_at", { ascending: false }),
       supabaseAdmin
         .from("profiles")
-        .select("id, email, role, status"),
+        .select("id, email, role, status, photo_url"),
       supabaseAdmin
         .from("orders")
         .select("id, account_id, amount, status"),
@@ -139,6 +140,7 @@ export async function loadAdminCustomersData(input: { userId: string }) {
       profileId: account.profile_id,
       name: account.name,
       email: profile?.email ?? "",
+      photoUrl: profile?.photo_url ?? "",
       role: profile?.role === "admin" ? "admin" : "user",
       status: profile?.status === "blocked" ? "Bloqueada" : "Ativa",
       orders: metrics.total,
