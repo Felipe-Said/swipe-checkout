@@ -1505,6 +1505,10 @@ function resolveUpsellLabel(config: CheckoutConfig) {
 }
 
 function CheckoutFooter({ compact, config, copy }: { compact: boolean; config: CheckoutConfig; copy: Copy }) {
+  if (compact) {
+    return null
+  }
+
   return (
     <footer className="border-t pb-12 pt-8 text-xs" style={{ borderColor: config.checkoutMutedColor, color: config.checkoutMutedColor }}>
       <div className={cn("gap-4", compact ? "grid grid-cols-1" : "flex")}>
