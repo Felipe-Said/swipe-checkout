@@ -23,6 +23,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { loadProfilePhoto } from "@/app/actions/settings"
 import { clearDemoSession } from "@/lib/demo-auth"
 import { clearAppSession, type AppSession } from "@/lib/app-session"
 import { supabase } from "@/lib/supabase"
@@ -32,25 +33,33 @@ export function MainHeader({ session }: { session: AppSession }) {
   const [profilePhoto, setProfilePhoto] = React.useState<string>("")
 
   React.useEffect(() => {
+    let cancelled = false
+
     function syncProfilePhoto() {
-      try {
-        setProfilePhoto(window.localStorage.getItem("swipe-profile-photo") || "")
-      } catch {
-        setProfilePhoto("")
+      void loadProfilePhoto({ userId: session.userId }).then((result) => {
+        if (!cancelled) {
+          setProfilePhoto(result.photoUrl || "")
+        }
+      })
+    }
+
+    function handleProfilePhotoUpdated(event: Event) {
+      const customEvent = event as CustomEvent<{ photoUrl?: string }>
+      if (!cancelled) {
+        setProfilePhoto(customEvent.detail?.photoUrl || "")
       }
     }
 
     syncProfilePhoto()
     window.addEventListener("focus", syncProfilePhoto)
-    window.addEventListener("swipe-profile-photo-updated", syncProfilePhoto)
-    window.addEventListener("storage", syncProfilePhoto)
+    window.addEventListener("swipe-profile-photo-updated", handleProfilePhotoUpdated as EventListener)
 
     return () => {
+      cancelled = true
       window.removeEventListener("focus", syncProfilePhoto)
-      window.removeEventListener("swipe-profile-photo-updated", syncProfilePhoto)
-      window.removeEventListener("storage", syncProfilePhoto)
+      window.removeEventListener("swipe-profile-photo-updated", handleProfilePhotoUpdated as EventListener)
     }
-  }, [])
+  }, [session.userId])
 
   const handleLogout = async () => {
     clearDemoSession()

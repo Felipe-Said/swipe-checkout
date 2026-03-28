@@ -5,6 +5,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { CreditCard, Loader2, AlertCircle } from "lucide-react"
 import { resolveLoginProfile } from "@/app/auth/actions"
+import { recordLoginEvent } from "@/app/actions/settings"
 import { useSearchParams } from "next/navigation"
 import { clearAppSession, writeAppSession } from "@/lib/app-session"
 import { clearDemoSession } from "@/lib/demo-auth"
@@ -40,6 +41,19 @@ function LoginContent() {
   const [error, setError] = React.useState("")
   
   const message = searchParams.get("message")
+
+  const detectDeviceLabel = () => {
+    if (typeof window === "undefined") {
+      return "Dispositivo"
+    }
+
+    const userAgent = window.navigator.userAgent || ""
+    if (/iPhone|iPad|iPod/i.test(userAgent)) return "Safari (iPhone)"
+    if (/Android/i.test(userAgent)) return "Android"
+    if (/Macintosh|Mac OS X/i.test(userAgent)) return "Chrome (MacBook)"
+    if (/Windows/i.test(userAgent)) return "Chrome (Windows)"
+    return "Navegador"
+  }
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -89,6 +103,16 @@ function LoginContent() {
       role: profileResult.session.role === "admin" ? "admin" : "user",
       accountId: profileResult.session.accountId,
       keyFrozen: profileResult.session.keyFrozen,
+    })
+
+    await recordLoginEvent({
+      userId: profileResult.session.userId,
+      accountId: profileResult.session.accountId,
+      device: detectDeviceLabel(),
+      location:
+        typeof window !== "undefined"
+          ? Intl.DateTimeFormat().resolvedOptions().timeZone || null
+          : null,
     })
 
     router.replace("/app")

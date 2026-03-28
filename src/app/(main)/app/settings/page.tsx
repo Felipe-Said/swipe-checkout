@@ -2,7 +2,8 @@
 
 import * as React from "react"
 import { supabase } from "@/lib/supabase"
-import { getManagedAccounts } from "@/lib/account-metrics"
+import { readAppSession, writeAppSession } from "@/lib/app-session"
+import { loadSettingsForSession, saveSettingsProfile } from "@/app/actions/settings"
 import { SettingsHeader } from "@/components/settings/settings-header"
 import { SettingsProfileCard } from "@/components/settings/settings-profile-card"
 import { SettingsSecurityCard } from "@/components/settings/settings-security-card"
@@ -10,31 +11,14 @@ import { SettingsCurrentSessionCard } from "@/components/settings/settings-curre
 import { SettingsLoginHistoryCard } from "@/components/settings/settings-login-history-card"
 import { SettingsPreferencesCard } from "@/components/settings/settings-preferences-card"
 import { useI18n } from "@/lib/i18n"
-import { cn } from "@/lib/utils"
 
-const loginHistory = [
-  {
-    id: "1",
-    device: "Chrome (Windows)",
-    city: "São Paulo, BR",
-    date: "25/03/2026 09:42",
-    current: true,
-  },
-  {
-    id: "2",
-    device: "Safari (iPhone)",
-    city: "Campinas, BR",
-    date: "24/03/2026 21:14",
-    current: false,
-  },
-  {
-    id: "3",
-    device: "Chrome (MacBook)",
-    city: "Curitiba, BR",
-    date: "22/03/2026 18:07",
-    current: false,
-  },
-]
+type LoginHistoryItem = {
+  id: string
+  device: string
+  city: string
+  date: string
+  current: boolean
+}
 
 export default function SettingsPage() {
   const { t } = useI18n()
@@ -43,69 +27,173 @@ export default function SettingsPage() {
   const [profileEmail, setProfileEmail] = React.useState("")
   const [profileImage, setProfileImage] = React.useState<string | undefined>(undefined)
   const [totalRevenue, setTotalRevenue] = React.useState(0)
+  const [loginHistory, setLoginHistory] = React.useState<LoginHistoryItem[]>([])
   const [isSaving, setIsSaving] = React.useState(false)
+  const [isChangingPassword, setIsChangingPassword] = React.useState(false)
 
   React.useEffect(() => {
     async function load() {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (user) {
-        setSession(user)
-        setProfileName(user.user_metadata?.name || user.email?.split('@')[0] || "")
-        setProfileEmail(user.email || "")
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      const appSession = readAppSession()
+
+      if (!user || !appSession) {
+        return
       }
 
-      const accounts = await getManagedAccounts()
-      const total = accounts.reduce((acc, curr) => acc + (curr.revenue || 0), 0)
-      setTotalRevenue(total)
+      setSession({
+        ...user,
+        appSession,
+      })
 
-      const savedPhoto = localStorage.getItem("swipe-profile-photo")
-      if (savedPhoto) {
-        setProfileImage(savedPhoto)
+      const result = await loadSettingsForSession({
+        userId: user.id,
+        accountId: appSession.accountId,
+      })
+
+      if (result.error || !result.profile) {
+        return
       }
+
+      setProfileName(result.profile.name)
+      setProfileEmail(result.profile.email)
+      setProfileImage(result.profile.photoUrl)
+      setTotalRevenue(result.totalRevenue || 0)
+      setLoginHistory(
+        (result.loginHistory || []).map((item, index) => ({
+          id: item.id,
+          device: item.device,
+          city: item.location || "Local nao informado",
+          date: formatDateTime(item.logged_at),
+          current: index === 0,
+        })),
+      )
     }
-    load()
+
+    void load()
   }, [])
 
-  const handleSaveProfile = () => {
-    if (!session) return
+  const handleSaveProfile = async () => {
+    if (!session?.appSession) {
+      return
+    }
+
     setIsSaving(true)
-    
-    // Simulate save or use supabase.auth.updateUser in production
-    setTimeout(() => {
-      if (profileImage) {
-        localStorage.setItem("swipe-profile-photo", profileImage)
-      } else {
-        localStorage.removeItem("swipe-profile-photo")
+
+    const nextName = profileName.trim()
+    const nextEmail = profileEmail.trim()
+
+    const profileResult = await saveSettingsProfile({
+      userId: session.id,
+      name: nextName,
+      email: nextEmail,
+      photoUrl: profileImage || null,
+    })
+
+    if (!profileResult.error && nextEmail && nextEmail !== session.email) {
+      const { error: authEmailError } = await supabase.auth.updateUser({
+        email: nextEmail,
+      })
+
+      if (authEmailError) {
+        setIsSaving(false)
+        return
       }
+    }
 
-      window.dispatchEvent(new Event("swipe-profile-photo-updated"))
-      
-      setIsSaving(false)
-    }, 800)
+    if (!profileResult.error && nextName && nextName !== session.user_metadata?.name) {
+      await supabase.auth.updateUser({
+        data: {
+          name: nextName,
+        },
+      })
+    }
+
+    if (!profileResult.error) {
+      writeAppSession({
+        ...session.appSession,
+        name: nextName,
+        email: nextEmail,
+      })
+
+      setSession((current: any) =>
+        current
+          ? {
+              ...current,
+              email: nextEmail,
+              user_metadata: {
+                ...(current.user_metadata || {}),
+                name: nextName,
+              },
+            }
+          : current,
+      )
+
+      window.dispatchEvent(
+        new CustomEvent("swipe-profile-photo-updated", {
+          detail: { photoUrl: profileImage || "" },
+        }),
+      )
+    }
+
+    setIsSaving(false)
   }
 
-  const handleUpdatePassword = (current: string, next: string) => {
-    // Prototype logic: just show success or log
-    console.log("Updating password from", current, "to", next)
+  const handleUpdatePassword = async (current: string, next: string) => {
+    if (!session?.email) {
+      return
+    }
+
+    setIsChangingPassword(true)
+
+    const { error: verifyError } = await supabase.auth.signInWithPassword({
+      email: session.email,
+      password: current,
+    })
+
+    if (!verifyError) {
+      await supabase.auth.updateUser({ password: next })
+    }
+
+    setIsChangingPassword(false)
   }
 
-  if (!session) return null
+  if (!session) {
+    return null
+  }
 
-  const currentAccess = loginHistory.find((item) => item.current) ?? loginHistory[0]
+  const currentAccess =
+    loginHistory.find((item) => item.current) ??
+    loginHistory[0] ?? {
+      id: "current",
+      device: detectDeviceLabel(),
+      city: Intl.DateTimeFormat().resolvedOptions().timeZone || "Local nao informado",
+      date: "Agora",
+      current: true,
+    }
+
+  const isAdmin = session.appSession?.role === "admin"
+  const revenueCaption = isAdmin
+    ? "Receita real de todas as contas gerenciadas"
+    : "Receita real da sua conta"
+  const sessionCaption = `Sessao em ${currentAccess.device}`
 
   return (
     <div className="flex flex-col gap-10 pb-10">
-      <SettingsHeader 
+      <SettingsHeader
         name={profileName}
         email={profileEmail}
         totalRevenue={totalRevenue}
         lastAccess={currentAccess.date}
+        revenueCaption={revenueCaption}
+        sessionCaption={sessionCaption}
         profileImage={profileImage}
       />
 
       <div className="grid gap-10 xl:grid-cols-[1fr_400px]">
         <div className="space-y-10">
-          <SettingsProfileCard 
+          <SettingsProfileCard
             name={profileName}
             email={profileEmail}
             profileImage={profileImage}
@@ -119,29 +207,59 @@ export default function SettingsPage() {
 
           <SettingsPreferencesCard />
 
-          <SettingsSecurityCard 
+          <SettingsSecurityCard
             onUpdatePassword={handleUpdatePassword}
-            isLoading={isSaving}
+            isLoading={isChangingPassword}
           />
         </div>
 
         <div className="space-y-10">
-          <SettingsCurrentSessionCard 
+          <SettingsCurrentSessionCard
             device={currentAccess.device}
             city={currentAccess.city}
             date={currentAccess.date}
+            deviceDetails={currentAccess.device}
+            locationDetails={currentAccess.city}
+            sessionDetails={currentAccess.current ? "Sessao atual" : "Acesso recente"}
           />
 
           <SettingsLoginHistoryCard history={loginHistory} />
 
-          <div className="bg-primary/5 p-6 rounded-3xl border border-primary/10 shadow-lg">
-             <h4 className="text-sm font-black uppercase tracking-tight mb-2">{t("nav.account_security")}</h4>
-             <p className="text-xs text-muted-foreground font-medium leading-relaxed">
-                {t("nav.account_security_desc")}
-             </p>
+          <div className="rounded-3xl border border-primary/10 bg-primary/5 p-6 shadow-lg">
+            <h4 className="mb-2 text-sm font-black uppercase tracking-tight">
+              {t("nav.account_security")}
+            </h4>
+            <p className="text-xs font-medium leading-relaxed text-muted-foreground">
+              {t("nav.account_security_desc")}
+            </p>
           </div>
         </div>
       </div>
     </div>
   )
+}
+
+function formatDateTime(value: string) {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) {
+    return "Agora"
+  }
+
+  return new Intl.DateTimeFormat("pt-BR", {
+    dateStyle: "short",
+    timeStyle: "short",
+  }).format(date)
+}
+
+function detectDeviceLabel() {
+  if (typeof window === "undefined") {
+    return "Dispositivo"
+  }
+
+  const userAgent = window.navigator.userAgent || ""
+  if (/iPhone|iPad|iPod/i.test(userAgent)) return "Safari (iPhone)"
+  if (/Android/i.test(userAgent)) return "Android"
+  if (/Macintosh|Mac OS X/i.test(userAgent)) return "Chrome (MacBook)"
+  if (/Windows/i.test(userAgent)) return "Chrome (Windows)"
+  return "Navegador"
 }
