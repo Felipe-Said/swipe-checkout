@@ -13,9 +13,17 @@ interface DomainDNSCardProps {
   name: string
   value: string
   isVerified?: boolean
+  onVerify?: () => void
 }
 
-export function DomainDNSCard({ mode, type, name, value, isVerified = false }: DomainDNSCardProps) {
+export function DomainDNSCard({
+  mode,
+  type,
+  name,
+  value,
+  isVerified = false,
+  onVerify,
+}: DomainDNSCardProps) {
   const [copied, setCopied] = React.useState(false)
 
   const copyToClipboard = (text: string) => {
@@ -81,7 +89,11 @@ export function DomainDNSCard({ mode, type, name, value, isVerified = false }: D
              <Button variant="outline" size="sm" className="flex-1 h-10 rounded-xl font-bold border-primary/10" onClick={() => window.open('https://vercel.com/docs/concepts/projects/custom-domains', '_blank')}>
                 Ver Documentação
              </Button>
-             <Button size="sm" className="flex-1 h-10 rounded-xl font-black bg-primary/10 text-primary hover:bg-primary/20">
+             <Button
+               size="sm"
+               className="flex-1 h-10 rounded-xl font-black bg-primary/10 text-primary hover:bg-primary/20"
+               onClick={onVerify}
+             >
                 Testar DNS agora
              </Button>
           </div>

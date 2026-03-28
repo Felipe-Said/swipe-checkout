@@ -2,16 +2,15 @@
 
 import * as React from "react"
 import { Activity, Globe, Search } from "lucide-react"
-import {
-  getConnectedDomains,
-  addDomain,
-  deleteDomain,
-  setPrimaryDomain,
-  type ConnectedDomain,
-  type DomainMode,
-  getDomainSetup,
-} from "@/lib/domain-data"
+import { type ConnectedDomain, type DomainMode } from "@/lib/domain-data"
 import { getCurrentAppSession } from "@/lib/app-session"
+import {
+  addDomainForSession,
+  deleteDomainForSession,
+  loadDomainsForSession,
+  refreshDomainForSession,
+  setPrimaryDomainForSession,
+} from "@/app/actions/domains"
 import { DomainSetupCard } from "@/components/domains/checkout-domain-setup-card"
 import { DomainDNSCard } from "@/components/domains/checkout-domain-dns-card"
 import { DomainListCard } from "@/components/domains/checkout-domain-list-card"
@@ -33,22 +32,29 @@ export default function DomainsPage() {
     recordValue: string
   } | null>(null)
   const [activeAccountId, setActiveAccountId] = React.useState("")
+  const [sessionUserId, setSessionUserId] = React.useState("")
 
-  const loadDomains = React.useCallback(async (accountId: string) => {
-    const doms = await getConnectedDomains(accountId)
-    setDomains(doms)
+  const loadDomains = React.useCallback(async (userId: string, accountId: string) => {
+    const result = await loadDomainsForSession({ userId, accountId })
+    if (result.error) {
+      toast.error(result.error)
+      return
+    }
+
+    setDomains(result.domains)
   }, [])
 
   React.useEffect(() => {
     async function load() {
       const session = await getCurrentAppSession()
-      if (!session?.accountId) return
+      if (!session?.accountId || !session.userId) return
 
+      setSessionUserId(session.userId)
       setActiveAccountId(session.accountId)
-      await loadDomains(session.accountId)
+      await loadDomains(session.userId, session.accountId)
     }
 
-    load()
+    void load()
   }, [loadDomains])
 
   const handleAddDomain = async (
@@ -57,65 +63,90 @@ export default function DomainsPage() {
     checkoutId: string,
     isPrimary: boolean
   ) => {
-    if (!activeAccountId) return
+    if (!activeAccountId || !sessionUserId) return
 
-    const setup = getDomainSetup(host, mode)
     const formattedHost = mode === "platform" ? `${host}.swipe.com.br` : host
 
-    try {
-      await addDomain({
-        account_id: activeAccountId,
-        host: formattedHost,
-        mode,
-        checkoutId,
-        isPrimary,
-        status: setup.status as any,
-        sslStatus: setup.sslStatus as any,
-      })
+    const result = await addDomainForSession({
+      userId: sessionUserId,
+      accountId: activeAccountId,
+      host: formattedHost,
+      checkoutId,
+      isPrimary,
+    })
 
-      await loadDomains(activeAccountId)
-
-      if (mode !== "platform") {
-        setSelectedSetup({
-          host: formattedHost,
-          mode,
-          recordType: setup.recordType!,
-          recordName: setup.recordName!,
-          recordValue: setup.recordValue!,
-        })
-      }
-
-      toast.success("Dominio adicionado com sucesso!")
-    } catch {
-      toast.error("Erro ao adicionar dominio.")
+    if (result.error) {
+      toast.error(result.error)
+      return
     }
+
+    await loadDomains(sessionUserId, activeAccountId)
+
+    if (mode !== "platform" && result.setup) {
+      setSelectedSetup({
+        host: formattedHost,
+        mode: result.setup.mode,
+        recordType: result.setup.recordType,
+        recordName: result.setup.recordName,
+        recordValue: result.setup.recordValue,
+      })
+    }
+
+    toast.success("Dominio adicionado com sucesso!")
   }
 
   const handleDeleteDomain = async (id: string) => {
-    try {
-      await deleteDomain(id)
-      await loadDomains(activeAccountId)
-      toast.info("Dominio removido.")
-    } catch {
-      toast.error("Erro ao remover dominio.")
+    if (!activeAccountId || !sessionUserId) return
+
+    const result = await deleteDomainForSession({
+      userId: sessionUserId,
+      accountId: activeAccountId,
+      domainId: id,
+    })
+
+    if (result.error) {
+      toast.error(result.error)
+      return
     }
+
+    await loadDomains(sessionUserId, activeAccountId)
+    toast.info("Dominio removido.")
   }
 
-  const handleRefreshStatus = async () => {
-    if (!activeAccountId) return
-    await loadDomains(activeAccountId)
+  const handleRefreshStatus = async (id: string) => {
+    if (!activeAccountId || !sessionUserId) return
+
+    const result = await refreshDomainForSession({
+      userId: sessionUserId,
+      accountId: activeAccountId,
+      domainId: id,
+    })
+
+    if (result.error) {
+      toast.error(result.error)
+      return
+    }
+
+    await loadDomains(sessionUserId, activeAccountId)
+    toast.success("Status do dominio atualizado.")
   }
 
   const handleSetPrimary = async (id: string) => {
-    if (!activeAccountId) return
+    if (!activeAccountId || !sessionUserId) return
 
-    try {
-      await setPrimaryDomain(activeAccountId, id)
-      await loadDomains(activeAccountId)
-      toast.success("Dominio principal atualizado.")
-    } catch {
-      toast.error("Erro ao atualizar dominio principal.")
+    const result = await setPrimaryDomainForSession({
+      userId: sessionUserId,
+      accountId: activeAccountId,
+      domainId: id,
+    })
+
+    if (result.error) {
+      toast.error(result.error)
+      return
     }
+
+    await loadDomains(sessionUserId, activeAccountId)
+    toast.success("Dominio principal atualizado.")
   }
 
   const filteredDomains = domains.filter(
@@ -127,8 +158,12 @@ export default function DomainsPage() {
   const stats = {
     total: domains.length,
     ready: domains.filter((domain) => domain.status === "Pronto").length,
-    pending: domains.filter((domain) => domain.status === "Aguardando DNS").length,
+    pending: domains.filter((domain) => domain.status !== "Pronto").length,
   }
+
+  const selectedSetupDomain = selectedSetup
+    ? domains.find((item) => item.host === selectedSetup.host)
+    : null
 
   return (
     <div className="flex flex-col gap-10 pb-20">
@@ -148,8 +183,16 @@ export default function DomainsPage() {
               Saude Global
             </span>
             <div className="mt-1 flex items-center gap-2">
-              <Activity className="h-4 w-4 text-emerald-500" />
-              <span className="text-sm font-black">100% OK</span>
+              <Activity
+                className={`h-4 w-4 ${
+                  stats.total > 0 && stats.pending === 0 ? "text-emerald-500" : "text-amber-500"
+                }`}
+              />
+              <span className="text-sm font-black">
+                {stats.total === 0
+                  ? "Sem dominios"
+                  : `${Math.round((stats.ready / Math.max(stats.total, 1)) * 100)}% OK`}
+              </span>
             </div>
           </div>
           <div className="flex items-center gap-3 px-4">
@@ -171,6 +214,11 @@ export default function DomainsPage() {
               type={selectedSetup.recordType}
               name={selectedSetup.recordName}
               value={selectedSetup.recordValue}
+              isVerified={selectedSetupDomain?.verificationStatus === "verified"}
+              onVerify={() => {
+                if (!selectedSetupDomain) return
+                void handleRefreshStatus(selectedSetupDomain.id)
+              }}
             />
           )}
         </div>
