@@ -624,14 +624,8 @@ export function ShopifyCheckout({
     return (
       <ThankYouPage
         config={config}
-        copy={copy}
         formattedPrice={formattedTotalPrice}
-        locale={resolvedLocale}
-        currency={effectiveCurrency}
         device={device}
-        productName={productName}
-        variantLabel={variantLabel}
-        onConfigUpdate={onConfigUpdate}
         thankYouMeta={thankYouMeta}
       />
     )
@@ -820,29 +814,15 @@ export function ShopifyCheckout({
 
 function ThankYouPage({
   config,
-  copy,
   formattedPrice,
-  locale,
-  currency,
   device,
-  productName,
-  variantLabel,
-  onConfigUpdate,
   thankYouMeta,
 }: {
   config: CheckoutConfig
-  copy: Copy
   formattedPrice: string
-  locale: SupportedLocale
-  currency: SupportedCurrency
   device: "desktop" | "mobile"
-  productName: string
-  variantLabel: string
-  onConfigUpdate?: (key: keyof CheckoutConfig, value: string | boolean | number) => void
   thankYouMeta?: ThankYouMeta
 }) {
-  const [upsellAccepted, setUpsellAccepted] = React.useState(false)
-  const upsellPrice = formatPrice(config.upsellPrice, locale, currency)
   const thankYouBackgroundSrc =
     device === "mobile"
       ? config.thankYouBackgroundMobileSrc
@@ -885,64 +865,8 @@ function ThankYouPage({
           borderColor: config.checkoutMutedColor,
         }}
       >
-        <div className="mx-auto flex min-h-full w-full max-w-[420px] flex-col items-center justify-center gap-5 py-3 sm:gap-6 sm:py-6">
-          {config.thankYouShowBrand ? (
-            <div className="flex items-center justify-center">
-              <CheckoutBrand config={config} />
-            </div>
-          ) : null}
+        <div className="mx-auto flex min-h-full w-full max-w-[420px] items-center justify-center py-3 sm:py-6">
           {confirmationCard}
-          {config.thankYouShowMessage ? (
-            <p className="max-w-[46ch] text-sm leading-6" style={{ color: config.checkoutMutedColor }}>
-              {config.thankYouMessage}
-            </p>
-          ) : null}
-          {config.thankYouShowSummary ? (
-            <div
-              className="w-full rounded-2xl border p-4 text-left"
-              style={{ borderColor: config.checkoutMutedColor, backgroundColor: config.checkoutBackgroundColor }}
-            >
-              <div className="flex items-center justify-between gap-3 text-sm">
-                <span style={{ color: config.checkoutMutedColor }}>{copy.thankYouOrderSummary}</span>
-                <span className="font-medium" style={{ color: config.checkoutTextColor }}>
-                  {formattedPrice}
-                </span>
-              </div>
-              <div className="mt-3 space-y-1 text-xs" style={{ color: config.checkoutMutedColor }}>
-                <p className="break-words">{productName}</p>
-                <p className="break-words">{variantLabel}</p>
-              </div>
-            </div>
-          ) : null}
-          {config.upsellEnabled ? (
-            <div
-              className="w-full rounded-2xl border p-5 text-left"
-              style={{ borderColor: withAlpha(config.checkoutAccentColor, 0.22), backgroundColor: withAlpha(config.checkoutAccentColor, 0.06) }}
-            >
-              <div className="mb-3 inline-flex rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em]" style={{ backgroundColor: withAlpha(config.checkoutAccentColor, 0.12), color: config.checkoutAccentColor }}>
-                {copy.upsellBadge}
-              </div>
-              <h2 className="text-xl font-semibold" style={{ color: config.checkoutTextColor }}>
-                {config.upsellHeadline}
-              </h2>
-              <p className="mt-2 text-sm leading-6" style={{ color: config.checkoutMutedColor }}>
-                {config.upsellDescription}
-              </p>
-              <div className="mt-4 flex items-center justify-between gap-3 text-sm">
-                <span className="break-words" style={{ color: config.checkoutMutedColor }}>{resolveUpsellLabel(config)}</span>
-                <span className="font-semibold" style={{ color: config.checkoutTextColor }}>
-                  {upsellPrice}
-                </span>
-              </div>
-              <div className="mt-4">
-                <BuyButton
-                  config={config}
-                  label={upsellAccepted ? copy.upsellAccepted : config.upsellButtonText}
-                  onClick={() => setUpsellAccepted(true)}
-                />
-              </div>
-            </div>
-          ) : null}
         </div>
       </div>
     </div>
