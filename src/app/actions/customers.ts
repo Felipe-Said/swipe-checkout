@@ -15,6 +15,8 @@ type AdminCustomerAccount = {
   feeRate: number
   whopKey: string
   keyFrozen: boolean
+  withdrawalsEnabled: boolean
+  messengerEnabled: boolean
   billingCycleDays: number
 }
 
@@ -82,7 +84,7 @@ export async function loadAdminCustomersData(input: { userId: string }) {
     await Promise.all([
       supabaseAdmin
         .from("managed_accounts")
-        .select("id, profile_id, name, fee_rate, whop_key, billing_cycle_days, key_frozen")
+        .select("id, profile_id, name, fee_rate, whop_key, billing_cycle_days, key_frozen, withdrawals_enabled, messenger_enabled")
         .order("created_at", { ascending: false }),
       supabaseAdmin
         .from("profiles")
@@ -145,6 +147,8 @@ export async function loadAdminCustomersData(input: { userId: string }) {
       feeRate: Number(account.fee_rate ?? 0),
       whopKey: account.whop_key ?? "",
       keyFrozen: Boolean(account.key_frozen),
+      withdrawalsEnabled: account.withdrawals_enabled !== false,
+      messengerEnabled: account.messenger_enabled !== false,
       billingCycleDays: account.billing_cycle_days ?? 2,
     }
   })
@@ -215,6 +219,8 @@ export async function adminUpdateCustomerAccount(input: {
     feeRate?: number
     whopKey?: string
     keyFrozen?: boolean
+    withdrawalsEnabled?: boolean
+    messengerEnabled?: boolean
     status?: "Ativa" | "Bloqueada"
   }
 }) {
@@ -236,6 +242,8 @@ export async function adminUpdateCustomerAccount(input: {
   if (input.patch.feeRate !== undefined) managedAccountPatch.fee_rate = input.patch.feeRate
   if (input.patch.whopKey !== undefined) managedAccountPatch.whop_key = input.patch.whopKey
   if (input.patch.keyFrozen !== undefined) managedAccountPatch.key_frozen = input.patch.keyFrozen
+  if (input.patch.withdrawalsEnabled !== undefined) managedAccountPatch.withdrawals_enabled = input.patch.withdrawalsEnabled
+  if (input.patch.messengerEnabled !== undefined) managedAccountPatch.messenger_enabled = input.patch.messengerEnabled
 
   if (Object.keys(managedAccountPatch).length > 0) {
     const { error } = await supabaseAdmin
@@ -337,12 +345,16 @@ export async function loadSupportMessagesForSession(input: {
 
   const { data: account } = await supabaseAdmin
     .from("managed_accounts")
-    .select("id, profile_id")
+    .select("id, profile_id, messenger_enabled")
     .eq("id", input.accountId)
     .maybeSingle()
 
   if (!account || account.profile_id !== input.userId) {
     return { error: "Conta nao encontrada.", messages: [] as SupportMessage[] }
+  }
+
+  if (account.messenger_enabled === false) {
+    return { error: "Messenger desativado para esta conta.", messages: [] as SupportMessage[] }
   }
 
   const { data, error } = await supabaseAdmin
@@ -377,12 +389,16 @@ export async function sendSupportMessageForSession(input: {
 
   const { data: account } = await supabaseAdmin
     .from("managed_accounts")
-    .select("id, profile_id")
+    .select("id, profile_id, messenger_enabled")
     .eq("id", input.accountId)
     .maybeSingle()
 
   if (!account || account.profile_id !== input.userId) {
     return { error: "Conta nao encontrada." }
+  }
+
+  if (account.messenger_enabled === false) {
+    return { error: "Messenger desativado para esta conta." }
   }
 
   const { error } = await supabaseAdmin

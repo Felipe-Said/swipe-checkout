@@ -14,6 +14,8 @@ type DashboardAccount = {
   role: SessionRole
   feeRate: number
   billingCycleDays: number
+  withdrawalsEnabled: boolean
+  messengerEnabled: boolean
 }
 
 type DashboardCheckoutRow = {
@@ -55,6 +57,7 @@ type DashboardSummary = {
   feeRevenueByCurrency: DashboardCurrencyMap
   feeRate: number
   billingCycleDays: number
+  withdrawalsEnabled: boolean
   lastWithdrawalAmountByCurrency: Partial<Record<SupportedCurrency, number>>
   adminRevenueByCurrency: DashboardCurrencyMap
   totalFeeRevenueByCurrency: DashboardCurrencyMap
@@ -130,7 +133,7 @@ export async function loadDashboardForSession(input: {
 
   const accountsResult = await supabaseAdmin
     .from("managed_accounts")
-    .select("id, profile_id, name, fee_rate, billing_cycle_days")
+    .select("id, profile_id, name, fee_rate, billing_cycle_days, withdrawals_enabled, messenger_enabled")
     .order("created_at", { ascending: false })
 
   if (accountsResult.error) {
@@ -166,6 +169,8 @@ export async function loadDashboardForSession(input: {
       role: profile?.role === "admin" ? "admin" : "user",
       feeRate: Number(account.fee_rate ?? 0),
       billingCycleDays: Math.max(Number(account.billing_cycle_days ?? 2), 1),
+      withdrawalsEnabled: account.withdrawals_enabled !== false,
+      messengerEnabled: account.messenger_enabled !== false,
     }
   })
 
@@ -197,8 +202,9 @@ export async function loadDashboardForSession(input: {
         totalOrders: 0,
         revenueByCurrency: emptyCurrencyMap(),
         feeRevenueByCurrency: emptyCurrencyMap(),
-        feeRate: currentAccount?.feeRate ?? 0,
-        billingCycleDays: currentAccount?.billingCycleDays ?? 2,
+        feeRate: currentAccount?.withdrawalsEnabled ? currentAccount.feeRate : 0,
+        billingCycleDays: currentAccount?.withdrawalsEnabled ? currentAccount.billingCycleDays : 0,
+        withdrawalsEnabled: currentAccount?.withdrawalsEnabled !== false,
         lastWithdrawalAmountByCurrency: {},
         adminRevenueByCurrency: emptyCurrencyMap(),
         totalFeeRevenueByCurrency: emptyCurrencyMap(),
@@ -320,7 +326,8 @@ export async function loadDashboardForSession(input: {
     const owner = visibleAccounts.find((account) => account.id === order.accountId)
     if (!owner) continue
 
-    const feeValue = order.amount * (owner.feeRate / 100)
+    const effectiveFeeRate = owner.withdrawalsEnabled ? owner.feeRate : 0
+    const feeValue = order.amount * (effectiveFeeRate / 100)
     feeRevenueByCurrency[order.currency] += feeValue
 
     if (owner.role === "admin") {
@@ -349,15 +356,16 @@ export async function loadDashboardForSession(input: {
       const accountRevenue = revenueByAccount.get(account.id) ?? emptyCurrencyMap()
       const accountFeeRevenue = emptyCurrencyMap()
 
+      const effectiveFeeRate = account.withdrawalsEnabled ? account.feeRate : 0
       for (const currency of Object.keys(accountRevenue) as SupportedCurrency[]) {
-        accountFeeRevenue[currency] = accountRevenue[currency] * (account.feeRate / 100)
+        accountFeeRevenue[currency] = accountRevenue[currency] * (effectiveFeeRate / 100)
       }
 
       return {
         id: account.id,
         name: account.name,
         email: account.email,
-        feeRate: account.feeRate,
+        feeRate: account.withdrawalsEnabled ? account.feeRate : 0,
         feeRevenueByCurrency: accountFeeRevenue,
       }
     })
@@ -368,18 +376,18 @@ export async function loadDashboardForSession(input: {
       ? nonAdminFeeRates.length > 0
         ? Number(
             (
-              nonAdminFeeRates.reduce((sum, account) => sum + account.feeRate, 0) /
+              nonAdminFeeRates.reduce(
+                (sum, account) => sum + (account.withdrawalsEnabled ? account.feeRate : 0),
+                0
+              ) /
               nonAdminFeeRates.length
             ).toFixed(2)
           )
         : 0
-      : currentAccount?.feeRate ?? 0
+      : currentAccount?.withdrawalsEnabled ? currentAccount.feeRate : 0
 
-  const currentAccountRevenueByCurrency = currentAccount
-    ? revenueByAccount.get(currentAccount.id) ?? emptyCurrencyMap()
-    : emptyCurrencyMap()
   const summaryFeeRevenueByCurrency =
-    sessionRole === "admin" ? totalFeeRevenueByCurrency : currentAccountRevenueByCurrency
+    sessionRole === "admin" ? totalFeeRevenueByCurrency : feeRevenueByCurrency
 
   const activeCheckouts: DashboardCheckoutRow[] = visibleCheckoutsRows
     .filter((checkout) => checkout.status === "Ativo")
@@ -395,7 +403,8 @@ export async function loadDashboardForSession(input: {
       revenueByCurrency,
       feeRevenueByCurrency: summaryFeeRevenueByCurrency,
       feeRate: summaryFeeRate,
-      billingCycleDays: currentAccount?.billingCycleDays ?? 2,
+      billingCycleDays: currentAccount?.withdrawalsEnabled ? currentAccount.billingCycleDays : 0,
+      withdrawalsEnabled: currentAccount?.withdrawalsEnabled !== false,
       lastWithdrawalAmountByCurrency: lastPaidWithdrawalAmountByCurrency,
       adminRevenueByCurrency,
       totalFeeRevenueByCurrency,

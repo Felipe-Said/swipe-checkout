@@ -27,6 +27,7 @@ type ManagedAccount = {
   role: "admin" | "user"
   feeRate: number
   billingCycleDays: number
+  withdrawalsEnabled: boolean
 }
 
 type WithdrawalRecord = {
@@ -129,6 +130,13 @@ export default function WithdrawalsPage() {
     .filter((withdrawal) => withdrawal.status === "paid")
     .reduce((sum, withdrawal) => sum + withdrawal.amount, 0)
   const pendingWithdrawals = withdrawals.filter((withdrawal) => withdrawal.status === "pending")
+  const currentAccount = accounts.find((item) => item.id === accountId) ?? null
+
+  React.useEffect(() => {
+    if (sessionRole !== "admin" && currentAccount && !currentAccount.withdrawalsEnabled) {
+      window.location.replace("/app")
+    }
+  }, [currentAccount, sessionRole])
 
   const handleSaveBankAccount = async () => {
     if (!sessionUserId || !accountId) {

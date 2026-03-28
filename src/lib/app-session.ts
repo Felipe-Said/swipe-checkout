@@ -8,6 +8,8 @@ export type AppSession = {
   role: "admin" | "user"
   accountId: string | null
   keyFrozen: boolean
+  withdrawalsEnabled: boolean
+  messengerEnabled: boolean
 }
 
 const APP_SESSION_STORAGE_KEY = "swipe-app-session"
@@ -28,7 +30,11 @@ export function readAppSession(): AppSession | null {
       return null
     }
 
-    return session
+    return {
+      ...session,
+      withdrawalsEnabled: session.withdrawalsEnabled !== false,
+      messengerEnabled: session.messengerEnabled !== false,
+    }
   } catch {
     return null
   }
@@ -70,6 +76,8 @@ export async function getCurrentAppSession(): Promise<AppSession | null> {
         role: demoSession.role,
         accountId: null,
         keyFrozen: false,
+        withdrawalsEnabled: true,
+        messengerEnabled: true,
       }
     }
 
@@ -80,7 +88,7 @@ export async function getCurrentAppSession(): Promise<AppSession | null> {
     supabase.from("profiles").select("name, email, role").eq("id", user.id).single(),
     supabase
       .from("managed_accounts")
-      .select("id, whop_key")
+      .select("id, whop_key, key_frozen, withdrawals_enabled, messenger_enabled")
       .eq("profile_id", user.id)
       .maybeSingle(),
   ])
@@ -91,7 +99,9 @@ export async function getCurrentAppSession(): Promise<AppSession | null> {
     email: profile?.email || user.email || "",
     role: profile?.role === "admin" ? "admin" : "user",
     accountId: managedAccount?.id ?? null,
-    keyFrozen: false,
+    keyFrozen: Boolean(managedAccount?.key_frozen),
+    withdrawalsEnabled: managedAccount?.withdrawals_enabled !== false,
+    messengerEnabled: managedAccount?.messenger_enabled !== false,
   }
 
   writeAppSession(resolvedSession)

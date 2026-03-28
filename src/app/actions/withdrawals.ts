@@ -16,6 +16,7 @@ type WithdrawalAccount = {
   role: SessionRole
   feeRate: number
   billingCycleDays: number
+  withdrawalsEnabled: boolean
 }
 
 type WithdrawalItem = {
@@ -121,7 +122,7 @@ export async function loadWithdrawalsForSession(input: {
 
     const accountsResult = await supabaseAdmin
       .from("managed_accounts")
-      .select("id, profile_id, name, fee_rate, billing_cycle_days")
+      .select("id, profile_id, name, fee_rate, billing_cycle_days, withdrawals_enabled")
       .order("created_at", { ascending: false })
 
     if (accountsResult.error) {
@@ -159,6 +160,7 @@ export async function loadWithdrawalsForSession(input: {
         role: profile?.role === "admin" ? "admin" : "user",
         feeRate: Number(account.fee_rate ?? 0),
         billingCycleDays: Math.max(Number(account.billing_cycle_days ?? 2), 1),
+        withdrawalsEnabled: account.withdrawals_enabled !== false,
       }
     })
 
@@ -166,6 +168,20 @@ export async function loadWithdrawalsForSession(input: {
       role === "admin"
         ? accounts.find((account) => account.id === input.accountId) ?? accounts[0] ?? null
         : accounts.find((account) => account.profileId === input.userId) ?? null
+
+    if (role !== "admin" && currentAccount && !currentAccount.withdrawalsEnabled) {
+      return {
+        role,
+        currentAccountId: currentAccount.id,
+        accounts,
+        bankAccounts: {},
+        withdrawals: [],
+        adminPendingWithdrawals: [],
+        adminPaidTotal: 0,
+        adminCurrentDailyProfit: 0,
+        availableByCurrency: emptyAvailableMap(),
+      }
+    }
 
     const withdrawalsQuery =
       role === "admin"
@@ -303,7 +319,8 @@ export async function loadWithdrawalsForSession(input: {
             if ((status !== "pago" && status !== "paid") || orderDate < startOfToday) {
               return sum
             }
-            return sum + Number(order.amount ?? 0) * (account.feeRate / 100)
+            const effectiveFeeRate = account.withdrawalsEnabled ? account.feeRate : 0
+            return sum + Number(order.amount ?? 0) * (effectiveFeeRate / 100)
           }, 0)
         : 0
 
@@ -340,6 +357,16 @@ export async function saveBankAccountForSession(input: {
 
     if (!account) {
       return { error: "Conta nao encontrada." }
+    }
+
+    const { data: accountConfig } = await supabaseAdmin
+      .from("managed_accounts")
+      .select("withdrawals_enabled")
+      .eq("id", account.id)
+      .maybeSingle()
+
+    if (accountConfig?.withdrawals_enabled === false) {
+      return { error: "Saques desativados para esta conta." }
     }
 
     const { error } = await supabaseAdmin.from("bank_accounts").upsert(
@@ -386,6 +413,16 @@ export async function createWithdrawalForSession(input: {
 
     if (!account) {
       return { error: "Conta nao encontrada." }
+    }
+
+    const { data: accountConfig } = await supabaseAdmin
+      .from("managed_accounts")
+      .select("withdrawals_enabled")
+      .eq("id", account.id)
+      .maybeSingle()
+
+    if (accountConfig?.withdrawals_enabled === false) {
+      return { error: "Saques desativados para esta conta." }
     }
 
     const { data: bankAccount } = await supabaseAdmin

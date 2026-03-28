@@ -39,6 +39,8 @@ export function MainSidebar({
 }: React.ComponentProps<typeof Sidebar> & { session: AppSession }) {
   const { t } = useI18n()
   const shouldShowWhopForUser = session.role === "user" ? !session.keyFrozen : false
+  const shouldShowMessenger = session.role === "admin" || session.messengerEnabled
+  const shouldShowWithdrawals = session.role === "admin" || session.withdrawalsEnabled
 
   const navMain = [
     {
@@ -80,13 +82,15 @@ export function MainSidebar({
             icon: Users,
           },
         ]
-      : [
-          {
-            title: t("nav.messenger"),
-            url: "/app/messenger",
-            icon: MessageSquare,
-          },
-        ]),
+      : shouldShowMessenger
+        ? [
+            {
+              title: t("nav.messenger"),
+              url: "/app/messenger",
+              icon: MessageSquare,
+            },
+          ]
+        : []),
     {
       title: t("nav.domains"),
       url: "/app/domains",
@@ -97,11 +101,15 @@ export function MainSidebar({
       url: "/app/stores",
       icon: Store,
     },
-    {
-      title: t("nav.withdrawals"),
-      url: "/app/withdrawals",
-      icon: Landmark,
-    },
+    ...(shouldShowWithdrawals
+      ? [
+          {
+            title: t("nav.withdrawals"),
+            url: "/app/withdrawals",
+            icon: Landmark,
+          },
+        ]
+      : []),
     {
       title: t("nav.settings"),
       url: "/app/settings",

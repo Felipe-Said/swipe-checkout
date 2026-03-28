@@ -44,12 +44,24 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             role: resolvedProfile.session.role === "admin" ? "admin" : "user",
             accountId: resolvedProfile.session.accountId,
             keyFrozen: resolvedProfile.session.keyFrozen,
+            withdrawalsEnabled: resolvedProfile.session.withdrawalsEnabled,
+            messengerEnabled: resolvedProfile.session.messengerEnabled,
           }
 
           writeAppSession(syncedSession)
 
           if (syncedSession.role !== "admin" && pathname === "/app/customers") {
-            router.replace("/app/messenger")
+            router.replace(syncedSession.messengerEnabled ? "/app/messenger" : "/app")
+            return
+          }
+
+          if (syncedSession.role !== "admin" && !syncedSession.messengerEnabled && pathname === "/app/messenger") {
+            router.replace("/app")
+            return
+          }
+
+          if (syncedSession.role !== "admin" && !syncedSession.withdrawalsEnabled && pathname === "/app/withdrawals") {
+            router.replace("/app")
             return
           }
 
@@ -66,7 +78,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       }
 
       if (nextSession.role !== "admin" && pathname === "/app/customers") {
-        router.replace("/app/messenger")
+        router.replace(nextSession.messengerEnabled ? "/app/messenger" : "/app")
+        return
+      }
+
+      if (nextSession.role !== "admin" && !nextSession.messengerEnabled && pathname === "/app/messenger") {
+        router.replace("/app")
+        return
+      }
+
+      if (nextSession.role !== "admin" && !nextSession.withdrawalsEnabled && pathname === "/app/withdrawals") {
+        router.replace("/app")
         return
       }
 

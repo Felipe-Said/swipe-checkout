@@ -103,6 +103,8 @@ function LoginContent() {
       role: profileResult.session.role === "admin" ? "admin" : "user",
       accountId: profileResult.session.accountId,
       keyFrozen: profileResult.session.keyFrozen,
+      withdrawalsEnabled: profileResult.session.withdrawalsEnabled,
+      messengerEnabled: profileResult.session.messengerEnabled,
     })
 
     await recordLoginEvent({

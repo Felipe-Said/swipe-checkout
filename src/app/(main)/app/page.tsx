@@ -29,6 +29,7 @@ type DashboardSummary = {
   feeRevenueByCurrency: Record<SupportedCurrency, number>
   feeRate: number
   billingCycleDays: number
+  withdrawalsEnabled: boolean
   lastWithdrawalAmountByCurrency: Partial<Record<SupportedCurrency, number>>
   adminRevenueByCurrency: Record<SupportedCurrency, number>
   totalFeeRevenueByCurrency: Record<SupportedCurrency, number>
@@ -129,6 +130,9 @@ export default function DashboardPage() {
     return null
   }
 
+  const shouldShowWithdrawalsCard = sessionRole === "admin" || summary.withdrawalsEnabled
+  const shouldShowFeeCard = sessionRole === "admin" || summary.withdrawalsEnabled
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-1">
@@ -184,24 +188,28 @@ export default function DashboardPage() {
           icon={<Wallet className="h-4 w-4 text-muted-foreground" />}
           detail={`Receita real em ${displayCurrency} no periodo.`}
         />
-        <SummaryCard
-          title={t("dash.fee_rate")}
-          value={`${summary.feeRate.toFixed(2)}%`}
-          icon={<Percent className="h-4 w-4 text-muted-foreground" />}
-          detail={`Total cobrado: ${formatAmount(summaryFeeRevenue, displayCurrency, language)}`}
-        />
+        {shouldShowFeeCard ? (
+          <SummaryCard
+            title={t("dash.fee_rate")}
+            value={`${summary.feeRate.toFixed(2)}%`}
+            icon={<Percent className="h-4 w-4 text-muted-foreground" />}
+            detail={`Total cobrado: ${formatAmount(summaryFeeRevenue, displayCurrency, language)}`}
+          />
+        ) : null}
       </div>
 
-      <Card>
-        <CardContent className="flex flex-col gap-2 p-5 text-sm text-muted-foreground md:flex-row md:items-center md:justify-between">
-          <span>
-            Ciclo de cobranca real: a cada {summary.billingCycleDays} dia{summary.billingCycleDays === 1 ? "" : "s"}
-          </span>
-          <span>
-            {t("dash.last_withdrawal")}: {formatAmount(lastWithdrawalAmount, displayCurrency, language)}
-          </span>
-        </CardContent>
-      </Card>
+      {shouldShowWithdrawalsCard ? (
+        <Card>
+          <CardContent className="flex flex-col gap-2 p-5 text-sm text-muted-foreground md:flex-row md:items-center md:justify-between">
+            <span>
+              Ciclo de cobranca real: a cada {summary.billingCycleDays} dia{summary.billingCycleDays === 1 ? "" : "s"}
+            </span>
+            <span>
+              {t("dash.last_withdrawal")}: {formatAmount(lastWithdrawalAmount, displayCurrency, language)}
+            </span>
+          </CardContent>
+        </Card>
+      ) : null}
 
       {sessionRole === "admin" ? (
         <>

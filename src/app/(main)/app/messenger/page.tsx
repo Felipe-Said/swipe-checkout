@@ -27,11 +27,18 @@ export default function MessengerPage() {
   const [messages, setMessages] = React.useState<SupportChatMessage[]>([])
   const [draft, setDraft] = React.useState("")
   const [imageDraft, setImageDraft] = React.useState("")
+  const [messengerEnabled, setMessengerEnabled] = React.useState(true)
 
   React.useEffect(() => {
     async function loadSession() {
       const session = await getCurrentAppSession()
       if (!session?.accountId) {
+        return
+      }
+
+      if (!session.messengerEnabled) {
+        setMessengerEnabled(false)
+        window.location.replace("/app")
         return
       }
 
@@ -45,6 +52,10 @@ export default function MessengerPage() {
 
     void loadSession()
   }, [])
+
+  if (!messengerEnabled) {
+    return null
+  }
 
   const handleSend = async () => {
     if (!accountId || (!draft.trim() && !imageDraft)) return

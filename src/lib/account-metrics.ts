@@ -20,6 +20,8 @@ export type ManagedAccount = {
   whopWebhookActive?: boolean
   whopEnvironment?: "Produção" | "Sandbox"
   keyFrozen?: boolean
+  withdrawalsEnabled?: boolean
+  messengerEnabled?: boolean
   billingCycleDays?: number
   paymentMode?: "manual"
   settlementStartedAt?: string
@@ -104,6 +106,8 @@ function mapDbToAccount(
     conversionRate: 0,
     revenue: 0,
     keyFrozen: Boolean(db.key_frozen),
+    withdrawalsEnabled: db.withdrawals_enabled !== false,
+    messengerEnabled: db.messenger_enabled !== false,
     estimatedDailyRevenueByCurrency: { BRL: 0, USD: 0, EUR: 0, GBP: 0 }
   }
 }
@@ -124,6 +128,8 @@ function mapAccountToDb(account: Partial<ManagedAccount>): any {
   if (account.whopCompanyId !== undefined) db.whop_company_id = account.whopCompanyId
   if (account.whopEnvironment !== undefined) db.whop_environment = account.whopEnvironment
   if (account.keyFrozen !== undefined) db.key_frozen = account.keyFrozen
+  if (account.withdrawalsEnabled !== undefined) db.withdrawals_enabled = account.withdrawalsEnabled
+  if (account.messengerEnabled !== undefined) db.messenger_enabled = account.messengerEnabled
   return db
 }
 
@@ -138,5 +144,9 @@ export function writeManagedAccounts(accounts: ManagedAccount[]) {
 }
 
 export function calculateFeeValue(account: ManagedAccount) {
+  if (account.withdrawalsEnabled === false) {
+    return 0
+  }
+
   return (account.revenue ?? 0) * ((account.feeRate ?? 0) / 100)
 }

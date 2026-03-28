@@ -28,6 +28,8 @@ async function ensureManagedAccount(userId: string, name: string, role: "admin" 
       name,
       fee_rate: role === "admin" ? 0 : 15,
       billing_cycle_days: 2,
+      withdrawals_enabled: true,
+      messenger_enabled: true,
       payment_mode: "manual",
       settlement_started_at: new Date().toISOString(),
     })
@@ -133,7 +135,7 @@ export async function resolveLoginProfile(userId: string) {
 
   const { data: managedAccount } = await supabaseAdmin
     .from("managed_accounts")
-    .select("id, whop_key")
+    .select("id, whop_key, key_frozen, withdrawals_enabled, messenger_enabled")
     .eq("id", ensuredAccount.accountId)
     .maybeSingle()
 
@@ -145,7 +147,9 @@ export async function resolveLoginProfile(userId: string) {
       email: profile.email,
       role: profile.role === "admin" ? "admin" : "user",
       accountId: managedAccount?.id ?? null,
-      keyFrozen: false,
+      keyFrozen: Boolean(managedAccount?.key_frozen),
+      withdrawalsEnabled: managedAccount?.withdrawals_enabled !== false,
+      messengerEnabled: managedAccount?.messenger_enabled !== false,
       status: profile.status,
     },
   }

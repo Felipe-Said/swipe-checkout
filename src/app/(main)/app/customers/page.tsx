@@ -36,6 +36,8 @@ type AdminCustomerAccount = {
   feeRate: number
   whopKey: string
   keyFrozen: boolean
+  withdrawalsEnabled: boolean
+  messengerEnabled: boolean
   billingCycleDays: number
 }
 
@@ -149,6 +151,8 @@ export default function CustomersAdminPage() {
     feeRate?: number
     whopKey?: string
     keyFrozen?: boolean
+    withdrawalsEnabled?: boolean
+    messengerEnabled?: boolean
     status?: "Ativa" | "Bloqueada"
   }) => {
     if (!selectedAccount || !sessionUserId) return
@@ -429,6 +433,38 @@ export default function CustomersAdminPage() {
                     type="checkbox"
                     checked={selectedAccount.keyFrozen}
                     onChange={(e) => void handleAccountPatch({ keyFrozen: e.target.checked })}
+                    className="h-4 w-4"
+                  />
+                </div>
+                <div className="flex items-center justify-between rounded-lg border p-3">
+                  <div>
+                    <div className="font-medium">Saques habilitados</div>
+                    <div className="text-sm text-muted-foreground">
+                      Se desativado, o usuario deixa de ver Saques e a taxa deixa de ser aplicada.
+                    </div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={selectedAccount.withdrawalsEnabled}
+                    onChange={(e) =>
+                      void handleAccountPatch({ withdrawalsEnabled: e.target.checked })
+                    }
+                    className="h-4 w-4"
+                  />
+                </div>
+                <div className="flex items-center justify-between rounded-lg border p-3">
+                  <div>
+                    <div className="font-medium">Messenger habilitado</div>
+                    <div className="text-sm text-muted-foreground">
+                      Se desativado, o usuario perde acesso ao canal de mensagens.
+                    </div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={selectedAccount.messengerEnabled}
+                    onChange={(e) =>
+                      void handleAccountPatch({ messengerEnabled: e.target.checked })
+                    }
                     className="h-4 w-4"
                   />
                 </div>
