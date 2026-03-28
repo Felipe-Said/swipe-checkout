@@ -3,7 +3,7 @@
 import * as React from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { CreditCard, Loader2, AlertCircle } from "lucide-react"
+import { Loader2, AlertCircle } from "lucide-react"
 import { resolveLoginProfile } from "@/app/auth/actions"
 import { recordLoginEvent } from "@/app/actions/settings"
 import { useSearchParams } from "next/navigation"
@@ -129,8 +129,11 @@ function LoginContent() {
         />
         <div className="absolute inset-0 bg-zinc-950/65" />
         <Link href="/" className="relative z-20 flex w-fit items-center text-lg font-medium">
-          <CreditCard className="mr-2 h-6 w-6" />
-          Swipe
+          <img
+            src="/swipe-logo-white.svg"
+            alt="Swipe"
+            className="h-8 w-auto max-w-[140px]"
+          />
         </Link>
         <div className="relative z-20 mt-auto">
           <blockquote className="space-y-2">
