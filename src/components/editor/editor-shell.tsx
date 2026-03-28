@@ -100,6 +100,7 @@ type EditorConfig = {
   logoSrc: string
   logoWidth: number
   logoDisplayMode: "text" | "image"
+  showCouponField: boolean
   showPolicies: boolean
   refundPolicyMode: PolicyMode
   refundPolicyUrl: string
@@ -194,6 +195,7 @@ const initialConfig: EditorConfig = {
   logoSrc: "",
   logoWidth: 180,
   logoDisplayMode: "text",
+  showCouponField: true,
   showPolicies: true,
   refundPolicyMode: "text",
   refundPolicyUrl: "",
@@ -1517,6 +1519,17 @@ export function EditorShell() {
                 <div className="flex items-center justify-between">
                   <Label htmlFor="show-policies">Exibir Politicas</Label>
                   <input type="checkbox" id="show-policies" checked={config.showPolicies} onChange={(e) => handleUpdate("showPolicies", e.target.checked)} className="h-4 w-4" />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="show-coupon-field">Exibir campo de cupom</Label>
+                  <input
+                    type="checkbox"
+                    id="show-coupon-field"
+                    checked={config.showCouponField}
+                    onChange={(e) => handleUpdate("showCouponField", e.target.checked)}
+                    className="h-4 w-4"
+                  />
                 </div>
 
                 {config.showPolicies ? (

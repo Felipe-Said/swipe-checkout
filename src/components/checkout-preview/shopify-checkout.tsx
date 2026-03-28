@@ -77,6 +77,7 @@ interface CheckoutConfig {
   logoSrc: string
   logoWidth: number
   logoDisplayMode: "text" | "image"
+  showCouponField: boolean
   showPolicies: boolean
   refundPolicyMode: PolicyMode
   refundPolicyUrl: string
@@ -596,7 +597,7 @@ export function ShopifyCheckout({
                   <p className="text-xs uppercase tracking-[0.2em]" style={{ color: config.checkoutMutedColor }}>{copy.orderSummary}</p>
                 </div>
                 <OrderItem config={config} name={productName} price={formattedPrice} variantLabel={variantLabel} imageSrc={productImageSrc} />
-                <CouponBar config={config} copy={copy} />
+                {config.showCouponField ? <CouponBar config={config} copy={copy} /> : null}
                 <SummaryRows copy={copy} config={config} subtotalPrice={formattedPrice} shippingPrice={shippingPrice} totalPrice={formattedTotalPrice} locale={resolvedLocale} currency={effectiveCurrency} />
                 <InfoBanner config={config} text={copy.shippingBeforeConfirm} />
                 {!hasRealWhopPayment ? <BuyButton config={config} label={config.buttonText} /> : null}
@@ -649,7 +650,7 @@ export function ShopifyCheckout({
               <div className="flex-1 border-l p-12 pl-8" style={{ backgroundColor: config.checkoutSurfaceColor, borderColor: config.checkoutMutedColor }}>
                 <div className="max-w-[400px] space-y-6">
                   <OrderItem config={config} name={productName} price={formattedPrice} variantLabel={variantLabel} imageSrc={productImageSrc} />
-                  <CouponBar config={config} copy={copy} />
+                  {config.showCouponField ? <CouponBar config={config} copy={copy} /> : null}
                   <SummaryRows copy={copy} config={config} subtotalPrice={formattedPrice} shippingPrice={shippingPrice} totalPrice={formattedTotalPrice} locale={resolvedLocale} currency={effectiveCurrency} />
                   <InfoBanner config={config} text={copy.shippingNextStep} />
                 </div>
