@@ -1,4 +1,7 @@
+"use client"
+
 import * as React from "react"
+import { useRouter } from "next/navigation"
 import { LandingNavbar } from "@/components/landing/landing-navbar"
 import { LandingHero } from "@/components/landing/landing-hero"
 import { LandingFeatureGrid } from "@/components/landing/landing-feature-grid"
@@ -7,8 +10,41 @@ import { LandingOperationsSection } from "@/components/landing/landing-operation
 import { LandingRolesSection } from "@/components/landing/landing-roles-section"
 import { LandingHowItWorks } from "@/components/landing/landing-how-it-works"
 import { LandingFinalCta } from "@/components/landing/landing-final-cta"
+import { getCurrentAppSession } from "@/lib/app-session"
 
 export default function LandingPage() {
+  const router = useRouter()
+  const [ready, setReady] = React.useState(false)
+
+  React.useEffect(() => {
+    let cancelled = false
+
+    async function loadSession() {
+      const session = await getCurrentAppSession()
+
+      if (cancelled) {
+        return
+      }
+
+      if (session) {
+        router.replace("/app")
+        return
+      }
+
+      setReady(true)
+    }
+
+    loadSession()
+
+    return () => {
+      cancelled = true
+    }
+  }, [router])
+
+  if (!ready) {
+    return null
+  }
+
   return (
     <div className="flex min-h-screen flex-col bg-background selection:bg-primary selection:text-primary-foreground">
       <LandingNavbar />
