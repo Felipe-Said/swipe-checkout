@@ -34,12 +34,12 @@ export function ShopifySetupTutorial() {
             <AccordionContent>
               <ul className="space-y-4 pb-4 pt-2">
                 {[
-                  "Abra o app certo no Dev Dashboard da Shopify.",
-                  "Entre em Settings.",
-                  "Copie o Client ID.",
-                  "Copie o Secret.",
-                  "Tenha o dominio .myshopify.com da loja em maos.",
-                  "Volte ao Swipe com essas 3 informacoes.",
+                  "Envie ao admin o link da sua loja Shopify para que ele gere o link de instalacao do app.",
+                  "Acesse o link de instalacao enviado pelo admin e instale o app na loja correta.",
+                  "Ative o App Embed Swipe Checkout Redirect no tema da Shopify.",
+                  "Ao criar o app da loja para as chaves, marque os escopos read_products e write_products.",
+                  "Entre em Settings no app da loja.",
+                  "Copie o Client ID, o Secret e confirme o dominio .myshopify.com da loja.",
                 ].map((step, i) => (
                   <li key={i} className="flex gap-3 text-sm">
                     <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-primary/20 bg-primary/10 text-[10px] font-bold text-primary">
@@ -64,10 +64,11 @@ export function ShopifySetupTutorial() {
             <AccordionContent>
               <ul className="space-y-4 pb-4 pt-2">
                 {[
+                  "Confirme se o admin ja enviou o link de instalacao do app do tema para a sua loja.",
                   "Informe o dominio .myshopify.com no assistente ao lado.",
                   "De um nome interno para identificar sua loja no Swipe.",
-                  "Cole o Client ID do app Shopify.",
-                  "Cole o Secret do app Shopify.",
+                  "Cole o Client ID do app da loja Shopify.",
+                  "Cole o Secret do app da loja Shopify.",
                   'Clique em "Conectar com Shopify" para validar o acesso.',
                   'Verifique o status de "Pronta" apos a validacao.',
                 ].map((step, i) => (
@@ -94,7 +95,7 @@ export function ShopifySetupTutorial() {
             <AccordionContent>
               <div className="mb-4 rounded-xl border border-dashed border-primary/20 bg-muted/30 p-4">
                 <p className="text-xs italic font-medium text-muted-foreground">
-                  "O Swipe tenta adquirir o access token do app e validar a loja antes de liberar a conexao."
+                  "O app do tema faz o redirecionamento da storefront e o app da loja fornece as chaves usadas para ler produto, variante, moeda e imagem reais."
                 </p>
               </div>
               <ul className="space-y-4 pb-4 pt-2">
@@ -103,8 +104,8 @@ export function ShopifySetupTutorial() {
                   "Confira a leitura real da loja e do catalogo.",
                   'Verifique se o selo "Pronta" aparece no card da loja.',
                   "Escolha o checkout padrao no card da loja e salve o fluxo.",
-                  "Ative o App Embed Swipe Checkout Redirect no tema da Shopify.",
-                  "No App Embed, informe a URL publica do Swipe.",
+                  "Confirme se o App Embed Swipe Checkout Redirect esta ativo no tema da Shopify.",
+                  "No App Embed, informe a URL publica do Swipe enviada pelo admin.",
                   "Se houver qualquer erro, consulte a area de troubleshooting abaixo.",
                 ].map((step, i) => (
                   <li key={i} className="flex gap-3 text-sm">

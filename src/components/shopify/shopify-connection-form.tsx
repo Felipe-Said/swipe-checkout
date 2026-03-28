@@ -46,7 +46,7 @@ export function ShopifyConnectionForm({
             </div>
             <div>
               <CardTitle>Conectar Nova Loja</CardTitle>
-              <CardDescription>Valide o dominio e as credenciais reais do app Shopify.</CardDescription>
+              <CardDescription>Valide o dominio e as credenciais do app da loja Shopify.</CardDescription>
             </div>
           </div>
           <div className="flex items-center gap-2 rounded-full border bg-muted/50 px-3 py-1.5">
@@ -144,7 +144,7 @@ export function ShopifyConnectionForm({
           </div>
 
           <p className="rounded-lg border border-amber-500/20 bg-amber-500/10 p-2 text-[10px] text-amber-500">
-            Use exatamente o Client ID e o Secret que aparecem em Settings no Dev Dashboard do app Shopify.
+            Use o Client ID e o Secret do app da loja Shopify. Para esse app, os escopos obrigatorios sao read_products e write_products.
           </p>
 
           <Button
