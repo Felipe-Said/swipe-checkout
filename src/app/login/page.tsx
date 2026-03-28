@@ -123,7 +123,11 @@ function LoginContent() {
   return (
     <div className="container relative flex h-screen flex-col items-center justify-center md:grid lg:max-w-none lg:grid-cols-2 lg:px-0">
       <div className="relative hidden h-full flex-col bg-muted p-10 text-white dark:border-r lg:flex">
-        <div className="absolute inset-0 bg-zinc-900" />
+        <div
+          className="absolute inset-0 bg-cover bg-center"
+          style={{ backgroundImage: "url('/login-background.png')" }}
+        />
+        <div className="absolute inset-0 bg-zinc-950/65" />
         <Link href="/" className="relative z-20 flex w-fit items-center text-lg font-medium">
           <CreditCard className="mr-2 h-6 w-6" />
           Swipe
