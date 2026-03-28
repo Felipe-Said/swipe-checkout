@@ -21,6 +21,12 @@ type ProjectDomainResponse = {
   }>
 }
 
+type VerificationRecord = {
+  type?: string
+  name: string
+  value: string
+}
+
 function getVercelConfig() {
   const token = process.env.VERCEL_API_TOKEN
   const project = process.env.VERCEL_PROJECT_ID_OR_NAME || process.env.VERCEL_PROJECT_ID
@@ -106,6 +112,7 @@ function mapRealtimeState(input: {
   recordType: ConnectedDomain["recordType"]
   recordName: ConnectedDomain["recordName"]
   recordValue: ConnectedDomain["recordValue"]
+  verificationRecord?: VerificationRecord
   secondaryRecordValue: string
 } {
   const verified = Boolean(input.projectDomain?.verified)
@@ -127,6 +134,9 @@ function mapRealtimeState(input: {
     recordType === "A"
       ? recommendedIPv4 || ""
       : recommendedCname || ""
+  const verificationItem = (input.projectDomain?.verification ?? []).find(
+    (item) => item.type === "TXT" && item.domain && item.value
+  )
 
   let status: DomainStatus = "Verificação pendente"
   if (verified) {
@@ -147,6 +157,13 @@ function mapRealtimeState(input: {
     recordType,
     recordName: toRecordName(input.host, input.mode),
     recordValue,
+    verificationRecord: verificationItem
+      ? {
+          type: "TXT",
+          name: verificationItem.domain ?? "_vercel",
+          value: verificationItem.value ?? "",
+        }
+      : undefined,
     secondaryRecordValue:
       input.mode === "custom_apex" && recordType === "A" ? recommendedCname || "" : "",
   }
@@ -280,6 +297,9 @@ export async function loadDomainsForSession(input: {
           recordType: realtime.recordType,
           recordName: realtime.recordName,
           recordValue: realtime.recordValue,
+          verificationRecordType: realtime.verificationRecord?.type as "TXT" | undefined,
+          verificationRecordName: realtime.verificationRecord?.name,
+          verificationRecordValue: realtime.verificationRecord?.value,
           isPrimary: Boolean(domain.is_primary),
           lastChecked: new Intl.DateTimeFormat("pt-BR", {
             dateStyle: "short",
@@ -350,6 +370,9 @@ export async function addDomainForSession(input: {
         recordType: realtime.recordType,
         recordName: realtime.recordName,
         recordValue: realtime.recordValue,
+        verificationRecordType: realtime.verificationRecord?.type as "TXT" | undefined,
+        verificationRecordName: realtime.verificationRecord?.name,
+        verificationRecordValue: realtime.verificationRecord?.value,
         secondaryRecordType:
           mode === "custom_apex" ? ("CNAME" as const) : undefined,
         secondaryRecordName:

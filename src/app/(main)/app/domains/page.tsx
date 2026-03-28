@@ -30,6 +30,9 @@ export default function DomainsPage() {
     recordType: string
     recordName: string
     recordValue: string
+    verificationRecordType?: string
+    verificationRecordName?: string
+    verificationRecordValue?: string
     secondaryRecordType?: string
     secondaryRecordName?: string
     secondaryRecordValue?: string
@@ -92,6 +95,9 @@ export default function DomainsPage() {
           recordType: result.setup.recordType,
           recordName: result.setup.recordName,
           recordValue: result.setup.recordValue,
+          verificationRecordType: result.setup.verificationRecordType,
+          verificationRecordName: result.setup.verificationRecordName,
+          verificationRecordValue: result.setup.verificationRecordValue,
           secondaryRecordType: result.setup.secondaryRecordType,
           secondaryRecordName: result.setup.secondaryRecordName,
           secondaryRecordValue: result.setup.secondaryRecordValue,
@@ -164,6 +170,9 @@ export default function DomainsPage() {
       recordType: domain.recordType,
       recordName: domain.recordName,
       recordValue: domain.recordValue,
+      verificationRecordType: domain.verificationRecordType,
+      verificationRecordName: domain.verificationRecordName,
+      verificationRecordValue: domain.verificationRecordValue,
       secondaryRecordType: shouldShowSecondaryCname ? "CNAME" : undefined,
       secondaryRecordName: shouldShowSecondaryCname ? "www" : undefined,
       secondaryRecordValue: shouldShowSecondaryCname ? "cname.vercel-dns-0.com" : undefined,
@@ -235,6 +244,9 @@ export default function DomainsPage() {
               type={selectedSetup.recordType}
               name={selectedSetup.recordName}
               value={selectedSetup.recordValue}
+              verificationType={selectedSetup.verificationRecordType}
+              verificationName={selectedSetup.verificationRecordName}
+              verificationValue={selectedSetup.verificationRecordValue}
               secondaryType={selectedSetup.secondaryRecordType}
               secondaryName={selectedSetup.secondaryRecordName}
               secondaryValue={selectedSetup.secondaryRecordValue}

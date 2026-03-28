@@ -12,6 +12,9 @@ interface DomainDNSCardProps {
   type: string
   name: string
   value: string
+  verificationType?: string
+  verificationName?: string
+  verificationValue?: string
   secondaryType?: string
   secondaryName?: string
   secondaryValue?: string
@@ -24,6 +27,9 @@ export function DomainDNSCard({
   type,
   name,
   value,
+  verificationType,
+  verificationName,
+  verificationValue,
   secondaryType,
   secondaryName,
   secondaryValue,
@@ -61,6 +67,63 @@ export function DomainDNSCard({
          </CardDescription>
        </CardHeader>
        <CardContent className="space-y-4">
+          {verificationType && verificationName && verificationValue ? (
+            <div className="rounded-2xl border border-amber-500/10 bg-amber-500/5 p-4">
+              <p className="text-xs font-black uppercase tracking-widest text-amber-500">
+                Verificacao de propriedade exigida pela Vercel
+              </p>
+              <p className="mt-2 text-xs font-medium leading-relaxed text-muted-foreground">
+                Antes do dominio ficar pronto, a Vercel pode exigir este TXT para confirmar a
+                propriedade do dominio. Depois da propagacao, mantenha tambem o apontamento final
+                abaixo.
+              </p>
+              <div className="mt-4 grid gap-4 md:grid-cols-2">
+                <div className="space-y-1.5">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">
+                    Tipo de Registro
+                  </span>
+                  <div className="flex h-10 items-center rounded-xl border border-primary/10 bg-background px-4 font-black text-primary">
+                    {verificationType}
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">
+                    Host / Nome
+                  </span>
+                  <div className="group flex h-10 items-center justify-between rounded-xl border border-primary/10 bg-background px-4">
+                    <span className="truncate font-bold">{verificationName}</span>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 opacity-0 transition-opacity group-hover:opacity-100"
+                      onClick={() => copyToClipboard(verificationName)}
+                    >
+                      <Copy className="h-3 w-3" />
+                    </Button>
+                  </div>
+                </div>
+                <div className="space-y-1.5 md:col-span-2">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">
+                    Valor / Destino
+                  </span>
+                  <div className="group flex h-12 items-center justify-between rounded-xl border border-primary/10 bg-background px-5">
+                    <code className="truncate text-sm font-mono font-bold text-primary">
+                      {verificationValue}
+                    </code>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="ml-2 h-8 w-8"
+                      onClick={() => copyToClipboard(verificationValue)}
+                    >
+                      <Copy className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : null}
+
           <div className="p-5 bg-muted/30 rounded-2xl border border-primary/5 grid gap-6">
              <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">

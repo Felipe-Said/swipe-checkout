@@ -13,11 +13,12 @@ export function DomainTutorial() {
       title: "O que fazer no Swipe",
       icon: <ShieldCheck className="h-4 w-4" />,
       items: [
-        "Informe o domínio ou subdomínio que deseja usar no checkout.",
-        "Escolha o checkout que vai usar esse domínio.",
-        "Adicione o domínio na plataforma clicando no botão principal.",
-        "Copie os valores de apontamento DNS que o Swipe exibirá automaticamente.",
-        "Acompanhe o progresso de verificação e SSL diretamente no painel de listagem.",
+        "Informe o dominio ou subdominio que deseja usar no checkout.",
+        "Escolha o checkout que vai usar esse dominio.",
+        "Adicione o dominio na plataforma clicando no botao principal.",
+        "Copie os registros DNS que o Swipe exibir automaticamente.",
+        "Se a Vercel exigir verificacao de propriedade, copie tambem o TXT exibido antes do apontamento final.",
+        "Acompanhe verificacao e SSL diretamente na lista de dominios.",
       ],
     },
     {
@@ -25,12 +26,12 @@ export function DomainTutorial() {
       title: "O que fazer no seu provedor de DNS",
       icon: <Globe className="h-4 w-4" />,
       items: [
-        "Acesse o painel onde o seu domínio é administrado.",
-          "Crie os registros DNS exatamente com o tipo e valor mostrados pelo Swipe.",
-          "Para domÃ­nio raiz, o Swipe pode exibir um registro A principal e um CNAME complementar.",
-        "Certifique-se de que o host e o valor estão idênticos aos exibidos.",
-        "Salve a alteração e aguarde a propagação conforme o seu provedor.",
-        "Não é necessário fazer nenhuma configuração manual na Vercel.",
+        "Acesse o painel onde o seu dominio e administrado.",
+        "Crie os registros exatamente com o tipo, host e valor mostrados pelo Swipe.",
+        "Quando houver um TXT de verificacao, publique esse TXT tambem para a Vercel confirmar a propriedade do dominio.",
+        "Para dominio raiz, o Swipe pode exibir um registro A principal e um CNAME complementar para www.",
+        "Certifique-se de que o host e o valor estao identicos aos exibidos.",
+        "Salve a alteracao e aguarde a propagacao conforme o seu provedor.",
       ],
     },
     {
@@ -38,11 +39,11 @@ export function DomainTutorial() {
       title: "O que o Swipe faz automaticamente",
       icon: <Zap className="h-4 w-4" />,
       items: [
-        "Provisiona internamente o domínio na infraestrutura da plataforma.",
-        "Monitora a rede para detectar quando o DNS foi propagado.",
-        "Inicia a emissão do certificado SSL seguro assim que o domínio é validado.",
-        "Configura as rotas para que o checkout responda pelo novo endereço.",
-        "Marca o domínio como pronto assim que as etapas técnicas são concluídas.",
+        "Provisiona o dominio no projeto da Vercel da plataforma.",
+        "Consulta a configuracao real do dominio na Vercel para descobrir o apontamento correto.",
+        "Detecta quando o DNS foi propagado e quando a verificacao de propriedade foi concluida.",
+        "Inicia a emissao do SSL assim que o dominio fica valido.",
+        "Marca o dominio como pronto quando a Vercel confirma DNS e SSL.",
       ],
     },
   ]
@@ -52,9 +53,9 @@ export function DomainTutorial() {
       <CardHeader>
         <div className="flex items-center justify-between">
           <div>
-            <CardTitle className="text-xl font-black">Guia de Conexão</CardTitle>
+            <CardTitle className="text-xl font-black">Guia de Conexao</CardTitle>
             <CardDescription>
-              O único passo manual externo é o apontamento DNS no seu provedor.
+              O unico passo externo e publicar os registros DNS exatamente como o Swipe mostrar.
             </CardDescription>
           </div>
           <Button
@@ -62,7 +63,7 @@ export function DomainTutorial() {
             size="sm"
             className="gap-2 font-bold text-primary"
             onClick={() =>
-              window.open("https://vercel.com/docs/concepts/projects/custom-domains", "_blank")
+              window.open("https://vercel.com/docs/concepts/projects/domains/add-a-domain", "_blank")
             }
           >
             Ver Ajuda <ExternalLink className="h-4 w-4" />
@@ -82,9 +83,7 @@ export function DomainTutorial() {
                   <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-primary/20 bg-primary/10 text-primary">
                     {step.icon}
                   </div>
-                  <span className="text-sm font-black uppercase tracking-widest">
-                    {step.title}
-                  </span>
+                  <span className="text-sm font-black uppercase tracking-widest">{step.title}</span>
                 </div>
               </AccordionTrigger>
               <AccordionContent className="pb-6">

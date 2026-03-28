@@ -16,6 +16,9 @@ export type ConnectedDomain = {
   recordType: "A" | "CNAME" | "NS" | "TXT"
   recordName: string
   recordValue: string
+  verificationRecordType?: "TXT"
+  verificationRecordName?: string
+  verificationRecordValue?: string
   isPrimary: boolean
   lastChecked: string
 }
