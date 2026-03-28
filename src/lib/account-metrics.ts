@@ -103,7 +103,7 @@ function mapDbToAccount(
     orders: 0,
     conversionRate: 0,
     revenue: 0,
-    keyFrozen: false,
+    keyFrozen: Boolean(db.key_frozen),
     estimatedDailyRevenueByCurrency: { BRL: 0, USD: 0, EUR: 0, GBP: 0 }
   }
 }
@@ -123,6 +123,7 @@ function mapAccountToDb(account: Partial<ManagedAccount>): any {
   if (account.whopWebhookActive !== undefined) db.whop_webhook_active = account.whopWebhookActive
   if (account.whopCompanyId !== undefined) db.whop_company_id = account.whopCompanyId
   if (account.whopEnvironment !== undefined) db.whop_environment = account.whopEnvironment
+  if (account.keyFrozen !== undefined) db.key_frozen = account.keyFrozen
   return db
 }
 

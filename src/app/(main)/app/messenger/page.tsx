@@ -3,16 +3,24 @@
 import * as React from "react"
 import { ImagePlus, Send, Shield } from "lucide-react"
 
+import {
+  loadSupportMessagesForSession,
+  sendSupportMessageForSession,
+} from "@/app/actions/customers"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { getCurrentAppSession } from "@/lib/app-session"
-import {
-  appendSupportChatMessage,
-  readSupportChatMessages,
-  type SupportChatMessage,
-} from "@/lib/support-chat-data"
+
+type SupportChatMessage = {
+  id: string
+  accountId: string
+  from: "admin" | "user"
+  text: string
+  imageSrc: string
+  createdAt: string
+}
 
 export default function MessengerPage() {
   const [accountId, setAccountId] = React.useState("")
@@ -28,24 +36,36 @@ export default function MessengerPage() {
       }
 
       setAccountId(session.accountId)
-      setMessages(readSupportChatMessages())
+      const result = await loadSupportMessagesForSession({
+        userId: session.userId,
+        accountId: session.accountId,
+      })
+      setMessages((result.messages ?? []) as SupportChatMessage[])
     }
 
-    loadSession()
+    void loadSession()
   }, [])
 
-  const handleSend = () => {
+  const handleSend = async () => {
     if (!accountId || (!draft.trim() && !imageDraft)) return
 
-    const nextMessages = appendSupportChatMessage({
-      id: `${Date.now()}`,
+    const session = await getCurrentAppSession()
+    if (!session?.userId) return
+
+    const result = await sendSupportMessageForSession({
+      userId: session.userId,
       accountId,
-      from: "user",
       text: draft.trim(),
       imageSrc: imageDraft,
-      createdAt: new Date().toISOString(),
     })
-    setMessages(nextMessages)
+
+    if (result.error) return
+
+    const nextMessages = await loadSupportMessagesForSession({
+      userId: session.userId,
+      accountId,
+    })
+    setMessages((nextMessages.messages ?? []) as SupportChatMessage[])
     setDraft("")
     setImageDraft("")
   }
@@ -117,7 +137,7 @@ export default function MessengerPage() {
                   <ImagePlus className="h-4 w-4" />
                 </Button>
               </div>
-              <Button onClick={handleSend}>
+              <Button onClick={() => void handleSend()}>
                 <Send className="mr-2 h-4 w-4" />
                 Enviar mensagem
               </Button>

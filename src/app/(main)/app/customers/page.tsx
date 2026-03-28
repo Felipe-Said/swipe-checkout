@@ -3,122 +3,163 @@
 import * as React from "react"
 import { Ban, Check, ImagePlus, KeyRound, MessageSquare, Percent, ShieldCheck, Users } from "lucide-react"
 
+import {
+  adminHandleSignup,
+  adminMarkWithdrawalPaid,
+  adminSendSupportMessage,
+  adminUpdateCustomerAccount,
+  loadAdminCustomersData,
+} from "@/app/actions/customers"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { getCurrentAppSession } from "@/lib/app-session"
+import { calculateFeeValue } from "@/lib/account-metrics"
 import {
-  calculateFeeValue,
-  getManagedAccounts,
-  updateManagedAccount,
-  type ManagedAccount,
-} from "@/lib/account-metrics"
-import {
-  appendSupportChatMessage,
-  readSupportChatMessages,
-  type SupportChatMessage,
-} from "@/lib/support-chat-data"
-import {
-  getBankAccountsByAccount,
   getBankFieldDefinitions,
-  getWithdrawalsByAccount,
-  markWithdrawalAsPaid,
   withdrawalCurrencyOptions,
-  type WithdrawalRecord,
+  type SupportedWithdrawalCurrency,
 } from "@/lib/withdrawals-data"
 
-const pendingSignups = [
-  { id: "p1", name: "North Commerce", email: "hello@north.co" },
-  { id: "p2", name: "Pixel Market", email: "contact@pixel.market" },
-]
+type AdminCustomerAccount = {
+  id: string
+  profileId: string | null
+  name: string
+  email: string
+  role: "admin" | "user"
+  status: "Ativa" | "Bloqueada"
+  orders: number
+  conversionRate: number
+  revenue: number
+  feeRate: number
+  whopKey: string
+  keyFrozen: boolean
+  billingCycleDays: number
+}
+
+type SupportChatMessage = {
+  id: string
+  accountId: string
+  from: "admin" | "user"
+  text: string
+  imageSrc: string
+  createdAt: string
+}
+
+type WithdrawalRecord = {
+  id: string
+  accountId: string
+  currency: SupportedWithdrawalCurrency
+  amount: number
+  requestedAt: string
+  paidAt: string | null
+  status: "pending" | "paid"
+}
+
+type PendingSignup = {
+  id: string
+  name: string
+  email: string
+}
+
+type BankAccountsMap = Record<
+  string,
+  Partial<
+    Record<
+      SupportedWithdrawalCurrency,
+      {
+        holderName: string
+        document: string
+        bankName: string
+        agency: string
+        accountNumber: string
+        pixKey: string
+      }
+    >
+  >
+>
 
 export default function CustomersAdminPage() {
-  const [accounts, setAccounts] = React.useState<ManagedAccount[]>([])
+  const [accounts, setAccounts] = React.useState<AdminCustomerAccount[]>([])
   const [selectedAccountId, setSelectedAccountId] = React.useState<string>("")
   const [chatDraft, setChatDraft] = React.useState("")
   const [chatImage, setChatImage] = React.useState("")
-  const [signupQueue, setSignupQueue] = React.useState(pendingSignups)
+  const [signupQueue, setSignupQueue] = React.useState<PendingSignup[]>([])
   const [messages, setMessages] = React.useState<SupportChatMessage[]>([])
   const [withdrawals, setWithdrawals] = React.useState<WithdrawalRecord[]>([])
+  const [bankAccounts, setBankAccounts] = React.useState<BankAccountsMap>({})
   const [loaded, setLoaded] = React.useState(false)
+  const [sessionUserId, setSessionUserId] = React.useState("")
+
+  const loadData = React.useCallback(async (userId: string) => {
+    const result = await loadAdminCustomersData({ userId })
+    if (result.error) {
+      setLoaded(true)
+      return
+    }
+
+    const nextAccounts = result.accounts ?? []
+    const nextMessages = result.messages ?? []
+    const nextWithdrawals = result.withdrawals ?? []
+    const nextBankAccounts = result.bankAccounts ?? {}
+    const nextPendingSignups = result.pendingSignups ?? []
+
+    setAccounts(nextAccounts)
+    setSelectedAccountId((current) =>
+      current && nextAccounts.some((account) => account.id === current)
+        ? current
+        : (nextAccounts[0]?.id ?? "")
+    )
+    setMessages(nextMessages)
+    setWithdrawals(nextWithdrawals)
+    setBankAccounts(nextBankAccounts)
+    setSignupQueue(nextPendingSignups)
+    setLoaded(true)
+  }, [])
 
   React.useEffect(() => {
     let cancelled = false
 
     async function load() {
       const session = await getCurrentAppSession()
-      let loadedAccounts = await getManagedAccounts()
-
-      if (loadedAccounts.length === 0 && session) {
-        loadedAccounts = [
-          {
-            id: session.accountId ?? session.userId,
-            profile_id: session.userId,
-            name: session.name,
-            email: session.email,
-            role: session.role,
-            status: "Ativa",
-            orders: 0,
-            conversionRate: 0,
-            revenue: 0,
-            feeRate: session.role === "admin" ? 0 : 15,
-            keyFrozen: session.keyFrozen,
-            billingCycleDays: 2,
-            paymentMode: "manual",
-            settlementStartedAt: new Date().toISOString(),
-            estimatedDailyRevenueByCurrency: { BRL: 0, USD: 0, EUR: 0, GBP: 0 },
-          },
-        ]
+      if (!session?.userId) {
+        if (!cancelled) {
+          setLoaded(true)
+        }
+        return
       }
 
-      if (!cancelled) {
-        setAccounts(loadedAccounts)
-        setSelectedAccountId(loadedAccounts[0]?.id ?? "")
-        setMessages(readSupportChatMessages())
-        setLoaded(true)
-      }
+      setSessionUserId(session.userId)
+      await loadData(session.userId)
     }
 
-    load()
+    void load()
 
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [loadData])
 
   const selectedAccount =
     accounts.find((account) => account.id === selectedAccountId) ?? accounts[0]
 
-  React.useEffect(() => {
-    if (!selectedAccountId) {
-      return
-    }
-    setWithdrawals(getWithdrawalsByAccount(selectedAccountId))
-  }, [selectedAccountId])
+  const handleAccountPatch = async (patch: {
+    feeRate?: number
+    whopKey?: string
+    keyFrozen?: boolean
+    status?: "Ativa" | "Bloqueada"
+  }) => {
+    if (!selectedAccount || !sessionUserId) return
 
-  const updateAccountInDb = async (id: string, patch: Partial<ManagedAccount>) => {
-    const account = accounts.find(a => a.id === id)
-    if (!account) return
+    await adminUpdateCustomerAccount({
+      userId: sessionUserId,
+      accountId: selectedAccount.id,
+      patch,
+    })
 
-    const next = { ...account, ...patch }
-    setAccounts(prev => prev.map(a => a.id === id ? next : a))
-    
-    try {
-      await updateManagedAccount(id, next)
-    } catch (error) {
-      console.error("Failed to update account:", error)
-    }
-  }
-
-  const handleDecision = (id: string) => {
-    setSignupQueue((current) => current.filter((item) => item.id !== id))
-  }
-
-  const handleAccountPatch = async (patch: Partial<ManagedAccount>) => {
-    if (!selectedAccount) return
-    await updateAccountInDb(selectedAccount.id, patch)
+    await loadData(sessionUserId)
   }
 
   const handleChatImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -136,28 +177,44 @@ export default function CustomersAdminPage() {
     reader.readAsDataURL(file)
   }
 
-  const handleSendMessage = () => {
-    if (!selectedAccount || (!chatDraft.trim() && !chatImage)) {
+  const handleSendMessage = async () => {
+    if (!selectedAccount || !sessionUserId || (!chatDraft.trim() && !chatImage)) {
       return
     }
 
-    const nextMessages = appendSupportChatMessage({
-      id: `msg-${Date.now()}`,
+    await adminSendSupportMessage({
+      userId: sessionUserId,
       accountId: selectedAccount.id,
-      from: "admin",
       text: chatDraft.trim(),
       imageSrc: chatImage,
-      createdAt: new Date().toISOString(),
     })
 
-    setMessages(nextMessages)
     setChatDraft("")
     setChatImage("")
+    await loadData(sessionUserId)
   }
 
-  const handleMarkWithdrawalPaid = (withdrawalId: string) => {
-    const nextStore = markWithdrawalAsPaid(withdrawalId)
-    setWithdrawals(nextStore.withdrawals.filter((withdrawal) => withdrawal.accountId === selectedAccountId))
+  const handleMarkWithdrawalPaid = async (withdrawalId: string) => {
+    if (!sessionUserId) return
+
+    await adminMarkWithdrawalPaid({
+      userId: sessionUserId,
+      withdrawalId,
+    })
+
+    await loadData(sessionUserId)
+  }
+
+  const handleDecision = async (profileId: string, nextStatus: "approved" | "rejected") => {
+    if (!sessionUserId) return
+
+    await adminHandleSignup({
+      userId: sessionUserId,
+      profileId,
+      nextStatus,
+    })
+
+    await loadData(sessionUserId)
   }
 
   if (!loaded) {
@@ -187,9 +244,13 @@ export default function CustomersAdminPage() {
   }
 
   const accountMessages = messages.filter((message) => message.accountId === selectedAccount.id)
-  const bankAccounts = getBankAccountsByAccount(selectedAccount.id)
-  const pendingWithdrawals = withdrawals.filter((withdrawal) => withdrawal.status === "pending")
-  const paidWithdrawals = withdrawals.filter((withdrawal) => withdrawal.status === "paid")
+  const accountBankAccounts = bankAccounts[selectedAccount.id] ?? {}
+  const pendingWithdrawals = withdrawals.filter(
+    (withdrawal) => withdrawal.accountId === selectedAccount.id && withdrawal.status === "pending"
+  )
+  const paidWithdrawals = withdrawals.filter(
+    (withdrawal) => withdrawal.accountId === selectedAccount.id && withdrawal.status === "paid"
+  )
 
   return (
     <div className="flex flex-col gap-6">
@@ -226,10 +287,10 @@ export default function CustomersAdminPage() {
 
         <div className="grid gap-6">
           <div className="grid gap-4 md:grid-cols-4">
-            <MetricCard title="Pedidos" value={(selectedAccount.orders || 0).toString()} icon={<Users className="h-4 w-4" />} />
-            <MetricCard title="Conversao" value={`${(selectedAccount.conversionRate || 0).toFixed(1)}%`} icon={<ShieldCheck className="h-4 w-4" />} />
-            <MetricCard title="Receita" value={formatCurrency(selectedAccount.revenue || 0)} icon={<KeyRound className="h-4 w-4" />} />
-            <MetricCard title="Taxa" value={`${(selectedAccount.feeRate || 0).toFixed(2)}%`} icon={<Percent className="h-4 w-4" />} />
+            <MetricCard title="Pedidos" value={selectedAccount.orders.toString()} icon={<Users className="h-4 w-4" />} />
+            <MetricCard title="Conversao" value={`${selectedAccount.conversionRate.toFixed(1)}%`} icon={<ShieldCheck className="h-4 w-4" />} />
+            <MetricCard title="Receita" value={formatCurrency(selectedAccount.revenue)} icon={<KeyRound className="h-4 w-4" />} />
+            <MetricCard title="Taxa" value={`${selectedAccount.feeRate.toFixed(2)}%`} icon={<Percent className="h-4 w-4" />} />
           </div>
 
           <Card>
@@ -248,7 +309,7 @@ export default function CustomersAdminPage() {
                   step="0.01"
                   value={selectedAccount.feeRate}
                   onChange={(e) =>
-                    handleAccountPatch({ feeRate: Number(e.target.value || 0) })
+                    void handleAccountPatch({ feeRate: Number(e.target.value || 0) })
                   }
                 />
               </div>
@@ -271,7 +332,7 @@ export default function CustomersAdminPage() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-3 rounded-xl border p-4">
-                  {accountMessages.map((message) => (
+                  {accountMessages.length > 0 ? accountMessages.map((message) => (
                     <div
                       key={message.id}
                       className={`max-w-[85%] rounded-xl px-4 py-3 text-sm ${
@@ -289,7 +350,11 @@ export default function CustomersAdminPage() {
                         />
                       ) : null}
                     </div>
-                  ))}
+                  )) : (
+                    <div className="text-sm text-muted-foreground">
+                      Nenhuma mensagem real para esta conta ainda.
+                    </div>
+                  )}
                 </div>
                 <Textarea
                   rows={4}
@@ -303,7 +368,7 @@ export default function CustomersAdminPage() {
                     <ImagePlus className="h-4 w-4" />
                   </Button>
                 </div>
-                <Button onClick={handleSendMessage}>
+                <Button onClick={() => void handleSendMessage()}>
                   <MessageSquare className="mr-2 h-4 w-4" />
                   Enviar resposta
                 </Button>
@@ -321,14 +386,14 @@ export default function CustomersAdminPage() {
                 <div className="flex gap-2">
                   <Button
                     variant="outline"
-                    onClick={() => handleAccountPatch({ status: "Bloqueada" })}
+                    onClick={() => void handleAccountPatch({ status: "Bloqueada" })}
                   >
                     <Ban className="mr-2 h-4 w-4" />
                     Bloquear
                   </Button>
                   <Button
                     variant="outline"
-                    onClick={() => handleAccountPatch({ status: "Ativa" })}
+                    onClick={() => void handleAccountPatch({ status: "Ativa" })}
                   >
                     <Check className="mr-2 h-4 w-4" />
                     Desbloquear
@@ -338,7 +403,7 @@ export default function CustomersAdminPage() {
                   <Label>Whop API Key</Label>
                   <Input
                     value={selectedAccount.whopKey}
-                    onChange={(e) => handleAccountPatch({ whopKey: e.target.value })}
+                    onChange={(e) => void handleAccountPatch({ whopKey: e.target.value })}
                   />
                 </div>
                 <div className="rounded-lg border p-3">
@@ -363,7 +428,7 @@ export default function CustomersAdminPage() {
                   <input
                     type="checkbox"
                     checked={selectedAccount.keyFrozen}
-                    onChange={(e) => handleAccountPatch({ keyFrozen: e.target.checked })}
+                    onChange={(e) => void handleAccountPatch({ keyFrozen: e.target.checked })}
                     className="h-4 w-4"
                   />
                 </div>
@@ -381,7 +446,7 @@ export default function CustomersAdminPage() {
               </CardHeader>
               <CardContent className="space-y-3 text-sm">
                 {withdrawalCurrencyOptions.map((option) => {
-                  const bankAccount = bankAccounts[option.value]
+                  const bankAccount = accountBankAccounts[option.value]
                   const fieldDefinitions = getBankFieldDefinitions(option.value)
 
                   return (
@@ -419,7 +484,7 @@ export default function CustomersAdminPage() {
                             {(withdrawal.currency ?? "BRL")} • Solicitado em {formatDate(withdrawal.requestedAt)}
                           </div>
                         </div>
-                        <Button size="sm" onClick={() => handleMarkWithdrawalPaid(withdrawal.id)}>
+                        <Button size="sm" onClick={() => void handleMarkWithdrawalPaid(withdrawal.id)}>
                           Marcar saque pago
                         </Button>
                       </div>
@@ -453,22 +518,26 @@ export default function CustomersAdminPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
-              {signupQueue.map((signup) => (
+              {signupQueue.length > 0 ? signupQueue.map((signup) => (
                 <div key={signup.id} className="flex items-center justify-between rounded-xl border p-4">
                   <div>
                     <div className="font-medium">{signup.name}</div>
                     <div className="text-sm text-muted-foreground">{signup.email}</div>
                   </div>
                   <div className="flex gap-2">
-                    <Button size="sm" onClick={() => handleDecision(signup.id)}>
+                    <Button size="sm" onClick={() => void handleDecision(signup.id, "approved")}>
                       Aprovar
                     </Button>
-                    <Button size="sm" variant="outline" onClick={() => handleDecision(signup.id)}>
+                    <Button size="sm" variant="outline" onClick={() => void handleDecision(signup.id, "rejected")}>
                       Negar
                     </Button>
                   </div>
                 </div>
-              ))}
+              )) : (
+                <div className="rounded-xl border p-4 text-sm text-muted-foreground">
+                  Nenhum cadastro pendente no momento.
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -508,7 +577,7 @@ function MetricCard({
   )
 }
 
-function formatCurrency(value: number, currency: "BRL" | "USD" | "EUR" | "GBP" = "BRL") {
+function formatCurrency(value: number, currency: SupportedWithdrawalCurrency = "BRL") {
   const locale = currency === "BRL" ? "pt-BR" : currency === "USD" ? "en-US" : currency === "GBP" ? "en-GB" : "de-DE"
 
   return new Intl.NumberFormat(locale, {
