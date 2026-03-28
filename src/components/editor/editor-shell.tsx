@@ -23,6 +23,7 @@ import {
   loadWhopAccountForSession,
   saveCheckoutFromEditor,
 } from "@/app/actions/whop"
+import { loadDomainsForSession } from "@/app/actions/domains"
 import {
   loadShopifyStoreOptionsForSession,
   loadShopifyStorePreviewForSession,
@@ -38,7 +39,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { ShopifyCheckout } from "../checkout-preview/shopify-checkout"
 import { getCurrentAppSession } from "@/lib/app-session"
 import { getManagedAccounts, type ManagedAccount } from "@/lib/account-metrics"
-import { getConnectedDomains, type ConnectedDomain } from "@/lib/domain-data"
+import { type ConnectedDomain } from "@/lib/domain-data"
 import { readShippingMethods, type ShippingMethod } from "@/lib/shipping-data"
 import { type ConnectedShopifyStore } from "@/lib/shopify-store-data"
 
@@ -418,9 +419,13 @@ export function EditorShell() {
         availableAccounts.find(
           (account) => account.profile_id === session?.userId || account.id === session?.accountId
         )
-      const availableDomains = session?.accountId
-        ? await getConnectedDomains(session.accountId)
-        : []
+      const availableDomainsResult = session?.accountId && session?.userId
+        ? await loadDomainsForSession({
+            accountId: session.accountId,
+            userId: session.userId,
+          })
+        : { domains: [] as ConnectedDomain[] }
+      const availableDomains = availableDomainsResult.domains ?? []
       const availableStoresResult = session?.accountId && session?.userId
         ? await loadShopifyStoreOptionsForSession({
             accountId: session.accountId,

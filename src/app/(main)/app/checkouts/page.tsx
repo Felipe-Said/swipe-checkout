@@ -17,8 +17,9 @@ import {
 import Link from "next/link"
 
 import { deleteCheckoutForAccount, loadCheckoutsForAccount } from "@/app/actions/whop"
+import { loadDomainsForSession } from "@/app/actions/domains"
 import { getCurrentAppSession } from "@/lib/app-session"
-import { getConnectedDomains, type ConnectedDomain } from "@/lib/domain-data"
+import { type ConnectedDomain } from "@/lib/domain-data"
 import { supabase } from "@/lib/supabase"
 import { readPushcutConfigs, writePushcutConfigs, type PushcutCheckoutConfig } from "@/lib/pushcut-data"
 import { readCampaignPerformance, readPixelConfigs, writePixelConfigs, type CheckoutPixelConfig } from "@/lib/pixels-data"
@@ -93,14 +94,19 @@ export default function CheckoutsPage() {
       }
 
       const [domainsResult, storesResult] = await Promise.all([
-        getConnectedDomains(session.accountId),
+        loadDomainsForSession({
+          accountId: session.accountId,
+          userId: session.userId,
+        }),
         loadShopifyStoresForSession({
           accountId: session.accountId,
           userId: session.userId,
         }),
       ])
 
-      setDomains(domainsResult)
+      if (!domainsResult.error) {
+        setDomains(domainsResult.domains)
+      }
       if (!storesResult.error) {
         setStores(storesResult.stores)
       }
