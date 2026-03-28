@@ -23,6 +23,15 @@ type ShopifyStorePreview = {
   imageSrc?: string
 }
 
+type ShopifyAdminProductPreviewResult = {
+  storeName: string
+  currency: ShopifyStorePreviewCurrency
+  productName: string
+  variantLabel: string
+  amount: number
+  imageSrc?: string
+} | null
+
 function normalizeShopifyResourceId(value?: string | null) {
   if (!value) return ""
   const trimmed = String(value).trim()
@@ -55,6 +64,287 @@ function resolveProductImage(
   }
 
   return product?.image?.src ?? images.find((image) => image?.src)?.src ?? undefined
+}
+
+async function fetchShopifyAdminGraphQL<TData>(input: {
+  shopDomain: string
+  accessToken: string
+  query: string
+  variables?: Record<string, unknown>
+}) {
+  const response = await fetch(
+    `https://${input.shopDomain}/admin/api/${SHOPIFY_STOREFRONT_API_VERSION}/graphql.json`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Shopify-Access-Token": input.accessToken,
+      },
+      body: JSON.stringify({
+        query: input.query,
+        variables: input.variables ?? {},
+      }),
+      cache: "no-store",
+    }
+  )
+
+  const payload = await response.json().catch(() => null)
+  const errors = Array.isArray(payload?.errors) ? payload.errors : []
+
+  if (!response.ok || errors.length > 0) {
+    throw new Error(
+      errors[0]?.message ||
+        payload?.message ||
+        "Nao foi possivel consultar os dados da Shopify."
+    )
+  }
+
+  return (payload?.data ?? null) as TData | null
+}
+
+function parseShopifyMoneyAmount(value?: string | null) {
+  const amount = Number.parseFloat(value ?? "")
+  return Number.isFinite(amount) ? amount : 0
+}
+
+function mapGraphQLPreview(input: {
+  storeName?: string | null
+  currency?: string | null
+  productName?: string | null
+  variantLabel?: string | null
+  amount?: string | null
+  imageSrc?: string | null
+}): ShopifyStorePreview | null {
+  if (!input.productName) {
+    return null
+  }
+
+  return {
+    storeName: input.storeName || "Loja Shopify",
+    currency: normalizeStoreCurrency(input.currency),
+    productName: input.productName,
+    variantLabel:
+      input.variantLabel && input.variantLabel !== "Default Title"
+        ? input.variantLabel
+        : "Variante padrao",
+    amount: parseShopifyMoneyAmount(input.amount),
+    imageSrc: input.imageSrc ?? undefined,
+  }
+}
+
+async function fetchShopifyGraphQLStorePreview(input: {
+  shopDomain: string
+  accessToken: string
+}) {
+  const data = await fetchShopifyAdminGraphQL<{
+    shop?: { name?: string | null; currencyCode?: string | null } | null
+    products?: {
+      nodes?: Array<{
+        title?: string | null
+        featuredImage?: { url?: string | null } | null
+        variants?: {
+          nodes?: Array<{
+            title?: string | null
+            price?: string | null
+            image?: { url?: string | null } | null
+          }>
+        } | null
+      }>
+    } | null
+  }>({
+    shopDomain: input.shopDomain,
+    accessToken: input.accessToken,
+    query: `
+      query SwipeStorePreview {
+        shop {
+          name
+          currencyCode
+        }
+        products(first: 10, query: "status:active") {
+          nodes {
+            title
+            featuredImage {
+              url
+            }
+            variants(first: 10) {
+              nodes {
+                title
+                price
+                image {
+                  url
+                }
+              }
+            }
+          }
+        }
+      }
+    `,
+  })
+
+  const products = Array.isArray(data?.products?.nodes) ? data!.products!.nodes! : []
+  const product = products.find(
+    (item) =>
+      item?.title &&
+      Array.isArray(item?.variants?.nodes) &&
+      item.variants.nodes.some((variant) => parseShopifyMoneyAmount(variant?.price) >= 0)
+  )
+
+  if (!product) {
+    return null
+  }
+
+  const variant =
+    product.variants?.nodes?.find((item) => parseShopifyMoneyAmount(item?.price) >= 0) ?? null
+
+  return mapGraphQLPreview({
+    storeName: data?.shop?.name,
+    currency: data?.shop?.currencyCode,
+    productName: product.title,
+    variantLabel: variant?.title,
+    amount: variant?.price,
+    imageSrc: variant?.image?.url ?? product.featuredImage?.url ?? null,
+  })
+}
+
+async function fetchShopifyGraphQLVariantPreview(input: {
+  shopDomain: string
+  accessToken: string
+  variantId: string
+}) {
+  const gid = `gid://shopify/ProductVariant/${normalizeShopifyResourceId(input.variantId)}`
+  const data = await fetchShopifyAdminGraphQL<{
+    shop?: { name?: string | null; currencyCode?: string | null } | null
+    productVariant?: {
+      title?: string | null
+      price?: string | null
+      image?: { url?: string | null } | null
+      product?: {
+        title?: string | null
+        featuredImage?: { url?: string | null } | null
+      } | null
+    } | null
+  }>({
+    shopDomain: input.shopDomain,
+    accessToken: input.accessToken,
+    query: `
+      query SwipeVariantPreview($id: ID!) {
+        shop {
+          name
+          currencyCode
+        }
+        productVariant(id: $id) {
+          title
+          price
+          image {
+            url
+          }
+          product {
+            title
+            featuredImage {
+              url
+            }
+          }
+        }
+      }
+    `,
+    variables: {
+      id: gid,
+    },
+  })
+
+  if (!data?.productVariant?.product?.title) {
+    return null
+  }
+
+  return mapGraphQLPreview({
+    storeName: data?.shop?.name,
+    currency: data?.shop?.currencyCode,
+    productName: data?.productVariant?.product?.title,
+    variantLabel: data?.productVariant?.title,
+    amount: data?.productVariant?.price,
+    imageSrc:
+      data?.productVariant?.image?.url ??
+      data?.productVariant?.product?.featuredImage?.url ??
+      null,
+  })
+}
+
+async function fetchShopifyGraphQLProductPreview(input: {
+  shopDomain: string
+  accessToken: string
+  productId: string
+  variantId?: string
+}) {
+  const gid = `gid://shopify/Product/${normalizeShopifyResourceId(input.productId)}`
+  const normalizedVariantId = normalizeShopifyResourceId(input.variantId)
+  const data = await fetchShopifyAdminGraphQL<{
+    shop?: { name?: string | null; currencyCode?: string | null } | null
+    product?: {
+      title?: string | null
+      featuredImage?: { url?: string | null } | null
+      variants?: {
+        nodes?: Array<{
+          legacyResourceId?: string | null
+          title?: string | null
+          price?: string | null
+          image?: { url?: string | null } | null
+        }>
+      } | null
+    } | null
+  }>({
+    shopDomain: input.shopDomain,
+    accessToken: input.accessToken,
+    query: `
+      query SwipeProductPreview($id: ID!) {
+        shop {
+          name
+          currencyCode
+        }
+        product(id: $id) {
+          title
+          featuredImage {
+            url
+          }
+          variants(first: 50) {
+            nodes {
+              legacyResourceId
+              title
+              price
+              image {
+                url
+              }
+            }
+          }
+        }
+      }
+    `,
+    variables: {
+      id: gid,
+    },
+  })
+
+  if (!data?.product?.title) {
+    return null
+  }
+
+  const variants = Array.isArray(data?.product?.variants?.nodes) ? data!.product!.variants!.nodes! : []
+  const selectedVariant =
+    variants.find(
+      (item) =>
+        String(item?.legacyResourceId ?? "") === normalizedVariantId &&
+        parseShopifyMoneyAmount(item?.price) >= 0
+    ) ??
+    variants.find((item) => parseShopifyMoneyAmount(item?.price) >= 0) ??
+    null
+
+  return mapGraphQLPreview({
+    storeName: data?.shop?.name,
+    currency: data?.shop?.currencyCode,
+    productName: data?.product?.title,
+    variantLabel: selectedVariant?.title,
+    amount: selectedVariant?.price,
+    imageSrc: selectedVariant?.image?.url ?? data?.product?.featuredImage?.url ?? null,
+  })
 }
 
 async function assertAccountAccess(accountId: string, userId: string) {
@@ -305,75 +595,13 @@ async function fetchShopifyStorePreview(input: { storeId: string; accountId: str
       store.client_id,
       store.client_secret
     )
-
-    const shopResponse = await fetch(
-      `https://${store.shop_domain}/admin/api/${SHOPIFY_STOREFRONT_API_VERSION}/shop.json?fields=name,currency`,
-      {
-        headers: {
-          "Content-Type": "application/json",
-          "X-Shopify-Access-Token": accessToken,
-        },
-        cache: "no-store",
-      }
-    )
-    const shopPayload = await shopResponse.json().catch(() => null)
-    if (!shopResponse.ok) {
-      throw new Error(
-        shopPayload?.errors || shopPayload?.error || "Nao foi possivel ler a moeda da loja."
-      )
-    }
-
-    const productsResponse = await fetch(
-      `https://${store.shop_domain}/admin/api/${SHOPIFY_STOREFRONT_API_VERSION}/products.json?limit=10&status=active&fields=id,title,image,images,variants`,
-      {
-        headers: {
-          "Content-Type": "application/json",
-          "X-Shopify-Access-Token": accessToken,
-        },
-        cache: "no-store",
-      }
-    )
-    const productsPayload = await productsResponse.json().catch(() => null)
-    if (!productsResponse.ok) {
-      throw new Error(
-        productsPayload?.errors ||
-          productsPayload?.error ||
-          "Nao foi possivel ler os produtos da loja."
-      )
-    }
-
-    const products = Array.isArray(productsPayload?.products) ? productsPayload.products : []
-    const firstProduct = products.find(
-      (product: { title?: string; variants?: Array<{ price?: string; title?: string }> }) =>
-        product?.title &&
-        Array.isArray(product.variants) &&
-        product.variants.some((variant) => Number.parseFloat(variant?.price ?? "") >= 0)
-    )
-
-    if (!firstProduct) {
-      return { preview: null as ShopifyStorePreview | null }
-    }
-
-    const firstVariant =
-      (Array.isArray(firstProduct.variants) ? firstProduct.variants : []).find(
-        (variant: { price?: string; title?: string }) =>
-          Number.isFinite(Number.parseFloat(variant?.price ?? ""))
-      ) ?? null
-
-    const amount = Number.parseFloat(firstVariant?.price ?? "0")
+    const preview = await fetchShopifyGraphQLStorePreview({
+      shopDomain: store.shop_domain,
+      accessToken,
+    })
 
     return {
-      preview: {
-        storeName: shopPayload?.shop?.name || store.name,
-        currency: normalizeStoreCurrency(shopPayload?.shop?.currency),
-        productName: firstProduct.title,
-        variantLabel:
-          firstVariant?.title && firstVariant.title !== "Default Title"
-            ? firstVariant.title
-            : "Variante padrao",
-        amount: Number.isFinite(amount) ? amount : 0,
-        imageSrc: resolveProductImage(firstProduct),
-      },
+      preview,
     }
   } catch (error) {
     return {
@@ -461,19 +689,13 @@ async function fetchShopifyVariantPreview(input: {
       store.client_id,
       store.client_secret
     )
+    const preview = await fetchShopifyGraphQLVariantPreview({
+      shopDomain: store.shop_domain,
+      accessToken,
+      variantId: normalizedVariantId,
+    })
 
-    const variantResponse = await fetch(
-      `https://${store.shop_domain}/admin/api/${SHOPIFY_STOREFRONT_API_VERSION}/variants/${normalizedVariantId}.json?fields=id,product_id,title,price,image_id`,
-      {
-        headers: {
-          "Content-Type": "application/json",
-          "X-Shopify-Access-Token": accessToken,
-        },
-        cache: "no-store",
-      }
-    )
-    const variantPayload = await variantResponse.json().catch(() => null)
-    if (!variantResponse.ok || !variantPayload?.variant?.product_id) {
+    if (!preview) {
       return input.productId
         ? fetchShopifyProductPreview({
             storeId: input.storeId,
@@ -483,60 +705,9 @@ async function fetchShopifyVariantPreview(input: {
           })
         : fetchShopifyStorePreview({ storeId: input.storeId, accountId: input.accountId })
     }
-
-    const shopResponse = await fetch(
-      `https://${store.shop_domain}/admin/api/${SHOPIFY_STOREFRONT_API_VERSION}/shop.json?fields=name,currency`,
-      {
-        headers: {
-          "Content-Type": "application/json",
-          "X-Shopify-Access-Token": accessToken,
-        },
-        cache: "no-store",
-      }
-    )
-    const shopPayload = await shopResponse.json().catch(() => null)
-    if (!shopResponse.ok) {
-      throw new Error(
-        shopPayload?.errors || shopPayload?.error || "Nao foi possivel ler a moeda da loja."
-      )
-    }
-
-    const productResponse = await fetch(
-      `https://${store.shop_domain}/admin/api/${SHOPIFY_STOREFRONT_API_VERSION}/products/${variantPayload.variant.product_id}.json?fields=id,title,image,images`,
-      {
-        headers: {
-          "Content-Type": "application/json",
-          "X-Shopify-Access-Token": accessToken,
-        },
-        cache: "no-store",
-      }
-    )
-    const productPayload = await productResponse.json().catch(() => null)
-    if (!productResponse.ok || !productPayload?.product?.title) {
-      return input.productId
-        ? fetchShopifyProductPreview({
-            storeId: input.storeId,
-            accountId: input.accountId,
-            productId: input.productId,
-            variantId: normalizedVariantId,
-          })
-        : fetchShopifyStorePreview({ storeId: input.storeId, accountId: input.accountId })
-    }
-
-    const amount = Number.parseFloat(variantPayload.variant.price ?? "0")
 
     return {
-      preview: {
-        storeName: shopPayload?.shop?.name || store.name,
-        currency: normalizeStoreCurrency(shopPayload?.shop?.currency),
-        productName: productPayload.product.title,
-        variantLabel:
-          variantPayload.variant.title && variantPayload.variant.title !== "Default Title"
-            ? variantPayload.variant.title
-            : "Variante padrao",
-        amount: Number.isFinite(amount) ? amount : 0,
-        imageSrc: resolveProductImage(productPayload.product, variantPayload.variant?.image_id ?? null),
-      },
+      preview,
     }
   } catch (error) {
     return {
@@ -585,70 +756,19 @@ async function fetchShopifyProductPreview(input: {
       store.client_id,
       store.client_secret
     )
+    const preview = await fetchShopifyGraphQLProductPreview({
+      shopDomain: store.shop_domain,
+      accessToken,
+      productId: normalizedProductId,
+      variantId: input.variantId,
+    })
 
-    const shopResponse = await fetch(
-      `https://${store.shop_domain}/admin/api/${SHOPIFY_STOREFRONT_API_VERSION}/shop.json?fields=name,currency`,
-      {
-        headers: {
-          "Content-Type": "application/json",
-          "X-Shopify-Access-Token": accessToken,
-        },
-        cache: "no-store",
-      }
-    )
-    const shopPayload = await shopResponse.json().catch(() => null)
-    if (!shopResponse.ok) {
-      throw new Error(
-        shopPayload?.errors || shopPayload?.error || "Nao foi possivel ler a moeda da loja."
-      )
-    }
-
-    const productResponse = await fetch(
-      `https://${store.shop_domain}/admin/api/${SHOPIFY_STOREFRONT_API_VERSION}/products/${normalizedProductId}.json?fields=id,title,image,images,variants`,
-      {
-        headers: {
-          "Content-Type": "application/json",
-          "X-Shopify-Access-Token": accessToken,
-        },
-        cache: "no-store",
-      }
-    )
-    const productPayload = await productResponse.json().catch(() => null)
-    if (!productResponse.ok || !productPayload?.product?.title) {
+    if (!preview) {
       return fetchShopifyStorePreview({ storeId: input.storeId, accountId: input.accountId })
     }
 
-    const normalizedVariantId = normalizeShopifyResourceId(input.variantId)
-    const variants = Array.isArray(productPayload.product?.variants) ? productPayload.product.variants : []
-    const selectedVariant =
-      variants.find(
-        (variant: { id?: number | string; price?: string }) =>
-          String(variant?.id ?? "") === normalizedVariantId &&
-          Number.isFinite(Number.parseFloat(variant?.price ?? ""))
-      ) ??
-      variants.find(
-        (variant: { price?: string }) =>
-          Number.isFinite(Number.parseFloat(variant?.price ?? ""))
-      ) ??
-      null
-
-    const amount = Number.parseFloat(selectedVariant?.price ?? "0")
-
     return {
-      preview: {
-        storeName: shopPayload?.shop?.name || store.name,
-        currency: normalizeStoreCurrency(shopPayload?.shop?.currency),
-        productName: productPayload.product.title,
-        variantLabel:
-          selectedVariant?.title && selectedVariant.title !== "Default Title"
-            ? selectedVariant.title
-            : "Variante padrao",
-        amount: Number.isFinite(amount) ? amount : 0,
-        imageSrc: resolveProductImage(
-          productPayload.product,
-          selectedVariant?.image_id ?? null
-        ),
-      },
+      preview,
     }
   } catch (error) {
     return {
