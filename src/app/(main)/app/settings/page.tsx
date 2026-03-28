@@ -52,6 +52,8 @@ export default function SettingsPage() {
         }),
         appSession,
       })
+      setProfileName(appSession.name || "")
+      setProfileEmail(appSession.email || "")
 
       const result = await loadSettingsForSession({
         userId: appSession.userId,

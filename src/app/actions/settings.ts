@@ -35,10 +35,6 @@ export async function loadSettingsForSession(input: {
     ? await ordersQuery
     : await ordersQuery.eq("account_id", input.accountId ?? "")
 
-  if (ordersError) {
-    return { error: ordersError.message }
-  }
-
   const totalRevenue = (orders ?? []).reduce((sum, order) => {
     if (order.status !== "Pago") {
       return sum
@@ -54,10 +50,6 @@ export async function loadSettingsForSession(input: {
     .order("logged_at", { ascending: false })
     .limit(10)
 
-  if (loginEventsError) {
-    return { error: loginEventsError.message }
-  }
-
   return {
     profile: {
       name: profile.name || profile.email?.split("@")[0] || "Usuario",
@@ -67,6 +59,10 @@ export async function loadSettingsForSession(input: {
     },
     totalRevenue,
     loginHistory: (loginEvents ?? []) as LoginEventRow[],
+    warnings: {
+      orders: ordersError?.message ?? null,
+      loginEvents: loginEventsError?.message ?? null,
+    },
   }
 }
 
