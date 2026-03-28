@@ -105,6 +105,7 @@ interface CheckoutConfig {
   upsellButtonText: string
   upsellPrice: number
   selectedShippingMethodIds: string[]
+  selectedStoreId?: string
   selectedWhopAccountId?: string
   whop?: {
     checkoutConfigurationId?: string | null
@@ -165,6 +166,8 @@ const POLICY_TEXT_MAX_LENGTH = 1200
 const FALLBACK_LOCALE: SupportedLocale = "pt-BR"
 const FALLBACK_CURRENCY: SupportedCurrency = "BRL"
 const ORDER_TOTAL = 1250
+const UNRESOLVED_PRODUCT_NAME = "Produto da Shopify"
+const UNRESOLVED_VARIANT_LABEL = "Variante real nao encontrada"
 
 const LOCALE_TO_CURRENCY: Record<SupportedLocale, SupportedCurrency> = {
   "pt-BR": "BRL",
@@ -464,10 +467,11 @@ export function ShopifyCheckout({
   const selectedShipping =
     availableShippingMethods.find((method) => method.id === selectedShippingId) ?? null
   const effectiveCurrency = storePreview?.currency ?? resolvedCurrency
-  const productName = storePreview?.productName || copy.productName
-  const variantLabel = storePreview?.variantLabel || copy.variantDefault
+  const hasSelectedStore = Boolean(config.selectedStoreId)
+  const productName = storePreview?.productName || (hasSelectedStore ? UNRESOLVED_PRODUCT_NAME : copy.productName)
+  const variantLabel = storePreview?.variantLabel || (hasSelectedStore ? UNRESOLVED_VARIANT_LABEL : copy.variantDefault)
   const productImageSrc = storePreview?.imageSrc
-  const basePrice = storePreview?.amount ?? ORDER_TOTAL
+  const basePrice = storePreview?.amount ?? (hasSelectedStore ? 0 : ORDER_TOTAL)
   const shippingPrice = selectedShipping?.price ?? 0
   const totalPrice = basePrice + shippingPrice
   const formattedPrice = formatPrice(basePrice, resolvedLocale, effectiveCurrency)

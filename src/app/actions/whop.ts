@@ -92,6 +92,10 @@ function normalizeWhopCurrency(currency: string | undefined) {
     | "gbp"
 }
 
+function hasValidStorePreview(preview?: ShopifyStorePreview | null) {
+  return Boolean(preview && Number.isFinite(preview.amount) && preview.amount > 0 && preview.productName)
+}
+
 function buildThankYouRedirectUrl(checkoutId: string, domainHost?: string | null) {
   if (domainHost) {
     return `https://${domainHost.replace(/^https?:\/\//, "")}`
@@ -492,6 +496,12 @@ export async function saveCheckoutFromEditor(input: {
           : { preview: null as null | { amount: number; currency: string; productName: string } }
 
       const storePreview = storePreviewResult.preview
+      if (input.config.selectedStoreId && !hasValidStorePreview(storePreview as ShopifyStorePreview | null)) {
+        return {
+          error: "Nao foi possivel resolver um produto real da Shopify para publicar este checkout.",
+          checkoutId,
+        }
+      }
       const checkoutAmount =
         storePreview && Number.isFinite(storePreview.amount) && storePreview.amount > 0
           ? storePreview.amount
@@ -576,6 +586,13 @@ export async function createPublicWhopCheckoutSession(input: {
 }) {
   if (!input.config.selectedWhopAccountId) {
     return { whop: input.config.whop ?? null }
+  }
+
+  if (input.config.selectedStoreId && !hasValidStorePreview(input.storePreview)) {
+    return {
+      error: "Nao foi possivel resolver o produto real da Shopify para este checkout.",
+      whop: null,
+    }
   }
 
   const supabaseAdmin = getSupabaseAdmin()

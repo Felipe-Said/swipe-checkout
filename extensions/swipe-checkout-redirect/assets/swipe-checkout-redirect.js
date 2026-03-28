@@ -4,11 +4,26 @@
 
   var appUrl = (configNode.getAttribute("data-app-url") || "").replace(/\/$/, "");
   var shopDomain = configNode.getAttribute("data-shop-domain") || "";
+  var productId = configNode.getAttribute("data-product-id") || "";
+  var selectedVariantId = configNode.getAttribute("data-selected-variant-id") || "";
   var enabled = configNode.getAttribute("data-enabled") !== "false";
 
   if (!enabled || !appUrl || !shopDomain) return;
 
   var configUrl = appUrl + "/api/shopify/storefront-config?shop=" + encodeURIComponent(shopDomain);
+
+  function normalizeResourceId(value) {
+    if (!value) return "";
+    var raw = String(value).trim();
+    if (!raw) return "";
+
+    if (raw.indexOf("gid://") === 0) {
+      var gidMatch = raw.match(/(\d+)(?:\D*)$/);
+      return gidMatch ? gidMatch[1] : "";
+    }
+
+    return raw;
+  }
 
   function resolveVariantId(form) {
     if (form) {
@@ -21,7 +36,7 @@
         form.querySelector('[data-variant-id]');
 
       if (variantInput) {
-        return (
+        return normalizeResourceId(
           variantInput.value ||
           variantInput.getAttribute("value") ||
           variantInput.getAttribute("data-variant-id") ||
@@ -31,7 +46,7 @@
     }
 
     var urlVariant = new URL(window.location.href).searchParams.get("variant");
-    if (urlVariant) return urlVariant;
+    if (urlVariant) return normalizeResourceId(urlVariant);
 
     var checkedVariant =
       document.querySelector('input[name="id"]:checked') ||
@@ -40,18 +55,18 @@
       document.querySelector('[data-variant-id].is-selected');
 
     if (checkedVariant) {
-      return (
+      return normalizeResourceId(
         checkedVariant.value ||
         checkedVariant.getAttribute("value") ||
         checkedVariant.getAttribute("data-variant-id") ||
-        ""
+          ""
       );
     }
 
-    return "";
+    return normalizeResourceId(selectedVariantId);
   }
 
-  function redirectToSwipe(url, event, variantId, storeId) {
+  function redirectToSwipe(url, event, variantId, storeId, currentProductId) {
     if (!url) return;
     if (event) {
       event.preventDefault();
@@ -64,6 +79,9 @@
     }
     if (variantId) {
       nextUrl.searchParams.set("variant", String(variantId));
+    }
+    if (currentProductId) {
+      nextUrl.searchParams.set("product", String(currentProductId));
     }
     window.location.href = nextUrl.toString();
   }
@@ -78,7 +96,13 @@
       form.addEventListener(
         "submit",
         function (event) {
-          redirectToSwipe(checkoutUrl, event, resolveVariantId(form), storeId);
+          redirectToSwipe(
+            checkoutUrl,
+            event,
+            resolveVariantId(form),
+            storeId,
+            normalizeResourceId(productId)
+          );
         },
         true
       );
@@ -93,7 +117,13 @@
         function (event) {
           var form = button.closest('form[action*="/cart/add"]');
           if (!form) return;
-          redirectToSwipe(checkoutUrl, event, resolveVariantId(form), storeId);
+          redirectToSwipe(
+            checkoutUrl,
+            event,
+            resolveVariantId(form),
+            storeId,
+            normalizeResourceId(productId)
+          );
         },
         true
       );
@@ -110,7 +140,7 @@
       button.addEventListener(
         "click",
         function (event) {
-          redirectToSwipe(checkoutUrl, event, "", storeId);
+          redirectToSwipe(checkoutUrl, event, "", storeId, normalizeResourceId(productId));
         },
         true
       );

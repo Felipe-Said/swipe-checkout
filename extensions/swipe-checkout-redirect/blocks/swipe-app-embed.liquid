@@ -1,6 +1,8 @@
 {% liquid
   assign swipe_app_url = block.settings.app_url | strip
   assign swipe_shop_domain = shop.permanent_domain | strip
+  assign swipe_product_id = product.id | default: blank
+  assign swipe_variant_id = product.selected_or_first_available_variant.id | default: blank
 %}
 
 {% if swipe_app_url != blank %}
@@ -9,6 +11,8 @@
     data-app-url="{{ swipe_app_url | escape }}"
     data-shop-domain="{{ swipe_shop_domain | escape }}"
     data-enabled="{{ block.settings.enabled }}"
+    data-product-id="{{ swipe_product_id }}"
+    data-selected-variant-id="{{ swipe_variant_id }}"
   ></div>
   <script src="{{ 'swipe-checkout-redirect.js' | asset_url }}" defer></script>
 {% endif %}
@@ -33,4 +37,3 @@
   ]
 }
 {% endschema %}
-

@@ -3,6 +3,8 @@ import { notFound } from "next/navigation"
 import { ShopifyCheckout } from "@/components/checkout-preview/shopify-checkout"
 import { getSupabaseAdmin } from "@/lib/supabase"
 import {
+  loadShopifyProductPreviewByDomainForPublishing,
+  loadShopifyProductPreviewForPublishing,
   loadShopifyStorePreviewByDomainForPublishing,
   loadShopifyStorePreviewForPublishing,
   loadShopifyVariantPreviewByDomainForPublishing,
@@ -21,6 +23,8 @@ export default async function PublicCheckoutPage({
   const resolvedSearchParams = searchParams ? await searchParams : {}
   const variantId =
     typeof resolvedSearchParams.variant === "string" ? resolvedSearchParams.variant : undefined
+  const productId =
+    typeof resolvedSearchParams.product === "string" ? resolvedSearchParams.product : undefined
   const shopDomain =
     typeof resolvedSearchParams.shop === "string" ? resolvedSearchParams.shop.trim() : undefined
   const storeIdFromRedirect =
@@ -49,6 +53,13 @@ export default async function PublicCheckoutPage({
             storeId: storeIdFromRedirect,
             accountId: checkout.account_id,
             variantId,
+            productId,
+          })
+        : productId
+        ? await loadShopifyProductPreviewForPublishing({
+            storeId: storeIdFromRedirect,
+            accountId: checkout.account_id,
+            productId,
           })
         : await loadShopifyStorePreviewForPublishing({
             storeId: storeIdFromRedirect,
@@ -60,6 +71,13 @@ export default async function PublicCheckoutPage({
             shopDomain,
             accountId: checkout.account_id,
             variantId,
+            productId,
+          })
+        : productId
+        ? await loadShopifyProductPreviewByDomainForPublishing({
+            shopDomain,
+            accountId: checkout.account_id,
+            productId,
           })
         : await loadShopifyStorePreviewByDomainForPublishing({
             shopDomain,
@@ -71,6 +89,13 @@ export default async function PublicCheckoutPage({
               storeId: String(config.selectedStoreId),
               accountId: checkout.account_id,
               variantId,
+              productId,
+            })
+          : productId
+          ? await loadShopifyProductPreviewForPublishing({
+              storeId: String(config.selectedStoreId),
+              accountId: checkout.account_id,
+              productId,
             })
           : await loadShopifyStorePreviewForPublishing({
               storeId: String(config.selectedStoreId),

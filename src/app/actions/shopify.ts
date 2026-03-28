@@ -23,6 +23,40 @@ type ShopifyStorePreview = {
   imageSrc?: string
 }
 
+function normalizeShopifyResourceId(value?: string | null) {
+  if (!value) return ""
+  const trimmed = String(value).trim()
+  if (!trimmed) return ""
+
+  const gidMatch = trimmed.match(/(\d+)(?:\D*)$/)
+  if (trimmed.startsWith("gid://") && gidMatch) {
+    return gidMatch[1]
+  }
+
+  return trimmed
+}
+
+function resolveProductImage(
+  product:
+    | {
+        image?: { src?: string | null } | null
+        images?: Array<{ id?: number | null; src?: string | null }> | null
+      }
+    | null
+    | undefined,
+  variantImageId?: number | null
+) {
+  const images = Array.isArray(product?.images) ? product.images : []
+  if (variantImageId) {
+    const variantImage = images.find((image) => image?.id === variantImageId && image?.src)
+    if (variantImage?.src) {
+      return variantImage.src
+    }
+  }
+
+  return product?.image?.src ?? images.find((image) => image?.src)?.src ?? undefined
+}
+
 async function assertAccountAccess(accountId: string, userId: string) {
   const supabaseAdmin = getSupabaseAdmin()
   const { data: profile } = await supabaseAdmin
@@ -290,7 +324,7 @@ async function fetchShopifyStorePreview(input: { storeId: string; accountId: str
     }
 
     const productsResponse = await fetch(
-      `https://${store.shop_domain}/admin/api/${SHOPIFY_STOREFRONT_API_VERSION}/products.json?limit=10&status=active&fields=id,title,image,variants`,
+      `https://${store.shop_domain}/admin/api/${SHOPIFY_STOREFRONT_API_VERSION}/products.json?limit=10&status=active&fields=id,title,image,images,variants`,
       {
         headers: {
           "Content-Type": "application/json",
@@ -338,7 +372,7 @@ async function fetchShopifyStorePreview(input: { storeId: string; accountId: str
             ? firstVariant.title
             : "Variante padrao",
         amount: Number.isFinite(amount) ? amount : 0,
-        imageSrc: firstProduct?.image?.src ?? undefined,
+        imageSrc: resolveProductImage(firstProduct),
       },
     }
   } catch (error) {
@@ -373,7 +407,19 @@ async function fetchShopifyVariantPreview(input: {
   storeId: string
   accountId: string
   variantId: string
+  productId?: string
 }) {
+  const normalizedVariantId = normalizeShopifyResourceId(input.variantId)
+  if (!normalizedVariantId) {
+    return input.productId
+      ? fetchShopifyProductPreview({
+          storeId: input.storeId,
+          accountId: input.accountId,
+          productId: input.productId,
+        })
+      : fetchShopifyStorePreview({ storeId: input.storeId, accountId: input.accountId })
+  }
+
   const supabaseAdmin = getSupabaseAdmin()
   const { data: store, error } = await supabaseAdmin
     .from("shopify_stores")
@@ -401,7 +447,7 @@ async function fetchShopifyVariantPreview(input: {
     )
 
     const variantResponse = await fetch(
-      `https://${store.shop_domain}/admin/api/${SHOPIFY_STOREFRONT_API_VERSION}/variants/${input.variantId}.json?fields=id,product_id,title,price`,
+      `https://${store.shop_domain}/admin/api/${SHOPIFY_STOREFRONT_API_VERSION}/variants/${normalizedVariantId}.json?fields=id,product_id,title,price,image_id`,
       {
         headers: {
           "Content-Type": "application/json",
@@ -412,7 +458,14 @@ async function fetchShopifyVariantPreview(input: {
     )
     const variantPayload = await variantResponse.json().catch(() => null)
     if (!variantResponse.ok || !variantPayload?.variant?.product_id) {
-      return fetchShopifyStorePreview({ storeId: input.storeId, accountId: input.accountId })
+      return input.productId
+        ? fetchShopifyProductPreview({
+            storeId: input.storeId,
+            accountId: input.accountId,
+            productId: input.productId,
+            variantId: normalizedVariantId,
+          })
+        : fetchShopifyStorePreview({ storeId: input.storeId, accountId: input.accountId })
     }
 
     const shopResponse = await fetch(
@@ -433,7 +486,7 @@ async function fetchShopifyVariantPreview(input: {
     }
 
     const productResponse = await fetch(
-      `https://${store.shop_domain}/admin/api/${SHOPIFY_STOREFRONT_API_VERSION}/products/${variantPayload.variant.product_id}.json?fields=id,title,image`,
+      `https://${store.shop_domain}/admin/api/${SHOPIFY_STOREFRONT_API_VERSION}/products/${variantPayload.variant.product_id}.json?fields=id,title,image,images`,
       {
         headers: {
           "Content-Type": "application/json",
@@ -444,7 +497,14 @@ async function fetchShopifyVariantPreview(input: {
     )
     const productPayload = await productResponse.json().catch(() => null)
     if (!productResponse.ok || !productPayload?.product?.title) {
-      return fetchShopifyStorePreview({ storeId: input.storeId, accountId: input.accountId })
+      return input.productId
+        ? fetchShopifyProductPreview({
+            storeId: input.storeId,
+            accountId: input.accountId,
+            productId: input.productId,
+            variantId: normalizedVariantId,
+          })
+        : fetchShopifyStorePreview({ storeId: input.storeId, accountId: input.accountId })
     }
 
     const amount = Number.parseFloat(variantPayload.variant.price ?? "0")
@@ -459,7 +519,7 @@ async function fetchShopifyVariantPreview(input: {
             ? variantPayload.variant.title
             : "Variante padrao",
         amount: Number.isFinite(amount) ? amount : 0,
-        imageSrc: productPayload.product?.image?.src ?? undefined,
+        imageSrc: resolveProductImage(productPayload.product, variantPayload.variant?.image_id ?? null),
       },
     }
   } catch (error) {
@@ -473,10 +533,150 @@ async function fetchShopifyVariantPreview(input: {
   }
 }
 
+async function fetchShopifyProductPreview(input: {
+  storeId: string
+  accountId: string
+  productId: string
+  variantId?: string
+}) {
+  const normalizedProductId = normalizeShopifyResourceId(input.productId)
+  if (!normalizedProductId) {
+    return fetchShopifyStorePreview({ storeId: input.storeId, accountId: input.accountId })
+  }
+
+  const supabaseAdmin = getSupabaseAdmin()
+  const { data: store, error } = await supabaseAdmin
+    .from("shopify_stores")
+    .select("id, account_id, name, shop_domain, client_id, client_secret")
+    .eq("account_id", input.accountId)
+    .eq("id", input.storeId)
+    .maybeSingle()
+
+  if (error || !store) {
+    return { error: "Loja Shopify nao encontrada.", preview: null as ShopifyStorePreview | null }
+  }
+
+  if (!store.client_id || !store.client_secret) {
+    return {
+      error: "A loja conectada ainda nao possui Client ID e Secret validos.",
+      preview: null as ShopifyStorePreview | null,
+    }
+  }
+
+  try {
+    const accessToken = await exchangeShopifyAdminToken(
+      store.shop_domain,
+      store.client_id,
+      store.client_secret
+    )
+
+    const shopResponse = await fetch(
+      `https://${store.shop_domain}/admin/api/${SHOPIFY_STOREFRONT_API_VERSION}/shop.json?fields=name,currency`,
+      {
+        headers: {
+          "Content-Type": "application/json",
+          "X-Shopify-Access-Token": accessToken,
+        },
+        cache: "no-store",
+      }
+    )
+    const shopPayload = await shopResponse.json().catch(() => null)
+    if (!shopResponse.ok) {
+      throw new Error(
+        shopPayload?.errors || shopPayload?.error || "Nao foi possivel ler a moeda da loja."
+      )
+    }
+
+    const productResponse = await fetch(
+      `https://${store.shop_domain}/admin/api/${SHOPIFY_STOREFRONT_API_VERSION}/products/${normalizedProductId}.json?fields=id,title,image,images,variants`,
+      {
+        headers: {
+          "Content-Type": "application/json",
+          "X-Shopify-Access-Token": accessToken,
+        },
+        cache: "no-store",
+      }
+    )
+    const productPayload = await productResponse.json().catch(() => null)
+    if (!productResponse.ok || !productPayload?.product?.title) {
+      return fetchShopifyStorePreview({ storeId: input.storeId, accountId: input.accountId })
+    }
+
+    const normalizedVariantId = normalizeShopifyResourceId(input.variantId)
+    const variants = Array.isArray(productPayload.product?.variants) ? productPayload.product.variants : []
+    const selectedVariant =
+      variants.find(
+        (variant: { id?: number | string; price?: string }) =>
+          String(variant?.id ?? "") === normalizedVariantId &&
+          Number.isFinite(Number.parseFloat(variant?.price ?? ""))
+      ) ??
+      variants.find(
+        (variant: { price?: string }) =>
+          Number.isFinite(Number.parseFloat(variant?.price ?? ""))
+      ) ??
+      null
+
+    const amount = Number.parseFloat(selectedVariant?.price ?? "0")
+
+    return {
+      preview: {
+        storeName: shopPayload?.shop?.name || store.name,
+        currency: normalizeStoreCurrency(shopPayload?.shop?.currency),
+        productName: productPayload.product.title,
+        variantLabel:
+          selectedVariant?.title && selectedVariant.title !== "Default Title"
+            ? selectedVariant.title
+            : "Variante padrao",
+        amount: Number.isFinite(amount) ? amount : 0,
+        imageSrc: resolveProductImage(
+          productPayload.product,
+          selectedVariant?.image_id ?? null
+        ),
+      },
+    }
+  } catch (error) {
+    return {
+      error:
+        error instanceof Error
+          ? error.message
+          : "Nao foi possivel carregar o produto real da Shopify.",
+      preview: null as ShopifyStorePreview | null,
+    }
+  }
+}
+
+async function fetchShopifyProductPreviewByDomain(input: {
+  shopDomain: string
+  accountId: string
+  productId: string
+  variantId?: string
+}) {
+  const supabaseAdmin = getSupabaseAdmin()
+  const { data: store, error } = await supabaseAdmin
+    .from("shopify_stores")
+    .select("id")
+    .eq("account_id", input.accountId)
+    .eq("shop_domain", normalizeShopDomain(input.shopDomain))
+    .in("status", ["Pronta", "Conectada"])
+    .maybeSingle()
+
+  if (error || !store?.id) {
+    return { error: "Loja Shopify nao encontrada.", preview: null as ShopifyStorePreview | null }
+  }
+
+  return fetchShopifyProductPreview({
+    storeId: store.id,
+    accountId: input.accountId,
+    productId: input.productId,
+    variantId: input.variantId,
+  })
+}
+
 async function fetchShopifyVariantPreviewByDomain(input: {
   shopDomain: string
   accountId: string
   variantId: string
+  productId?: string
 }) {
   const supabaseAdmin = getSupabaseAdmin()
   const { data: store, error } = await supabaseAdmin
@@ -495,6 +695,7 @@ async function fetchShopifyVariantPreviewByDomain(input: {
     storeId: store.id,
     accountId: input.accountId,
     variantId: input.variantId,
+    productId: input.productId,
   })
 }
 
@@ -525,6 +726,7 @@ export async function loadShopifyVariantPreviewForPublishing(input: {
   storeId: string
   accountId: string
   variantId: string
+  productId?: string
 }) {
   return fetchShopifyVariantPreview(input)
 }
@@ -533,8 +735,27 @@ export async function loadShopifyVariantPreviewByDomainForPublishing(input: {
   shopDomain: string
   accountId: string
   variantId: string
+  productId?: string
 }) {
   return fetchShopifyVariantPreviewByDomain(input)
+}
+
+export async function loadShopifyProductPreviewForPublishing(input: {
+  storeId: string
+  accountId: string
+  productId: string
+  variantId?: string
+}) {
+  return fetchShopifyProductPreview(input)
+}
+
+export async function loadShopifyProductPreviewByDomainForPublishing(input: {
+  shopDomain: string
+  accountId: string
+  productId: string
+  variantId?: string
+}) {
+  return fetchShopifyProductPreviewByDomain(input)
 }
 
 export async function loadShopifyStoresForSession(input: { accountId: string; userId: string }) {
