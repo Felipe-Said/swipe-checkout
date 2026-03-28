@@ -1,5 +1,6 @@
 "use server"
 
+import { sendPushcutNotificationsForCheckout } from "@/lib/pushcut"
 import { getSupabaseAdmin } from "@/lib/supabase"
 import type { CheckoutPixelConfig } from "@/lib/pixels-data"
 import type { PushcutCheckoutConfig } from "@/lib/pushcut-data"
@@ -118,6 +119,76 @@ export async function saveCheckoutPushcutConfigForSession(input: {
       checkoutId: input.checkoutId,
       webhookUrls: input.webhookUrls,
     } satisfies PushcutCheckoutConfig,
+  }
+}
+
+export async function testCheckoutPushcutConfigForSession(input: {
+  accountId: string
+  userId: string
+  checkoutId: string
+  webhookUrls: string[]
+}) {
+  await assertCheckoutIntegrationAccess(input)
+
+  const supabaseAdmin = getSupabaseAdmin()
+  const { data: checkout, error: checkoutError } = await supabaseAdmin
+    .from("checkouts")
+    .select("id, name")
+    .eq("id", input.checkoutId)
+    .eq("account_id", input.accountId)
+    .maybeSingle()
+
+  if (checkoutError || !checkout) {
+    return { error: "Checkout nao encontrado." }
+  }
+
+  const cleanedWebhookUrls = input.webhookUrls
+    .map((value) => String(value ?? "").trim())
+    .filter(Boolean)
+
+  if (!cleanedWebhookUrls.length) {
+    return { error: "Adicione pelo menos um link do PushCut para testar." }
+  }
+
+  const { error: upsertError } = await supabaseAdmin.from("checkout_pushcut_configs").upsert(
+    {
+      checkout_id: input.checkoutId,
+      webhook_urls: cleanedWebhookUrls,
+      updated_at: new Date().toISOString(),
+    },
+    {
+      onConflict: "checkout_id",
+    }
+  )
+
+  if (upsertError) {
+    return { error: upsertError.message }
+  }
+
+  const testResult = await sendPushcutNotificationsForCheckout({
+    accountId: input.accountId,
+    checkoutId: input.checkoutId,
+    checkoutName: checkout.name,
+    orderId: `pushcut-test-${Date.now()}`,
+    customerName: "Teste Swipe",
+    amount: 199.9,
+    currency: "BRL",
+    status: "Pago",
+    sourceUrl: null,
+  })
+
+  if (!testResult.success) {
+    return {
+      error:
+        "Nao foi possivel entregar a notificacao de teste no PushCut. Confira o webhook e tente novamente.",
+      details: "error" in testResult ? testResult.error : null,
+    }
+  }
+
+  return {
+    success: true,
+    delivered: testResult.delivered,
+    failed: testResult.failed,
   }
 }
 

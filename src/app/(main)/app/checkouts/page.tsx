@@ -21,6 +21,7 @@ import {
   loadCheckoutPushcutConfigsForSession,
   saveCheckoutPixelConfigForSession,
   saveCheckoutPushcutConfigForSession,
+  testCheckoutPushcutConfigForSession,
 } from "@/app/actions/checkout-integrations"
 import { deleteCheckoutForAccount, loadCheckoutsForAccount } from "@/app/actions/whop"
 import { loadDomainsForSession } from "@/app/actions/domains"
@@ -87,6 +88,8 @@ export default function CheckoutsPage() {
   const [trackCampaignSource, setTrackCampaignSource] = React.useState(true)
   const [accountId, setAccountId] = React.useState("")
   const [userId, setUserId] = React.useState("")
+  const [isTestingPushcut, setIsTestingPushcut] = React.useState(false)
+  const [pushcutFeedback, setPushcutFeedback] = React.useState<string | null>(null)
 
   React.useEffect(() => {
     async function load() {
@@ -171,6 +174,7 @@ export default function CheckoutsPage() {
     setSelectedCheckout(checkout)
     setDialogType("pushcut")
     setPushcutUrlsValue(existingConfig?.webhookUrls.join("\n") ?? "")
+    setPushcutFeedback(null)
   }
 
   const handleOpenPixels = (checkout: CheckoutRow) => {
@@ -181,6 +185,7 @@ export default function CheckoutsPage() {
     setGoogleAdsIdsValue((existingConfig?.googleAdsIds ?? []).join("\n"))
     setTiktokPixelIdsValue((existingConfig?.tiktokPixelIds ?? []).join("\n"))
     setTrackCampaignSource(existingConfig?.trackCampaignSource ?? true)
+    setPushcutFeedback(null)
   }
 
   const handleSavePushcut = async () => {
@@ -220,6 +225,53 @@ export default function CheckoutsPage() {
     })
 
     handleCloseDialog()
+  }
+
+  const handleTestPushcut = async () => {
+    if (!selectedCheckout || !accountId || !userId) {
+      return
+    }
+
+    setIsTestingPushcut(true)
+    setPushcutFeedback(null)
+
+    const webhookUrls = pushcutUrlsValue
+      .split("\n")
+      .map((url) => url.trim())
+      .filter(Boolean)
+
+    const result = await testCheckoutPushcutConfigForSession({
+      accountId,
+      userId,
+      checkoutId: selectedCheckout.id,
+      webhookUrls,
+    })
+
+    if (result.error) {
+      setPushcutFeedback(result.details ? `${result.error} ${result.details}` : result.error)
+      setIsTestingPushcut(false)
+      return
+    }
+
+    setPushcutConfigs((currentConfigs) => {
+      const nextConfig = {
+        checkoutId: selectedCheckout.id,
+        webhookUrls,
+      } satisfies PushcutCheckoutConfig
+      const existingIndex = currentConfigs.findIndex((config) => config.checkoutId === selectedCheckout.id)
+      if (existingIndex >= 0) {
+        const nextConfigs = [...currentConfigs]
+        nextConfigs[existingIndex] = nextConfig
+        return nextConfigs
+      }
+
+      return [...currentConfigs, nextConfig]
+    })
+
+    setPushcutFeedback(
+      `Teste enviado com sucesso. Entregues: ${result.delivered ?? 0}${result.failed ? ` | Falharam: ${result.failed}` : ""}`
+    )
+    setIsTestingPushcut(false)
   }
 
   const handleSavePixels = async () => {
@@ -267,6 +319,8 @@ export default function CheckoutsPage() {
     setGoogleAdsIdsValue("")
     setTiktokPixelIdsValue("")
     setTrackCampaignSource(true)
+    setPushcutFeedback(null)
+    setIsTestingPushcut(false)
   }
 
   return (
@@ -480,10 +534,16 @@ export default function CheckoutsPage() {
                 <div className="space-y-3 rounded-xl border p-3 text-xs">
                   <div className="font-medium">Tutorial de configuracao</div>
                   <div className="space-y-2 text-muted-foreground">
-                    <p>1. No Pushcut, crie uma notificacao e copie o webhook URL dela.</p>
-                    <p>2. Cole esse link neste checkout para que somente as vendas dele usem esse endpoint.</p>
-                    <p>3. Para exibir o valor da venda na notificacao, envie a chamada com JSON e sobrescreva `title` e `text` dinamicamente.</p>
-                    <p>4. Um payload de exemplo para a venda pode seguir este formato:</p>
+                    <p>1. Abra o app Pushcut no iPhone ou iPad.</p>
+                    <p>2. Toque em `Notifications`.</p>
+                    <p>3. Toque em `+` para criar uma nova notificacao.</p>
+                    <p>4. Dê um nome claro, por exemplo: `Venda aprovada Swipe`.</p>
+                    <p>5. Abra essa notificacao criada e toque em `Advanced` ou `Integrations`, dependendo da tela do seu Pushcut.</p>
+                    <p>6. Procure a opcao `Webhook URL` e copie o link completo gerado pelo Pushcut.</p>
+                    <p>7. Volte para o Swipe, cole esse link no campo acima. Se quiser mais de uma notificacao, coloque um link por linha.</p>
+                    <p>8. Clique em `Testar conexao` para disparar uma notificacao real de teste antes de salvar.</p>
+                    <p>9. Depois clique em `Salvar links`. A partir dai, pagamentos reais desse checkout vao disparar notificacoes automaticamente.</p>
+                    <p>10. O Swipe envia `title` e `text` dinamicos, entao o Pushcut mostrara o nome do checkout, valor e cliente na notificacao.</p>
                   </div>
                   <pre className="overflow-x-auto rounded-lg bg-muted p-2 text-[11px] text-foreground">
 {`{
@@ -496,6 +556,11 @@ export default function CheckoutsPage() {
                     O Pushcut aceita disparo por webhook e permite ajustar `title` e `text` por JSON no envio, o que e o caminho certo para mostrar o valor da venda na notificacao do celular.
                   </p>
                 </div>
+                {pushcutFeedback ? (
+                  <div className="rounded-xl border p-3 text-xs text-muted-foreground">
+                    {pushcutFeedback}
+                  </div>
+                ) : null}
               </>
             )}
 
@@ -503,6 +568,11 @@ export default function CheckoutsPage() {
               <Button variant="outline" onClick={handleCloseDialog}>
                 Fechar
               </Button>
+              {dialogType === "pushcut" ? (
+                <Button variant="outline" onClick={handleTestPushcut} disabled={isTestingPushcut}>
+                  {isTestingPushcut ? "Testando..." : "Testar conexao"}
+                </Button>
+              ) : null}
               <Button onClick={dialogType === "pixels" ? handleSavePixels : handleSavePushcut}>
                 {dialogType === "pixels" ? "Salvar pixels" : "Salvar links"}
               </Button>
