@@ -40,7 +40,7 @@ export function SettingsCurrentSessionCard({
       </CardHeader>
 
       <CardContent className="p-8">
-        <div className="grid gap-6 md:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4">
           <SessionStat icon={Monitor} label={t("nav.device")} value={device} subValue={deviceDetails} />
           <SessionStat icon={MapPin} label={t("nav.location")} value={city} subValue={locationDetails} />
           <SessionStat icon={Clock} label={t("settings.last_access")} value={date} subValue={sessionDetails} />
