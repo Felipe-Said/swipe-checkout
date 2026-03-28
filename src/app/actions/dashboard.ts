@@ -194,6 +194,11 @@ function emptyRevenueChart(): RevenueChartSummary {
   }
 }
 
+function isMissingRelationError(message: string | undefined, relationName: string) {
+  const normalized = (message ?? "").toLowerCase()
+  return normalized.includes(relationName.toLowerCase()) && normalized.includes("does not exist")
+}
+
 function buildCustomerFunnel(events: DashboardCheckoutBehaviorRow[]) {
   const eventSessionMap = new Map<string, Set<string>>()
 
@@ -506,7 +511,12 @@ export async function loadDashboardForSession(input: {
   if (ordersResult.error) return { error: ordersResult.error.message }
   if (withdrawalsResult.error) return { error: withdrawalsResult.error.message }
   if (chartOrdersResult.error) return { error: chartOrdersResult.error.message }
-  if (behaviorEventsResult.error) return { error: behaviorEventsResult.error.message }
+  if (
+    behaviorEventsResult.error &&
+    !isMissingRelationError(behaviorEventsResult.error.message, "checkout_behavior_events")
+  ) {
+    return { error: behaviorEventsResult.error.message }
+  }
 
   const domainByCheckout = new Map<string, string>()
   for (const domain of domainsResult.data ?? []) {
@@ -545,7 +555,7 @@ export async function loadDashboardForSession(input: {
   }))
 
   const checkoutBehaviorEvents: DashboardCheckoutBehaviorRow[] = (
-    behaviorEventsResult.data ?? []
+    behaviorEventsResult.error ? [] : behaviorEventsResult.data ?? []
   ).map((event) => ({
     checkoutId: event.checkout_id,
     sessionId: event.session_id,
