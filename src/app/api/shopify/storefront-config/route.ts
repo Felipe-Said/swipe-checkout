@@ -39,8 +39,57 @@ export async function GET(request: Request) {
     .in("status", ["Pronta", "Conectada"])
     .maybeSingle()
 
+  let checkoutBaseUrl = getAppBaseUrl(request)
+
+  if (store?.default_checkout_id) {
+    const { data: checkout } = await supabaseAdmin
+      .from("checkouts")
+      .select("id, config")
+      .eq("id", store.default_checkout_id)
+      .maybeSingle()
+
+    const selectedDomainId =
+      checkout?.config && typeof checkout.config === "object" && !Array.isArray(checkout.config)
+        ? String((checkout.config as Record<string, unknown>).selectedDomainId || "")
+        : ""
+
+    let connectedDomainHost = ""
+
+    if (selectedDomainId) {
+      const { data: selectedDomain } = await supabaseAdmin
+        .from("domains")
+        .select("host, status")
+        .eq("id", selectedDomainId)
+        .eq("checkout_id", store.default_checkout_id)
+        .maybeSingle()
+
+      if (selectedDomain?.status === "Pronto") {
+        connectedDomainHost = selectedDomain.host
+      }
+    }
+
+    if (!connectedDomainHost) {
+      const { data: fallbackDomain } = await supabaseAdmin
+        .from("domains")
+        .select("host, status, is_primary")
+        .eq("checkout_id", store.default_checkout_id)
+        .eq("status", "Pronto")
+        .order("is_primary", { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      if (fallbackDomain?.host) {
+        connectedDomainHost = fallbackDomain.host
+      }
+    }
+
+    if (connectedDomainHost) {
+      checkoutBaseUrl = `https://${connectedDomainHost}`
+    }
+  }
+
   const checkoutUrl = store?.default_checkout_id
-    ? `${getAppBaseUrl(request)}/checkout/${store.default_checkout_id}?shop=${encodeURIComponent(shop)}&store=${encodeURIComponent(store.id)}`
+    ? `${checkoutBaseUrl}/checkout/${store.default_checkout_id}?shop=${encodeURIComponent(shop)}&store=${encodeURIComponent(store.id)}`
     : ""
 
   return NextResponse.json(
