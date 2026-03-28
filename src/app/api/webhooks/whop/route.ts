@@ -1,6 +1,7 @@
 import Whop from "@whop/sdk"
 import { NextResponse } from "next/server"
 
+import { sendPushcutNotificationsForCheckout } from "@/lib/pushcut"
 import { syncPaidWhopOrderToShopify } from "@/lib/shopify-order-sync"
 import { getSupabaseAdmin } from "@/lib/supabase"
 
@@ -72,24 +73,33 @@ export async function POST(request: Request) {
     payment?.metadata && typeof payment.metadata === "object" && !Array.isArray(payment.metadata)
       ? payment.metadata
       : {}
+  const orderId = String(payment.id || event.id)
   const checkoutId =
     typeof metadata.swipeCheckoutId === "string" && metadata.swipeCheckoutId.trim()
       ? metadata.swipeCheckoutId.trim()
       : null
+  const customerName =
+    payment.user?.name ||
+    payment.billing_address?.name ||
+    "Cliente"
+  const currency = String(payment.currency || "brl").toUpperCase()
+  const orderDate = payment.paid_at || payment.created_at || new Date().toISOString()
+  const { data: existingOrder } = await supabaseAdmin
+    .from("orders")
+    .select("status")
+    .eq("id", orderId)
+    .maybeSingle()
 
   await supabaseAdmin.from("orders").upsert(
     {
-      id: String(payment.id || event.id),
+      id: orderId,
       account_id: account.id,
       checkout_id: checkoutId,
-      customer_name:
-        payment.user?.name ||
-        payment.billing_address?.name ||
-        "Cliente",
+      customer_name: customerName,
       amount,
-      currency: String(payment.currency || "brl").toUpperCase(),
+      currency,
       status,
-      date: payment.paid_at || payment.created_at || new Date().toISOString(),
+      date: orderDate,
       attribution_source:
         typeof metadata.utmSource === "string" ? metadata.utmSource : null,
       attribution_medium:
@@ -119,6 +129,36 @@ export async function POST(request: Request) {
       onConflict: "id",
     }
   )
+
+  if (existingOrder?.status !== status) {
+    const pushcutResult = await sendPushcutNotificationsForCheckout({
+      accountId: account.id,
+      checkoutId,
+      checkoutName:
+        typeof metadata.swipeCheckoutName === "string" ? metadata.swipeCheckoutName : null,
+      orderId,
+      customerName,
+      amount,
+      currency,
+      status,
+      sourceUrl:
+        typeof metadata.sourceUrl === "string"
+          ? metadata.sourceUrl
+          : typeof metadata.landingUrl === "string"
+            ? metadata.landingUrl
+            : null,
+    })
+
+    if (!pushcutResult.success && !("skipped" in pushcutResult && pushcutResult.skipped === "no_urls")) {
+      console.error("Pushcut delivery failed", {
+        paymentId: orderId,
+        accountId: account.id,
+        checkoutId,
+        status,
+        result: pushcutResult,
+      })
+    }
+  }
 
   if (event.type === "payment.succeeded") {
     const syncResult = await syncPaidWhopOrderToShopify({
