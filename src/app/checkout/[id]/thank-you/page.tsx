@@ -84,6 +84,22 @@ export default async function PublicCheckoutThankYouPage({
     typeof resolvedSearchParams.product === "string" ? resolvedSearchParams.product : null
   const variantId =
     typeof resolvedSearchParams.variant === "string" ? resolvedSearchParams.variant : null
+  const orderId =
+    typeof resolvedSearchParams.order_id === "string"
+      ? resolvedSearchParams.order_id
+      : checkout.id.slice(0, 8).toUpperCase()
+  const paymentMethod =
+    typeof resolvedSearchParams.payment_method === "string"
+      ? resolvedSearchParams.payment_method
+      : "Whop"
+  const paidAt =
+    typeof resolvedSearchParams.paid_at === "string"
+      ? resolvedSearchParams.paid_at
+      : new Date().toISOString()
+  const formattedDateTime = new Intl.DateTimeFormat("pt-BR", {
+    dateStyle: "short",
+    timeStyle: "short",
+  }).format(new Date(paidAt))
 
   return (
     <main className="min-h-screen bg-[#111111] px-4 py-8 md:px-8">
@@ -116,6 +132,11 @@ export default async function PublicCheckoutThankYouPage({
             enabled: true,
             checkoutId: checkout.id,
             stage: "thank-you",
+          }}
+          thankYouMeta={{
+            orderId,
+            paymentMethod,
+            dateTime: formattedDateTime,
           }}
         />
       </div>

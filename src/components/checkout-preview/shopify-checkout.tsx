@@ -7,6 +7,7 @@ import { WhopCheckoutEmbed, useCheckoutEmbedControls } from "@whop/checkout/reac
 import { cn } from "@/lib/utils"
 import { trackCheckoutBehaviorEvent } from "@/lib/checkout-behavior"
 import { Button } from "@/components/ui/button"
+import { OrderConfirmationCard } from "@/components/ui/order-confirmation-card"
 import {
   Dialog,
   DialogContent,
@@ -61,6 +62,12 @@ type ShopifyStorePreview = {
   variantLabel: string
   amount: number
   imageSrc?: string
+}
+
+type ThankYouMeta = {
+  orderId: string
+  paymentMethod: string
+  dateTime: string
 }
 
 type CheckoutBehaviorTracking = {
@@ -452,6 +459,7 @@ export function ShopifyCheckout({
   storePreview,
   onConfigUpdate,
   behaviorTracking,
+  thankYouMeta,
 }: {
   config: CheckoutConfig
   device: "desktop" | "mobile"
@@ -460,6 +468,7 @@ export function ShopifyCheckout({
   storePreview?: ShopifyStorePreview | null
   onConfigUpdate?: (key: keyof CheckoutConfig, value: string | boolean | number) => void
   behaviorTracking?: CheckoutBehaviorTracking
+  thankYouMeta?: ThankYouMeta
 }) {
   const [isSummaryOpen, setIsSummaryOpen] = React.useState(false)
   const [resolvedLocale, setResolvedLocale] = React.useState<SupportedLocale>(config.locale)
@@ -623,6 +632,7 @@ export function ShopifyCheckout({
         productName={productName}
         variantLabel={variantLabel}
         onConfigUpdate={onConfigUpdate}
+        thankYouMeta={thankYouMeta}
       />
     )
   }
@@ -818,6 +828,7 @@ function ThankYouPage({
   productName,
   variantLabel,
   onConfigUpdate,
+  thankYouMeta,
 }: {
   config: CheckoutConfig
   copy: Copy
@@ -828,6 +839,7 @@ function ThankYouPage({
   productName: string
   variantLabel: string
   onConfigUpdate?: (key: keyof CheckoutConfig, value: string | boolean | number) => void
+  thankYouMeta?: ThankYouMeta
 }) {
   const [upsellAccepted, setUpsellAccepted] = React.useState(false)
   const upsellPrice = formatPrice(config.upsellPrice, locale, currency)
@@ -849,6 +861,25 @@ function ThankYouPage({
   const computedCardMinHeight = `${Math.round((baseCardHeight * thankYouCardBackgroundSize) / 100)}px`
   const containerRef = React.useRef<HTMLDivElement | null>(null)
   const shouldUseDragLayout = config.thankYouDragEnabled
+  const thankYouTitle = config.thankYouTitle?.trim() || "Pedido confirmado com sucesso"
+  const thankYouButtonText = config.thankYouButtonText?.trim() || "Ir para minha conta"
+  const thankYouButtonHref = config.thankYouButtonUrl?.trim() || "/app"
+  const confirmationCard = (
+    <OrderConfirmationCard
+      orderId={thankYouMeta?.orderId ?? "SWIPE"}
+      paymentMethod={thankYouMeta?.paymentMethod ?? "Whop"}
+      dateTime={thankYouMeta?.dateTime ?? new Date().toLocaleString("pt-BR")}
+      totalAmount={formattedPrice}
+      title={thankYouTitle}
+      buttonText={thankYouButtonText}
+      icon={<CheckCircleBadge accentColor={config.checkoutAccentColor} />}
+      onGoToAccount={() => {
+        if (typeof window === "undefined") return
+        window.location.href = thankYouButtonHref
+      }}
+      className="max-w-[420px] border-white/40 shadow-[0_20px_60px_rgba(15,23,42,0.12)]"
+    />
+  )
 
   return (
     <div
@@ -1041,28 +1072,12 @@ function ThankYouPage({
           </>
         ) : (
           <div className="mx-auto flex min-h-full max-w-[520px] flex-col items-center justify-center gap-6 py-6">
-            {config.thankYouShowIcon ? (
-              <div
-                className="flex h-16 w-16 items-center justify-center rounded-full border"
-                style={{
-                  borderColor: withAlpha(config.checkoutAccentColor, 0.2),
-                  backgroundColor: withAlpha(config.checkoutAccentColor, 0.08),
-                  color: config.checkoutAccentColor,
-                }}
-              >
-                <ShieldCheck className="h-8 w-8" />
-              </div>
-            ) : null}
             {config.thankYouShowBrand ? (
               <div className="flex items-center justify-center">
                 <CheckoutBrand config={config} />
               </div>
             ) : null}
-            {config.thankYouShowTitle ? (
-              <h1 className="max-w-[520px] text-3xl font-semibold tracking-tight" style={{ color: config.checkoutTextColor }}>
-                {config.thankYouTitle}
-              </h1>
-            ) : null}
+            {confirmationCard}
             {config.thankYouShowMessage ? (
               <p className="max-w-[46ch] text-sm leading-6" style={{ color: config.checkoutMutedColor }}>
                 {config.thankYouMessage}
@@ -1070,7 +1085,7 @@ function ThankYouPage({
             ) : null}
             {config.thankYouShowSummary ? (
               <div
-                className="w-full rounded-2xl border p-4 text-left"
+                className="w-full max-w-[420px] rounded-2xl border p-4 text-left"
                 style={{ borderColor: config.checkoutMutedColor, backgroundColor: config.checkoutBackgroundColor }}
               >
                 <div className="flex items-center justify-between text-sm">
@@ -1079,7 +1094,7 @@ function ThankYouPage({
                     {formattedPrice}
                   </span>
                 </div>
-                <div className="mt-3 flex items-center justify-between text-xs">
+                <div className="mt-3 flex items-center justify-between gap-4 text-xs">
                   <span style={{ color: config.checkoutMutedColor }}>{productName}</span>
                   <span style={{ color: config.checkoutMutedColor }}>{variantLabel}</span>
                 </div>
@@ -1087,7 +1102,7 @@ function ThankYouPage({
             ) : null}
             {config.upsellEnabled ? (
               <div
-                className="w-full rounded-2xl border p-5 text-left"
+                className="w-full max-w-[420px] rounded-2xl border p-5 text-left"
                 style={{ borderColor: withAlpha(config.checkoutAccentColor, 0.22), backgroundColor: withAlpha(config.checkoutAccentColor, 0.06) }}
               >
                 <div className="mb-3 inline-flex rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em]" style={{ backgroundColor: withAlpha(config.checkoutAccentColor, 0.12), color: config.checkoutAccentColor }}>
@@ -1114,14 +1129,24 @@ function ThankYouPage({
                 </div>
               </div>
             ) : null}
-            {config.thankYouButtonEnabled ? (
-              <div className="w-full">
-                <BuyButton config={config} label={config.thankYouButtonText} href={config.thankYouButtonUrl} />
-              </div>
-            ) : null}
           </div>
         )}
       </div>
+    </div>
+  )
+}
+
+function CheckCircleBadge({ accentColor }: { accentColor: string }) {
+  return (
+    <div
+      className="flex h-16 w-16 items-center justify-center rounded-full border"
+      style={{
+        borderColor: withAlpha(accentColor, 0.2),
+        backgroundColor: withAlpha(accentColor, 0.08),
+        color: accentColor,
+      }}
+    >
+      <ShieldCheck className="h-8 w-8" />
     </div>
   )
 }
