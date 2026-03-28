@@ -386,6 +386,22 @@ async function fetchShopifyStorePreview(input: { storeId: string; accountId: str
   }
 }
 
+async function fetchPublishingStoreById(storeId: string) {
+  const supabaseAdmin = getSupabaseAdmin()
+  const { data: store, error } = await supabaseAdmin
+    .from("shopify_stores")
+    .select("id, account_id, name, shop_domain, client_id, client_secret, status")
+    .eq("id", storeId)
+    .in("status", ["Pronta", "Conectada"])
+    .maybeSingle()
+
+  if (error || !store) {
+    return null
+  }
+
+  return store
+}
+
 async function fetchShopifyStorePreviewByDomain(input: { shopDomain: string; accountId: string }) {
   const supabaseAdmin = getSupabaseAdmin()
   const { data: store, error } = await supabaseAdmin
@@ -715,6 +731,21 @@ export async function loadShopifyStorePreviewForPublishing(input: {
   return fetchShopifyStorePreview(input)
 }
 
+export async function loadShopifyStorePreviewForPublicCheckout(input: {
+  storeId: string
+}) {
+  const store = await fetchPublishingStoreById(input.storeId)
+
+  if (!store) {
+    return { error: "Loja Shopify nao encontrada.", preview: null as ShopifyStorePreview | null }
+  }
+
+  return fetchShopifyStorePreview({
+    storeId: store.id,
+    accountId: store.account_id,
+  })
+}
+
 export async function loadShopifyStorePreviewByDomainForPublishing(input: {
   shopDomain: string
   accountId: string
@@ -729,6 +760,25 @@ export async function loadShopifyVariantPreviewForPublishing(input: {
   productId?: string
 }) {
   return fetchShopifyVariantPreview(input)
+}
+
+export async function loadShopifyVariantPreviewForPublicCheckout(input: {
+  storeId: string
+  variantId: string
+  productId?: string
+}) {
+  const store = await fetchPublishingStoreById(input.storeId)
+
+  if (!store) {
+    return { error: "Loja Shopify nao encontrada.", preview: null as ShopifyStorePreview | null }
+  }
+
+  return fetchShopifyVariantPreview({
+    storeId: store.id,
+    accountId: store.account_id,
+    variantId: input.variantId,
+    productId: input.productId,
+  })
 }
 
 export async function loadShopifyVariantPreviewByDomainForPublishing(input: {
@@ -747,6 +797,25 @@ export async function loadShopifyProductPreviewForPublishing(input: {
   variantId?: string
 }) {
   return fetchShopifyProductPreview(input)
+}
+
+export async function loadShopifyProductPreviewForPublicCheckout(input: {
+  storeId: string
+  productId: string
+  variantId?: string
+}) {
+  const store = await fetchPublishingStoreById(input.storeId)
+
+  if (!store) {
+    return { error: "Loja Shopify nao encontrada.", preview: null as ShopifyStorePreview | null }
+  }
+
+  return fetchShopifyProductPreview({
+    storeId: store.id,
+    accountId: store.account_id,
+    productId: input.productId,
+    variantId: input.variantId,
+  })
 }
 
 export async function loadShopifyProductPreviewByDomainForPublishing(input: {

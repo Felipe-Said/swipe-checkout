@@ -4,10 +4,13 @@ import { ShopifyCheckout } from "@/components/checkout-preview/shopify-checkout"
 import { getSupabaseAdmin } from "@/lib/supabase"
 import {
   loadShopifyProductPreviewByDomainForPublishing,
+  loadShopifyProductPreviewForPublicCheckout,
   loadShopifyProductPreviewForPublishing,
   loadShopifyStorePreviewByDomainForPublishing,
+  loadShopifyStorePreviewForPublicCheckout,
   loadShopifyStorePreviewForPublishing,
   loadShopifyVariantPreviewByDomainForPublishing,
+  loadShopifyVariantPreviewForPublicCheckout,
   loadShopifyVariantPreviewForPublishing,
 } from "@/app/actions/shopify"
 import { createPublicWhopCheckoutSession } from "@/app/actions/whop"
@@ -52,21 +55,18 @@ export default async function PublicCheckoutPage({
   const storePreviewResult =
     storeIdFromRedirect
       ? variantId
-        ? await loadShopifyVariantPreviewForPublishing({
+        ? await loadShopifyVariantPreviewForPublicCheckout({
             storeId: storeIdFromRedirect,
-            accountId: checkout.account_id,
             variantId,
             productId,
           })
         : productId
-        ? await loadShopifyProductPreviewForPublishing({
+        ? await loadShopifyProductPreviewForPublicCheckout({
             storeId: storeIdFromRedirect,
-            accountId: checkout.account_id,
             productId,
           })
-        : await loadShopifyStorePreviewForPublishing({
+        : await loadShopifyStorePreviewForPublicCheckout({
             storeId: storeIdFromRedirect,
-            accountId: checkout.account_id,
           })
       : shopDomain
       ? variantId
@@ -105,6 +105,18 @@ export default async function PublicCheckoutPage({
               accountId: checkout.account_id,
             })
         : { preview: null }
+
+  if (!storePreviewResult.preview && storePreviewResult.error) {
+    console.error("Public checkout Shopify preview failed", {
+      checkoutId: checkout.id,
+      accountId: checkout.account_id,
+      storeIdFromRedirect,
+      shopDomain,
+      productId,
+      variantId,
+      error: storePreviewResult.error,
+    })
+  }
 
   const whopSessionResult = await createPublicWhopCheckoutSession({
     checkoutId: checkout.id,
