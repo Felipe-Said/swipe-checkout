@@ -480,6 +480,29 @@ export function ShopifyCheckout({
   }, [config.currency, config.currencyMode, config.locale, config.localeMode])
 
   React.useEffect(() => {
+    const fullName = contactData.fullName.trim()
+    if (!fullName) return
+
+    setDeliveryData((prev) => {
+      if (prev.firstName.trim() || prev.lastName.trim()) {
+        return prev
+      }
+
+      const parts = fullName.split(/\s+/).filter(Boolean)
+      if (parts.length === 0) {
+        return prev
+      }
+
+      const [firstName, ...rest] = parts
+      return {
+        ...prev,
+        firstName,
+        lastName: rest.join(" "),
+      }
+    })
+  }, [contactData.fullName])
+
+  React.useEffect(() => {
     if (typeof document === "undefined") return
 
     const previousHtmlLang = document.documentElement.lang
@@ -1137,6 +1160,7 @@ function ContactSection({
         placeholder={copy.fullName}
         className="h-11"
         style={{ borderColor: config.checkoutMutedColor }}
+        autoComplete="name"
         value={contactData.fullName}
         onChange={(e) => onChange((prev) => ({ ...prev, fullName: e.target.value }))}
       />
@@ -1144,6 +1168,7 @@ function ContactSection({
         placeholder={copy.phone}
         className="h-11"
         style={{ borderColor: config.checkoutMutedColor }}
+        autoComplete="tel"
         value={contactData.phone}
         onChange={(e) => onChange((prev) => ({ ...prev, phone: e.target.value }))}
       />
@@ -1151,6 +1176,7 @@ function ContactSection({
         placeholder={copy.email}
         className="h-11"
         style={{ borderColor: config.checkoutMutedColor }}
+        autoComplete="email"
         value={contactData.email}
         onChange={(e) => onChange((prev) => ({ ...prev, email: e.target.value }))}
       />
@@ -1195,14 +1221,14 @@ function DeliverySection({
     <section className="space-y-4 pt-4">
       <h2 className="text-lg font-medium" style={{ color: config.checkoutTextColor }}>{copy.delivery}</h2>
       <div className={cn("gap-4", compact ? "grid grid-cols-1" : "grid grid-cols-2")}>
-        <Input placeholder={copy.firstName} className="h-11" style={{ borderColor: config.checkoutMutedColor }} value={deliveryData.firstName} onChange={(e) => onChange((prev) => ({ ...prev, firstName: e.target.value }))} />
-        <Input placeholder={copy.lastName} className="h-11" style={{ borderColor: config.checkoutMutedColor }} value={deliveryData.lastName} onChange={(e) => onChange((prev) => ({ ...prev, lastName: e.target.value }))} />
+        <Input placeholder={copy.firstName} className="h-11" style={{ borderColor: config.checkoutMutedColor }} autoComplete="given-name" value={deliveryData.firstName} onChange={(e) => onChange((prev) => ({ ...prev, firstName: e.target.value }))} />
+        <Input placeholder={copy.lastName} className="h-11" style={{ borderColor: config.checkoutMutedColor }} autoComplete="family-name" value={deliveryData.lastName} onChange={(e) => onChange((prev) => ({ ...prev, lastName: e.target.value }))} />
       </div>
-      <Input placeholder={copy.address} className="h-11" style={{ borderColor: config.checkoutMutedColor }} value={deliveryData.address} onChange={(e) => onChange((prev) => ({ ...prev, address: e.target.value }))} />
+      <Input placeholder={copy.address} className="h-11" style={{ borderColor: config.checkoutMutedColor }} autoComplete="address-line1" value={deliveryData.address} onChange={(e) => onChange((prev) => ({ ...prev, address: e.target.value }))} />
       <div className={cn("gap-4", compact ? "grid grid-cols-1" : "grid grid-cols-3")}>
-        <Input placeholder={copy.city} className="h-11" style={{ borderColor: config.checkoutMutedColor }} value={deliveryData.city} onChange={(e) => onChange((prev) => ({ ...prev, city: e.target.value }))} />
-        <Input placeholder={copy.state} className="h-11" style={{ borderColor: config.checkoutMutedColor }} value={deliveryData.state} onChange={(e) => onChange((prev) => ({ ...prev, state: e.target.value }))} />
-        <Input placeholder={copy.zip} className="h-11" style={{ borderColor: config.checkoutMutedColor }} value={deliveryData.zip} onChange={(e) => onChange((prev) => ({ ...prev, zip: e.target.value }))} />
+        <Input placeholder={copy.city} className="h-11" style={{ borderColor: config.checkoutMutedColor }} autoComplete="address-level2" value={deliveryData.city} onChange={(e) => onChange((prev) => ({ ...prev, city: e.target.value }))} />
+        <Input placeholder={copy.state} className="h-11" style={{ borderColor: config.checkoutMutedColor }} autoComplete="address-level1" value={deliveryData.state} onChange={(e) => onChange((prev) => ({ ...prev, state: e.target.value }))} />
+        <Input placeholder={copy.zip} className="h-11" style={{ borderColor: config.checkoutMutedColor }} autoComplete="postal-code" value={deliveryData.zip} onChange={(e) => onChange((prev) => ({ ...prev, zip: e.target.value }))} />
       </div>
     </section>
   )
