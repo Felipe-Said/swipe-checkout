@@ -40,6 +40,22 @@ export default function DomainsPage() {
   const [activeAccountId, setActiveAccountId] = React.useState("")
   const [sessionUserId, setSessionUserId] = React.useState("")
 
+  const mapDomainToSetup = React.useCallback((domain: ConnectedDomain) => {
+    return {
+      host: domain.host,
+      mode: domain.mode,
+      recordType: domain.recordType,
+      recordName: domain.recordName,
+      recordValue: domain.recordValue,
+      verificationRecordType: domain.verificationRecordType,
+      verificationRecordName: domain.verificationRecordName,
+      verificationRecordValue: domain.verificationRecordValue,
+      secondaryRecordType: domain.secondaryRecordType,
+      secondaryRecordName: domain.secondaryRecordName,
+      secondaryRecordValue: domain.secondaryRecordValue,
+    }
+  }, [])
+
   const loadDomains = React.useCallback(async (userId: string, accountId: string) => {
     const result = await loadDomainsForSession({ userId, accountId })
     if (result.error) {
@@ -49,6 +65,39 @@ export default function DomainsPage() {
 
     setDomains(result.domains)
   }, [])
+
+  React.useEffect(() => {
+    if (domains.length === 0) {
+      setSelectedSetup(null)
+      return
+    }
+
+    const customDomains = domains.filter((domain) => domain.mode !== "platform")
+    if (customDomains.length === 0) {
+      setSelectedSetup(null)
+      return
+    }
+
+    const preferredDomain = selectedSetup?.host
+      ? customDomains.find((domain) => domain.host === selectedSetup.host)
+      : undefined
+
+    const nextDomain =
+      preferredDomain ??
+      customDomains.find((domain) => domain.isPrimary) ??
+      customDomains[0]
+
+    if (!nextDomain) {
+      setSelectedSetup(null)
+      return
+    }
+
+    const nextSetup = mapDomainToSetup(nextDomain)
+    const hasChanged = JSON.stringify(selectedSetup) !== JSON.stringify(nextSetup)
+    if (hasChanged) {
+      setSelectedSetup(nextSetup)
+    }
+  }, [domains, mapDomainToSetup, selectedSetup])
 
   React.useEffect(() => {
     async function load() {
@@ -91,18 +140,18 @@ export default function DomainsPage() {
     if (mode !== "platform" && result.setup) {
       setSelectedSetup({
         host: formattedHost,
-          mode: result.setup.mode,
-          recordType: result.setup.recordType,
-          recordName: result.setup.recordName,
-          recordValue: result.setup.recordValue,
-          verificationRecordType: result.setup.verificationRecordType,
-          verificationRecordName: result.setup.verificationRecordName,
-          verificationRecordValue: result.setup.verificationRecordValue,
-          secondaryRecordType: result.setup.secondaryRecordType,
-          secondaryRecordName: result.setup.secondaryRecordName,
-          secondaryRecordValue: result.setup.secondaryRecordValue,
-        })
-      }
+        mode: result.setup.mode,
+        recordType: result.setup.recordType,
+        recordName: result.setup.recordName,
+        recordValue: result.setup.recordValue,
+        verificationRecordType: result.setup.verificationRecordType,
+        verificationRecordName: result.setup.verificationRecordName,
+        verificationRecordValue: result.setup.verificationRecordValue,
+        secondaryRecordType: result.setup.secondaryRecordType,
+        secondaryRecordName: result.setup.secondaryRecordName,
+        secondaryRecordValue: result.setup.secondaryRecordValue,
+      })
+    }
 
     toast.success("Dominio adicionado com sucesso!")
   }
@@ -162,19 +211,7 @@ export default function DomainsPage() {
   }
 
   const handleViewDns = (domain: ConnectedDomain) => {
-    setSelectedSetup({
-      host: domain.host,
-      mode: domain.mode,
-      recordType: domain.recordType,
-      recordName: domain.recordName,
-      recordValue: domain.recordValue,
-      verificationRecordType: domain.verificationRecordType,
-      verificationRecordName: domain.verificationRecordName,
-      verificationRecordValue: domain.verificationRecordValue,
-      secondaryRecordType: domain.secondaryRecordType,
-      secondaryRecordName: domain.secondaryRecordName,
-      secondaryRecordValue: domain.secondaryRecordValue,
-    })
+    setSelectedSetup(mapDomainToSetup(domain))
   }
 
   const filteredDomains = domains.filter(
