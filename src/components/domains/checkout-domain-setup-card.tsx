@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { Globe, Plus, Check, Info } from "lucide-react"
+import { Globe, Plus, Info } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch"
 import { getCurrentAppSession } from "@/lib/app-session"
 import { DomainMode } from "@/lib/domain-data"
+import { loadCheckoutOptionsForDomainSession } from "@/app/actions/domains"
 
 interface DomainSetupCardProps {
   onAdd: (domain: string, mode: DomainMode, checkoutId: string, isPrimary: boolean) => void
@@ -18,21 +19,29 @@ interface DomainSetupCardProps {
 export function DomainSetupCard({ onAdd }: DomainSetupCardProps) {
   const [domain, setDomain] = React.useState("")
   const [mode, setMode] = React.useState<DomainMode>("custom_subdomain")
-  const [checkouts, setCheckouts] = React.useState<any[]>([])
+  const [checkouts, setCheckouts] = React.useState<Array<{ id: string; name: string }>>([])
   const [checkoutId, setCheckoutId] = React.useState("")
   const [isPrimary, setIsPrimary] = React.useState(false)
 
   React.useEffect(() => {
     async function load() {
       const session = await getCurrentAppSession()
-      if (!session?.accountId) return
+      if (!session?.accountId || !session.userId) return
 
-      const { getCheckouts } = await import("@/lib/domain-data")
-      const list = await getCheckouts(session.accountId)
-      setCheckouts(list)
-      if (list.length > 0) setCheckoutId(list[0].id)
+      const result = await loadCheckoutOptionsForDomainSession({
+        userId: session.userId,
+        accountId: session.accountId,
+      })
+
+      if (result.error) return
+
+      setCheckouts(result.checkouts)
+      if (result.checkouts.length > 0) {
+        setCheckoutId(result.checkouts[0].id)
+      }
     }
-    load()
+
+    void load()
   }, [])
 
   const handleAdd = () => {
@@ -42,99 +51,107 @@ export function DomainSetupCard({ onAdd }: DomainSetupCardProps) {
   }
 
   return (
-    <Card className="border-primary/10 bg-card/40 backdrop-blur-sm shadow-xl overflow-hidden group">
-      <CardHeader className="bg-primary/5 pb-6 border-b border-primary/10 relative">
+    <Card className="group overflow-hidden border-primary/10 bg-card/40 shadow-xl backdrop-blur-sm">
+      <CardHeader className="relative border-b border-primary/10 bg-primary/5 pb-6">
         <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary border border-primary/20">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-primary/20 bg-primary/10 text-primary">
             <Globe className="h-6 w-6" />
           </div>
           <div>
-            <CardTitle className="text-xl">Novo domínio do checkout</CardTitle>
-            <CardDescription>Conecte um domínio e aponte para a plataforma.</CardDescription>
+            <CardTitle className="text-xl">Novo dominio do checkout</CardTitle>
+            <CardDescription>Conecte um dominio e aponte para a plataforma.</CardDescription>
           </div>
         </div>
       </CardHeader>
 
-      <CardContent className="p-8 space-y-6">
+      <CardContent className="space-y-6 p-8">
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label className="text-xs font-black uppercase tracking-widest text-muted-foreground ml-1">
-              Modo do domínio
+            <Label className="ml-1 text-xs font-black uppercase tracking-widest text-muted-foreground">
+              Modo do dominio
             </Label>
-            <Select value={mode} onValueChange={(v: DomainMode) => setMode(v)}>
-              <SelectTrigger className="h-12 bg-muted/20 border-primary/5 rounded-xl font-bold">
+            <Select value={mode} onValueChange={(value: DomainMode) => setMode(value)}>
+              <SelectTrigger className="h-12 rounded-xl border-primary/5 bg-muted/20 font-bold">
                 <SelectValue placeholder="Selecione o modo" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="platform" className="font-medium">Subdomínio da plataforma (*.swipe.com.br)</SelectItem>
-                <SelectItem value="custom_subdomain" className="font-medium">Subdomínio próprio (checkout.seu.com)</SelectItem>
-                <SelectItem value="custom_apex" className="font-medium">Domínio próprio (seu.com)</SelectItem>
+                <SelectItem value="platform" className="font-medium">
+                  Subdominio da plataforma (*.swipe.com.br)
+                </SelectItem>
+                <SelectItem value="custom_subdomain" className="font-medium">
+                  Subdominio proprio (checkout.seu.com)
+                </SelectItem>
+                <SelectItem value="custom_apex" className="font-medium">
+                  Dominio proprio (seu.com)
+                </SelectItem>
               </SelectContent>
             </Select>
           </div>
 
           <div className="space-y-2">
-            <Label className="text-xs font-black uppercase tracking-widest text-muted-foreground ml-1">
-              {mode === "platform" ? "Identificador do subdomínio" : "Domínio ou subdomínio"}
+            <Label className="ml-1 text-xs font-black uppercase tracking-widest text-muted-foreground">
+              {mode === "platform" ? "Identificador do subdominio" : "Dominio ou subdominio"}
             </Label>
-            <div className="relative group/input">
+            <div className="group/input relative">
               <Input
                 value={domain}
                 onChange={(e) => setDomain(e.target.value.toLowerCase())}
                 placeholder={mode === "platform" ? "minhaloja" : "checkout.meudominio.com"}
-                className="h-12 bg-muted/20 border-primary/5 rounded-xl px-4 pr-12 focus-visible:ring-primary/20 transition-all font-bold"
+                className="h-12 rounded-xl border-primary/5 bg-muted/20 px-4 pr-12 font-bold transition-all focus-visible:ring-primary/20"
               />
-              <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-black text-muted-foreground/40 group-focus-within/input:text-primary transition-colors">
+              <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-black text-muted-foreground/40 transition-colors group-focus-within/input:text-primary">
                 {mode === "platform" ? ".swipe.com.br" : ""}
               </span>
             </div>
           </div>
 
           <div className="space-y-2">
-            <Label className="text-xs font-black uppercase tracking-widest text-muted-foreground ml-1">
+            <Label className="ml-1 text-xs font-black uppercase tracking-widest text-muted-foreground">
               Checkout vinculado
             </Label>
             <Select value={checkoutId} onValueChange={setCheckoutId}>
-              <SelectTrigger className="h-12 bg-muted/20 border-primary/5 rounded-xl font-bold">
+              <SelectTrigger className="h-12 rounded-xl border-primary/5 bg-muted/20 font-bold">
                 <SelectValue placeholder="Vincular checkout" />
               </SelectTrigger>
               <SelectContent>
-                {checkouts.map((chk) => (
-                  <SelectItem key={chk.id} value={chk.id} className="font-medium">
-                    {chk.name}
+                {checkouts.map((checkout) => (
+                  <SelectItem key={checkout.id} value={checkout.id} className="font-medium">
+                    {checkout.name}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
 
-          <div className="flex items-center justify-between p-4 bg-muted/20 rounded-2xl border border-primary/5 mt-4">
+          <div className="mt-4 flex items-center justify-between rounded-2xl border border-primary/5 bg-muted/20 p-4">
             <div className="space-y-0.5">
-              <Label className="text-sm font-bold">Domínio principal</Label>
-              <p className="text-xs text-muted-foreground">Definir como destino primário do checkout.</p>
+              <Label className="text-sm font-bold">Dominio principal</Label>
+              <p className="text-xs text-muted-foreground">
+                Definir como destino primario do checkout.
+              </p>
             </div>
             <Switch checked={isPrimary} onCheckedChange={setIsPrimary} />
           </div>
         </div>
 
-        <Button 
-          className="w-full h-14 text-lg font-black tracking-tighter rounded-2xl shadow-lg shadow-primary/20 group relative overflow-hidden"
+        <Button
+          className="group relative h-14 w-full overflow-hidden rounded-2xl text-lg font-black tracking-tighter shadow-lg shadow-primary/20"
           onClick={handleAdd}
-          disabled={!domain}
+          disabled={!domain || !checkoutId}
         >
           <span className="relative z-10 flex items-center gap-2">
-            ADICIONAR DOMÍNIO
+            ADICIONAR DOMINIO
             <Plus className="h-5 w-5" />
           </span>
-          <div className="absolute inset-0 bg-gradient-to-r from-primary-foreground/0 via-primary-foreground/10 to-primary-foreground/0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
+          <div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-primary-foreground/0 via-primary-foreground/10 to-primary-foreground/0 transition-transform duration-1000 group-hover:translate-x-full" />
         </Button>
 
-        <div className="flex gap-3 p-4 bg-primary/5 rounded-2xl border border-primary/10">
-          <Info className="h-5 w-5 text-primary shrink-0 mt-0.5" />
-          <p className="text-xs text-muted-foreground leading-relaxed font-medium">
-            {mode === "platform" 
-              ? "Os subdomínios da plataforma são ativados instantaneamente e não requerem alteração no seu DNS externo."
-              : "Após adicionar, o Swipe mostrará o apontamento DNS que você deve configurar no seu provedor. Não é necessário acesso à Vercel."}
+        <div className="flex gap-3 rounded-2xl border border-primary/10 bg-primary/5 p-4">
+          <Info className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+          <p className="text-xs font-medium leading-relaxed text-muted-foreground">
+            {mode === "platform"
+              ? "Os subdominios da plataforma usam o wildcard interno do Swipe e nao exigem DNS externo do cliente."
+              : "Depois de adicionar, o Swipe vai mostrar exatamente os registros DNS que devem ser criados no seu provedor. Nao e necessario acessar a Vercel manualmente."}
           </p>
         </div>
       </CardContent>

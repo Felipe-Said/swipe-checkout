@@ -27,6 +27,11 @@ type VerificationRecord = {
   value: string
 }
 
+type CheckoutOption = {
+  id: string
+  name: string
+}
+
 function getVercelConfig() {
   const token = process.env.VERCEL_API_TOKEN
   const project = process.env.VERCEL_PROJECT_ID_OR_NAME || process.env.VERCEL_PROJECT_ID
@@ -176,6 +181,22 @@ async function syncDomainRecord(input: {
   dbStatus: string | null | undefined
   dbSslStatus: string | null | undefined
 }) {
+  if (input.mode === "platform") {
+    return {
+      status: "Pronto" as const,
+      verificationStatus: "verified" as const,
+      sslStatus: "active" as const,
+      ownershipStatus: "not_required" as const,
+      recordType: "CNAME" as const,
+      recordName: input.host.split(".")[0] || input.host,
+      recordValue: "swipe.com.br",
+      verificationRecord: undefined,
+      secondaryRecordValue: "",
+      persistedStatus: "Pronto" as const,
+      persistedSslStatus: "Ativo" as const,
+    }
+  }
+
   let projectDomain: ProjectDomainResponse | null = null
   let config: DomainConfigResponse | null = null
 
@@ -300,6 +321,11 @@ export async function loadDomainsForSession(input: {
           verificationRecordType: realtime.verificationRecord?.type as "TXT" | undefined,
           verificationRecordName: realtime.verificationRecord?.name,
           verificationRecordValue: realtime.verificationRecord?.value,
+          secondaryRecordType:
+            mode === "custom_apex" && realtime.secondaryRecordValue ? ("CNAME" as const) : undefined,
+          secondaryRecordName:
+            mode === "custom_apex" && realtime.secondaryRecordValue ? "www" : undefined,
+          secondaryRecordValue: realtime.secondaryRecordValue || undefined,
           isPrimary: Boolean(domain.is_primary),
           lastChecked: new Intl.DateTimeFormat("pt-BR", {
             dateStyle: "short",
@@ -318,6 +344,37 @@ export async function loadDomainsForSession(input: {
   }
 }
 
+export async function loadCheckoutOptionsForDomainSession(input: {
+  userId: string
+  accountId: string
+}) {
+  try {
+    const { supabaseAdmin } = await assertDomainAccess(input)
+
+    const { data, error } = await supabaseAdmin
+      .from("checkouts")
+      .select("id, name")
+      .eq("account_id", input.accountId)
+      .order("created_at", { ascending: false })
+
+    if (error) {
+      return { error: error.message, checkouts: [] as CheckoutOption[] }
+    }
+
+    return {
+      checkouts: (data ?? []).map((item) => ({
+        id: item.id,
+        name: item.name || "Checkout sem nome",
+      })),
+    }
+  } catch (error) {
+    return {
+      error: error instanceof Error ? error.message : "Nao foi possivel carregar os checkouts.",
+      checkouts: [] as CheckoutOption[],
+    }
+  }
+}
+
 export async function addDomainForSession(input: {
   userId: string
   accountId: string
@@ -327,14 +384,17 @@ export async function addDomainForSession(input: {
 }) {
   try {
     const { supabaseAdmin } = await assertDomainAccess(input)
-    const { project } = getVercelConfig()
-
-    await vercelRequest(`/v9/projects/${project}/domains`, {
-      method: "POST",
-      body: JSON.stringify({ name: input.host }),
-    })
 
     const mode = inferMode(input.host)
+    if (mode !== "platform") {
+      const { project } = getVercelConfig()
+
+      await vercelRequest(`/v9/projects/${project}/domains`, {
+        method: "POST",
+        body: JSON.stringify({ name: input.host }),
+      })
+    }
+
     const realtime = await syncDomainRecord({
       id: "",
       host: input.host,
@@ -410,9 +470,11 @@ export async function refreshDomainForSession(input: {
       throw new Error("Dominio nao encontrado.")
     }
 
-    await vercelRequest(`/v9/projects/${project}/domains/${domain.host}/verify`, {
-      method: "POST",
-    })
+    if (inferMode(domain.host) !== "platform") {
+      await vercelRequest(`/v9/projects/${project}/domains/${domain.host}/verify`, {
+        method: "POST",
+      })
+    }
 
     const realtime = await syncDomainRecord({
       id: domain.id,
@@ -445,7 +507,6 @@ export async function deleteDomainForSession(input: {
 }) {
   try {
     const { supabaseAdmin } = await assertDomainAccess(input)
-    const { project } = getVercelConfig()
 
     const { data: domain, error } = await supabaseAdmin
       .from("domains")
@@ -458,9 +519,12 @@ export async function deleteDomainForSession(input: {
       throw new Error("Dominio nao encontrado.")
     }
 
-    await vercelRequest(`/v9/projects/${project}/domains/${domain.host}`, {
-      method: "DELETE",
-    })
+    if (inferMode(domain.host) !== "platform") {
+      const { project } = getVercelConfig()
+      await vercelRequest(`/v9/projects/${project}/domains/${domain.host}`, {
+        method: "DELETE",
+      })
+    }
 
     const { error: deleteError } = await supabaseAdmin
       .from("domains")

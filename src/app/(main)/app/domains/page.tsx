@@ -162,8 +162,6 @@ export default function DomainsPage() {
   }
 
   const handleViewDns = (domain: ConnectedDomain) => {
-    const shouldShowSecondaryCname = domain.mode === "custom_apex" && domain.recordType === "A"
-
     setSelectedSetup({
       host: domain.host,
       mode: domain.mode,
@@ -173,9 +171,9 @@ export default function DomainsPage() {
       verificationRecordType: domain.verificationRecordType,
       verificationRecordName: domain.verificationRecordName,
       verificationRecordValue: domain.verificationRecordValue,
-      secondaryRecordType: shouldShowSecondaryCname ? "CNAME" : undefined,
-      secondaryRecordName: shouldShowSecondaryCname ? "www" : undefined,
-      secondaryRecordValue: shouldShowSecondaryCname ? "cname.vercel-dns-0.com" : undefined,
+      secondaryRecordType: domain.secondaryRecordType,
+      secondaryRecordName: domain.secondaryRecordName,
+      secondaryRecordValue: domain.secondaryRecordValue,
     })
   }
 
