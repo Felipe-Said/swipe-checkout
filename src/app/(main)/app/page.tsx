@@ -2,156 +2,138 @@
 
 import * as React from "react"
 import {
-  MousePointerClick,
-  TrendingUp,
-  ShoppingCart,
-  Users,
   ArrowUpRight,
-  Percent,
   CalendarRange,
-  Wallet,
+  LayoutDashboard,
   Megaphone,
+  Percent,
+  ShoppingCart,
+  TrendingUp,
+  Wallet,
 } from "lucide-react"
 
+import { loadDashboardForSession } from "@/app/actions/dashboard"
 import { getCurrentAppSession } from "@/lib/app-session"
 import { useI18n } from "@/lib/i18n"
-import {
-  calculateFeeValue,
-  getManagedAccounts,
-  type ManagedAccount,
-} from "@/lib/account-metrics"
-import { readCampaignPerformance } from "@/lib/pixels-data"
-import { getLastPaidWithdrawalAmount } from "@/lib/withdrawals-data"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 
-const periodFactors = {
-  today: 0.12,
-  week: 0.36,
-  month: 1,
-  quarter: 2.8,
+type DashboardPeriod = "today" | "week" | "month" | "quarter"
+type SupportedCurrency = "BRL" | "USD" | "EUR" | "GBP"
+type DashboardSummary = {
+  totalCheckouts: number
+  averageConversionRate: number
+  totalOrders: number
+  revenueByCurrency: Record<SupportedCurrency, number>
+  feeRevenueByCurrency: Record<SupportedCurrency, number>
+  feeRate: number
+  billingCycleDays: number
+  lastWithdrawalAmountByCurrency: Partial<Record<SupportedCurrency, number>>
+  adminRevenueByCurrency: Record<SupportedCurrency, number>
+  totalFeeRevenueByCurrency: Record<SupportedCurrency, number>
+  recentOrders: Array<{
+    id: string
+    customerName: string
+    amount: number
+    currency: SupportedCurrency
+    status: string
+    date: string
+  }>
+  activeCheckouts: Array<{
+    id: string
+    name: string
+    status: string
+    createdAt: string
+    storeName: string | null
+    domainHost: string | null
+  }>
+  taxByAccount: Array<{
+    id: string
+    name: string
+    email: string
+    feeRate: number
+    feeRevenueByCurrency: Record<SupportedCurrency, number>
+  }>
+  campaigns: Array<{
+    id: string
+    campaignName: string
+    platform: string
+    purchases: number
+    revenue: number
+    currency: SupportedCurrency
+    updatedAt: string
+  }>
 }
 
+const todayIso = new Date().toISOString().slice(0, 10)
+
 export default function DashboardPage() {
-  const { t, formatCurrency, language } = useI18n()
-  const [sessionEmail, setSessionEmail] = React.useState("user@swipe.com.br")
+  const { t, currency, language } = useI18n()
+  const [sessionUserId, setSessionUserId] = React.useState("")
   const [sessionRole, setSessionRole] = React.useState<"admin" | "user">("user")
-  const [accounts, setAccounts] = React.useState<ManagedAccount[]>([])
-  const [campaigns, setCampaigns] = React.useState<ReturnType<typeof readCampaignPerformance>>([])
-  const [period, setPeriod] = React.useState<keyof typeof periodFactors>("month")
-  const [date, setDate] = React.useState("2026-03-24")
+  const [summary, setSummary] = React.useState<DashboardSummary | null>(null)
+  const [period, setPeriod] = React.useState<DashboardPeriod>("month")
+  const [date, setDate] = React.useState(todayIso)
   const [loaded, setLoaded] = React.useState(false)
 
-  React.useEffect(() => {
-    let cancelled = false
+  const loadData = React.useCallback(
+    async (userId: string, accountId?: string | null) => {
+      const result = await loadDashboardForSession({
+        userId,
+        accountId,
+        period,
+        referenceDate: date,
+      })
 
+      if ("error" in result) {
+        setSummary(null)
+        setLoaded(true)
+        return
+      }
+
+      setSessionRole(result.role)
+      setSummary(result.summary)
+      setLoaded(true)
+    },
+    [date, period]
+  )
+
+  React.useEffect(() => {
     async function load() {
       const session = await getCurrentAppSession()
-      if (session && !cancelled) {
-        setSessionEmail(session.email || "")
-        setSessionRole(session.role === "admin" ? "admin" : "user")
-      }
-
-      let accs = await getManagedAccounts()
-
-      if (accs.length === 0) {
-        await new Promise((resolve) => window.setTimeout(resolve, 250))
-        accs = await getManagedAccounts()
-      }
-
-      if (!cancelled) {
-        const fallbackAccount =
-          session && accs.length === 0
-            ? [
-                {
-                  id: session.accountId ?? session.userId,
-                  profile_id: session.userId,
-                  name: session.name,
-                  email: session.email,
-                  role: session.role,
-                  status: "Ativa" as const,
-                  orders: 0,
-                  conversionRate: 0,
-                  revenue: 0,
-                  feeRate: session.role === "admin" ? 0 : 15,
-                  keyFrozen: session.keyFrozen,
-                  billingCycleDays: 2,
-                  paymentMode: "manual" as const,
-                  settlementStartedAt: new Date().toISOString(),
-                  estimatedDailyRevenueByCurrency: { BRL: 0, USD: 0, EUR: 0, GBP: 0 },
-                },
-              ]
-            : []
-
-        setAccounts(accs.length > 0 ? accs : fallbackAccount)
-        setCampaigns(readCampaignPerformance())
+      if (!session?.userId) {
         setLoaded(true)
+        return
       }
+
+      setSessionUserId(session.userId)
+      await loadData(session.userId, session.accountId)
     }
 
-    load()
+    void load()
+  }, [loadData])
 
-    return () => {
-      cancelled = true
-    }
-  }, [])
-
-  const currentAccount =
-    accounts.find((account) => account.email === sessionEmail) ?? accounts[0]
+  const displayCurrency = currency === "USD" || currency === "EUR" ? currency : "BRL"
+  const summaryRevenue = summary?.revenueByCurrency[displayCurrency] ?? 0
+  const summaryFeeRevenue = summary?.feeRevenueByCurrency[displayCurrency] ?? 0
+  const adminRevenue = summary?.adminRevenueByCurrency[displayCurrency] ?? 0
+  const adminFeeRevenue = summary?.totalFeeRevenueByCurrency[displayCurrency] ?? 0
+  const lastWithdrawalAmount = summary?.lastWithdrawalAmountByCurrency[displayCurrency] ?? 0
 
   if (!loaded) {
     return <div className="min-h-[320px]" />
   }
 
-  if (!currentAccount) {
+  if (!summary) {
     return null
   }
-
-  const factor = periodFactors[period]
-  const scopedRevenue = (currentAccount.revenue || 0) * factor
-  const scopedOrders = Math.round((currentAccount.orders || 0) * factor)
-  const scopedFeeValue = calculateFeeValue({
-    ...currentAccount,
-    revenue: scopedRevenue,
-  })
-  const lastWithdrawalAmount = getLastPaidWithdrawalAmount(currentAccount.id)
-  const userAccounts = accounts.filter((account) => account.role === "user")
-  const adminAccount =
-    accounts.find((account) => account.role === "admin") ?? currentAccount
-  const adminRevenue = (adminAccount.revenue || 0) * factor
-  const totalFeeRevenue = userAccounts.reduce(
-    (sum, account) =>
-      sum +
-      calculateFeeValue({
-        ...account,
-        revenue: (account.revenue || 0) * factor,
-      }),
-    0
-  )
-  const scopedCampaigns = campaigns
-    .filter((campaign) => (sessionRole === "admin" ? true : campaign.accountEmail === sessionEmail))
-    .sort((a, b) => {
-      if (b.revenue !== a.revenue) {
-        return b.revenue - a.revenue
-      }
-      return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
-    })
-    .slice(0, 4)
 
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-1">
         <h1 className="text-3xl font-bold tracking-tight">{t("dash.welcome")}</h1>
-        <p className="text-muted-foreground">
-          {t("dash.subtitle")}
-        </p>
+        <p className="text-muted-foreground">{t("dash.subtitle")}</p>
       </div>
 
       {sessionRole === "admin" ? (
@@ -165,7 +147,7 @@ export default function DashboardPage() {
             <select
               id="metric-period"
               value={period}
-              onChange={(e) => setPeriod(e.target.value as keyof typeof periodFactors)}
+              onChange={(e) => setPeriod(e.target.value as DashboardPeriod)}
               className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
             >
               <option value="today">{t("dash.today")}</option>
@@ -177,57 +159,96 @@ export default function DashboardPage() {
         </div>
       ) : null}
 
-  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5">
-    <SummaryCard title={t("dash.total_checkouts")} value="12" icon={<MousePointerClick className="h-4 w-4 text-muted-foreground" />} detail="+2 desde o mes passado" />
-    <SummaryCard title={t("dash.avg_conversion")} value={`${(currentAccount.conversionRate || 0).toFixed(1)}%`} icon={<TrendingUp className="h-4 w-4 text-muted-foreground" />} detail="+0.4% em relacao a ontem" />
-    <SummaryCard title={t("dash.total_orders")} value={scopedOrders.toString()} icon={<ShoppingCart className="h-4 w-4 text-muted-foreground" />} detail="volume do periodo selecionado" />
-    <SummaryCard title={t("dash.revenue")} value={formatCurrency(scopedRevenue)} icon={<Users className="h-4 w-4 text-muted-foreground" />} detail="faturamento bruto do periodo" />
-    <SummaryCard title={t("dash.fee_rate")} value={`${(currentAccount.feeRate || 0).toFixed(2)}%`} icon={<Percent className="h-4 w-4 text-muted-foreground" />} detail={`Total cobrado: ${formatCurrency(scopedFeeValue)}`} />
-  </div>
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5">
+        <SummaryCard
+          title={t("dash.total_checkouts")}
+          value={summary.totalCheckouts.toString()}
+          icon={<LayoutDashboard className="h-4 w-4 text-muted-foreground" />}
+          detail="Total real de checkouts vinculados a esta operacao."
+        />
+        <SummaryCard
+          title={t("dash.avg_conversion")}
+          value={`${summary.averageConversionRate.toFixed(1)}%`}
+          icon={<TrendingUp className="h-4 w-4 text-muted-foreground" />}
+          detail="Conversao real com base nos pedidos do periodo."
+        />
+        <SummaryCard
+          title={t("dash.total_orders")}
+          value={summary.totalOrders.toString()}
+          icon={<ShoppingCart className="h-4 w-4 text-muted-foreground" />}
+          detail="Pedidos reais dentro do periodo selecionado."
+        />
+        <SummaryCard
+          title={t("dash.revenue")}
+          value={formatAmount(summaryRevenue, displayCurrency, language)}
+          icon={<Wallet className="h-4 w-4 text-muted-foreground" />}
+          detail={`Receita real em ${displayCurrency} no periodo.`}
+        />
+        <SummaryCard
+          title={t("dash.fee_rate")}
+          value={`${summary.feeRate.toFixed(2)}%`}
+          icon={<Percent className="h-4 w-4 text-muted-foreground" />}
+          detail={`Total cobrado: ${formatAmount(summaryFeeRevenue, displayCurrency, language)}`}
+        />
+      </div>
 
       <Card>
         <CardContent className="flex flex-col gap-2 p-5 text-sm text-muted-foreground md:flex-row md:items-center md:justify-between">
-          <span>{t("dash.billing_cycle")}</span>
-          <span>{t("dash.last_withdrawal")}: {formatCurrency(lastWithdrawalAmount)}</span>
+          <span>
+            Ciclo de cobranca real: a cada {summary.billingCycleDays} dia{summary.billingCycleDays === 1 ? "" : "s"}
+          </span>
+          <span>
+            {t("dash.last_withdrawal")}: {formatAmount(lastWithdrawalAmount, displayCurrency, language)}
+          </span>
         </CardContent>
       </Card>
 
       {sessionRole === "admin" ? (
         <>
           <div className="grid gap-4 md:grid-cols-2">
-            <SummaryCard title="Faturamento da Conta Admin" value={formatCurrency(adminRevenue)} icon={<Wallet className="h-4 w-4 text-muted-foreground" />} detail={`Data base: ${date}`} />
-            <SummaryCard title="Lucro Total das Taxas" value={formatCurrency(totalFeeRevenue)} icon={<CalendarRange className="h-4 w-4 text-muted-foreground" />} detail="Somatorio das taxas pagas pelos usuarios" />
+            <SummaryCard
+              title="Faturamento da Conta Admin"
+              value={formatAmount(adminRevenue, displayCurrency, language)}
+              icon={<Wallet className="h-4 w-4 text-muted-foreground" />}
+              detail={`Data base: ${formatDate(date, language)}`}
+            />
+            <SummaryCard
+              title="Lucro Total das Taxas"
+              value={formatAmount(adminFeeRevenue, displayCurrency, language)}
+              icon={<CalendarRange className="h-4 w-4 text-muted-foreground" />}
+              detail={`Lucro real de taxas em ${displayCurrency}.`}
+            />
           </div>
 
           <Card>
             <CardHeader>
               <CardTitle>Taxas por Conta</CardTitle>
               <CardDescription>
-                Visao horizontal das contas com porcentagem definida e valor cobrado.
+                Visao real das contas com taxa definida e valor cobrado no periodo.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                {userAccounts.map((account) => {
-                const scopedAccountRevenue = (account.revenue || 0) * factor
-                const scopedAccountFee = calculateFeeValue({
-                  ...account,
-                  revenue: scopedAccountRevenue,
-                })
-
-                return (
-                  <div key={account.id} className="rounded-xl border p-4">
-                    <div>
-                      <div className="font-medium">{account.name}</div>
-                      <div className="text-sm text-muted-foreground">{account.email}</div>
+                {summary.taxByAccount.length > 0 ? (
+                  summary.taxByAccount.map((account) => (
+                    <div key={account.id} className="rounded-xl border p-4">
+                      <div>
+                        <div className="font-medium">{account.name}</div>
+                        <div className="text-sm text-muted-foreground">{account.email}</div>
+                      </div>
+                      <div className="mt-4 text-left">
+                        <div className="font-medium">{account.feeRate.toFixed(2)}%</div>
+                        <div className="text-sm text-muted-foreground">
+                          {formatAmount(account.feeRevenueByCurrency[displayCurrency] ?? 0, displayCurrency, language)}
+                        </div>
+                      </div>
                     </div>
-                    <div className="mt-4 text-left">
-                      <div className="font-medium">{(account.feeRate || 0).toFixed(2)}%</div>
-                      <div className="text-sm text-muted-foreground">{formatCurrency(scopedAccountFee)}</div>
-                    </div>
+                  ))
+                ) : (
+                  <div className="rounded-xl border p-4 text-sm text-muted-foreground">
+                    Nenhuma conta de usuario com faturamento real no periodo.
                   </div>
-                )
-                })}
+                )}
               </div>
             </CardContent>
           </Card>
@@ -239,34 +260,66 @@ export default function DashboardPage() {
           <CardHeader>
             <CardTitle>Vendas Recentes</CardTitle>
             <CardDescription>
-              Voce gerou {formatCurrency(scopedRevenue)} no periodo atual.
+              Voce gerou {formatAmount(summaryRevenue, displayCurrency, language)} em {displayCurrency} no periodo atual.
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="flex h-[200px] items-center justify-center rounded-md border border-dashed text-muted-foreground">
-              Placeholder Grafico de Vendas
+            <div className="space-y-3">
+              {summary.recentOrders.length > 0 ? (
+                summary.recentOrders.map((order) => (
+                  <div key={order.id} className="flex items-center justify-between rounded-xl border p-4">
+                    <div>
+                      <div className="font-medium">{order.customerName}</div>
+                      <div className="text-sm text-muted-foreground">
+                        {normalizeOrderStatus(order.status)} • {formatDateTime(order.date, language)}
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="font-medium">{formatAmount(order.amount, order.currency, language)}</div>
+                      <div className="text-xs text-muted-foreground">{order.id}</div>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="flex h-[200px] items-center justify-center rounded-md border border-dashed text-muted-foreground">
+                  Nenhuma venda real encontrada no periodo.
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
         <Card className="col-span-3">
           <CardHeader>
             <CardTitle>Checkouts Ativos</CardTitle>
-            <CardDescription>Seus checkouts com melhor desempenho.</CardDescription>
+            <CardDescription>Checkouts reais ativos nesta operacao.</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="flex items-center gap-4">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted font-bold text-xs">
-                    C{i}
+              {summary.activeCheckouts.length > 0 ? (
+                summary.activeCheckouts.map((checkout, index) => (
+                  <div key={checkout.id} className="flex items-center gap-4">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted font-bold text-xs">
+                      C{index + 1}
+                    </div>
+                    <div className="flex-1 space-y-1">
+                      <p className="text-sm font-medium leading-none">{checkout.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {checkout.storeName ? `Loja: ${checkout.storeName}` : "Loja nao configurada"}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {checkout.domainHost ? `Dominio: ${checkout.domainHost}` : "Dominio nao configurado"}
+                      </p>
+                    </div>
+                    <div className="text-right text-xs text-muted-foreground">
+                      {formatDateTime(checkout.createdAt, language)}
+                    </div>
                   </div>
-                  <div className="flex-1 space-y-1">
-                    <p className="text-sm font-medium leading-none">Checkout Shopify Premium {i}</p>
-                    <p className="text-xs text-muted-foreground">{i * 12}% de conversao</p>
-                  </div>
-                  <div className="text-sm font-medium">R$ {i * 1250},00</div>
+                ))
+              ) : (
+                <div className="rounded-xl border border-dashed p-4 text-sm text-muted-foreground">
+                  Nenhum checkout ativo encontrado.
                 </div>
-              ))}
+              )}
             </div>
           </CardContent>
         </Card>
@@ -276,31 +329,39 @@ export default function DashboardPage() {
         <CardHeader>
           <CardTitle>Campanhas</CardTitle>
           <CardDescription>
-            As campanhas com mais vendas sobem para o topo conforme novas compras concluidas chegam.
+            Esta secao agora exibe apenas atribuicao real. Sem dados atribuidos, ela fica vazia.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
-          {scopedCampaigns.map((campaign) => (
-            <div key={campaign.id} className="flex items-center justify-between rounded-xl border p-4">
-              <div className="flex items-center gap-3">
-                <div className="rounded-lg bg-muted p-2">
-                  <Megaphone className="h-4 w-4" />
+          {summary.campaigns.length > 0 ? (
+            summary.campaigns.map((campaign) => (
+              <div key={campaign.id} className="flex items-center justify-between rounded-xl border p-4">
+                <div className="flex items-center gap-3">
+                  <div className="rounded-lg bg-muted p-2">
+                    <Megaphone className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <div className="font-medium">{campaign.campaignName}</div>
+                    <div className="text-sm text-muted-foreground">
+                      {campaign.platform} • {campaign.purchases} compras
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <div className="font-medium">{campaign.campaignName}</div>
+                <div className="text-right">
+                  <div className="font-medium">
+                    {formatAmount(campaign.revenue, campaign.currency, language)}
+                  </div>
                   <div className="text-sm text-muted-foreground">
-                    {campaign.platform} • {campaign.purchases} compras
+                    Atualizado em {formatDateTime(campaign.updatedAt, language)}
                   </div>
                 </div>
               </div>
-              <div className="text-right">
-                <div className="font-medium">{formatCurrency(campaign.revenue)}</div>
-                <div className="text-sm text-muted-foreground">
-                  Atualizado em {formatDateTime(campaign.updatedAt)}
-                </div>
-              </div>
+            ))
+          ) : (
+            <div className="rounded-xl border border-dashed p-4 text-sm text-muted-foreground">
+              Nenhuma campanha real rastreada no banco ainda.
             </div>
-          ))}
+          )}
         </CardContent>
       </Card>
     </div>
@@ -337,15 +398,40 @@ function SummaryCard({
   )
 }
 
-function formatCurrency(value: number) {
-  return new Intl.NumberFormat("pt-BR", {
+function normalizeOrderStatus(status: string) {
+  const normalized = status.toLowerCase()
+  if (normalized === "paid" || normalized === "pago") return "Pago"
+  if (normalized === "pending" || normalized === "pendente") return "Pendente"
+  if (normalized === "failed" || normalized === "falha") return "Falha"
+  return status
+}
+
+function formatAmount(value: number, currency: SupportedCurrency, language: string) {
+  const locale =
+    language === "en-US" || language === "es-ES" || language === "pt-BR"
+      ? language
+      : currency === "USD"
+        ? "en-US"
+        : currency === "EUR"
+          ? "es-ES"
+          : currency === "GBP"
+            ? "en-US"
+            : "pt-BR"
+
+  return new Intl.NumberFormat(locale, {
     style: "currency",
-    currency: "BRL",
+    currency,
   }).format(value)
 }
 
-function formatDateTime(value: string) {
-  return new Intl.DateTimeFormat("pt-BR", {
+function formatDate(value: string, language: string) {
+  return new Intl.DateTimeFormat(language === "en-US" ? "en-US" : "pt-BR", {
+    dateStyle: "short",
+  }).format(new Date(`${value}T00:00:00`))
+}
+
+function formatDateTime(value: string, language: string) {
+  return new Intl.DateTimeFormat(language === "en-US" ? "en-US" : "pt-BR", {
     dateStyle: "short",
     timeStyle: "short",
   }).format(new Date(value))
