@@ -2,6 +2,10 @@ import { NextResponse } from "next/server"
 
 import { getSupabaseAdmin } from "@/lib/supabase"
 
+type VercelProjectDomainResponse = {
+  verified?: boolean
+}
+
 function getAppBaseUrl(request: Request) {
   const explicit =
     process.env.NEXT_PUBLIC_APP_URL ||
@@ -13,6 +17,55 @@ function getAppBaseUrl(request: Request) {
   }
 
   return new URL(request.url).origin
+}
+
+function getVercelDomainCheckConfig() {
+  const token = process.env.VERCEL_API_TOKEN
+  const project = process.env.VERCEL_PROJECT_ID_OR_NAME || process.env.VERCEL_PROJECT_ID
+  const teamId = process.env.VERCEL_TEAM_ID
+  const slug = process.env.VERCEL_TEAM_SLUG
+
+  if (!token || !project) {
+    return null
+  }
+
+  const params = new URLSearchParams()
+  if (teamId) params.set("teamId", teamId)
+  if (slug) params.set("slug", slug)
+  const query = params.toString()
+
+  return {
+    token,
+    project,
+    suffix: query ? `?${query}` : "",
+  }
+}
+
+async function isVercelDomainVerified(host: string) {
+  const config = getVercelDomainCheckConfig()
+  if (!config) return false
+
+  try {
+    const response = await fetch(
+      `https://api.vercel.com/v9/projects/${config.project}/domains/${host}${config.suffix}`,
+      {
+        headers: {
+          Authorization: `Bearer ${config.token}`,
+          "Content-Type": "application/json",
+        },
+        cache: "no-store",
+      }
+    )
+
+    if (!response.ok) {
+      return false
+    }
+
+    const body = (await response.json()) as VercelProjectDomainResponse
+    return Boolean(body.verified)
+  } catch {
+    return false
+  }
 }
 
 export async function GET(request: Request) {
@@ -83,7 +136,7 @@ export async function GET(request: Request) {
       }
     }
 
-    if (connectedDomainHost) {
+    if (connectedDomainHost && (await isVercelDomainVerified(connectedDomainHost))) {
       checkoutBaseUrl = `https://${connectedDomainHost}`
     }
   }
