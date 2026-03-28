@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { usePathname } from "next/navigation"
 import {
   LayoutDashboard,
   ShoppingCart,
@@ -37,9 +38,23 @@ export function MainSidebar({
   ...props
 }: React.ComponentProps<typeof Sidebar> & { session: AppSession }) {
   const { t } = useI18n()
+  const pathname = usePathname()
   const shouldShowWhopForUser = session.role === "user" ? !session.keyFrozen : false
   const shouldShowMessenger = session.role === "admin" || session.messengerEnabled
   const shouldShowWithdrawals = session.role === "admin" || session.withdrawalsEnabled
+  const activeItemClassName =
+    "bg-white/14 text-white ring-1 ring-white/30 hover:bg-white/18 hover:text-white"
+
+  const isRouteActive = React.useCallback(
+    (url: string) => {
+      if (url === "/app") {
+        return pathname === "/app"
+      }
+
+      return pathname === url || pathname.startsWith(`${url}/`)
+    },
+    [pathname]
+  )
 
   const navMain = [
     {
@@ -140,13 +155,22 @@ export function MainSidebar({
         <SidebarContent className="min-h-0 flex-1">
           <SidebarGroup>
             <SidebarMenu>
-              {navMain.map((item) => (
+              {navMain.map((item) => {
+                const isItemActive = item.items
+                  ? item.items.some((subItem) => isRouteActive(subItem.url)) || isRouteActive(item.url)
+                  : isRouteActive(item.url)
+
+                return (
                 <SidebarMenuItem key={item.title}>
                   {item.items ? (
-                    <Collapsible asChild defaultOpen={item.isActive} className="group/collapsible">
+                    <Collapsible asChild defaultOpen={isItemActive} className="group/collapsible">
                       <div>
                         <CollapsibleTrigger asChild>
-                          <SidebarMenuButton tooltip={item.title}>
+                          <SidebarMenuButton
+                            tooltip={item.title}
+                            isActive={isItemActive}
+                            className={isItemActive ? activeItemClassName : undefined}
+                          >
                             {item.icon && <item.icon />}
                             <span>{item.title}</span>
                             <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
@@ -156,7 +180,11 @@ export function MainSidebar({
                           <SidebarMenuSub>
                             {item.items.map((subItem) => (
                               <SidebarMenuSubItem key={subItem.title}>
-                                <SidebarMenuSubButton asChild>
+                                <SidebarMenuSubButton
+                                  asChild
+                                  isActive={isRouteActive(subItem.url)}
+                                  className={isRouteActive(subItem.url) ? activeItemClassName : undefined}
+                                >
                                   <a href={subItem.url}>
                                     <span>{subItem.title}</span>
                                   </a>
@@ -168,7 +196,12 @@ export function MainSidebar({
                       </div>
                     </Collapsible>
                   ) : (
-                    <SidebarMenuButton asChild tooltip={item.title}>
+                    <SidebarMenuButton
+                      asChild
+                      tooltip={item.title}
+                      isActive={isItemActive}
+                      className={isItemActive ? activeItemClassName : undefined}
+                    >
                       <a href={item.url}>
                         {item.icon && <item.icon />}
                         <span>{item.title}</span>
@@ -176,7 +209,7 @@ export function MainSidebar({
                     </SidebarMenuButton>
                   )}
                 </SidebarMenuItem>
-              ))}
+              )})}
             </SidebarMenu>
           </SidebarGroup>
         </SidebarContent>
