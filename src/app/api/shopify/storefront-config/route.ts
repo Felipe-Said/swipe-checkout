@@ -40,7 +40,7 @@ export async function GET(request: Request) {
     .maybeSingle()
 
   const checkoutUrl = store?.default_checkout_id
-    ? `${getAppBaseUrl(request)}/checkout/${store.default_checkout_id}`
+    ? `${getAppBaseUrl(request)}/checkout/${store.default_checkout_id}?shop=${encodeURIComponent(shop)}&store=${encodeURIComponent(store.id)}`
     : ""
 
   return NextResponse.json(
