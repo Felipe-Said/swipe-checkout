@@ -37,6 +37,18 @@ type ShopifyStorePreview = {
   imageSrc?: string
 }
 
+type CheckoutAttribution = {
+  source?: string | null
+  medium?: string | null
+  campaign?: string | null
+  content?: string | null
+  term?: string | null
+  gclid?: string | null
+  fbclid?: string | null
+  ttclid?: string | null
+  referrer?: string | null
+}
+
 type CheckoutRecord = {
   id: string
   account_id: string
@@ -96,12 +108,23 @@ function hasValidStorePreview(preview?: ShopifyStorePreview | null) {
   return Boolean(preview && Number.isFinite(preview.amount) && preview.amount > 0 && preview.productName)
 }
 
-function buildThankYouRedirectUrl(checkoutId: string, domainHost?: string | null) {
-  if (domainHost) {
-    return `https://${domainHost.replace(/^https?:\/\//, "")}`
-  }
+function buildThankYouRedirectUrl(
+  checkoutId: string,
+  domainHost?: string | null,
+  query?: Record<string, string | null | undefined>
+) {
+  const base = domainHost
+    ? `https://${domainHost.replace(/^https?:\/\//, "")}`
+    : getAppBaseUrl()
+  const url = new URL(`/checkout/${checkoutId}/thank-you`, base)
 
-  return `${getAppBaseUrl()}/app/checkouts/${checkoutId}/editor?mode=preview`
+  Object.entries(query ?? {}).forEach(([key, value]) => {
+    if (typeof value === "string" && value.trim()) {
+      url.searchParams.set(key, value)
+    }
+  })
+
+  return url.toString()
 }
 
 async function ensureWebhook(client: Whop, companyId?: string | null) {
@@ -588,6 +611,12 @@ export async function createPublicWhopCheckoutSession(input: {
   shopifyProductId?: string | null
   shopifyVariantId?: string | null
   shopDomain?: string | null
+  attribution?: CheckoutAttribution | null
+  productName?: string | null
+  variantLabel?: string | null
+  imageSrc?: string | null
+  currency?: string | null
+  amount?: number | null
 }) {
   if (!input.config.selectedWhopAccountId) {
     return { whop: input.config.whop ?? null }
@@ -626,7 +655,29 @@ export async function createPublicWhopCheckoutSession(input: {
         : DEFAULT_CHECKOUT_AMOUNT
     const checkoutCurrency = input.storePreview?.currency ?? input.config.currency
     const checkoutTitle = (input.storePreview?.productName || "Checkout Swipe").slice(0, 30)
-    const redirectUrl = buildThankYouRedirectUrl(input.checkoutId, selectedDomain?.host)
+    const redirectUrl = buildThankYouRedirectUrl(input.checkoutId, selectedDomain?.host, {
+      shop: input.shopDomain || null,
+      store: input.shopifyStoreId || input.config.selectedStoreId || null,
+      product: input.shopifyProductId || null,
+      variant: input.shopifyVariantId || null,
+      product_name: input.productName || input.storePreview?.productName || checkoutTitle,
+      variant_label: input.variantLabel || input.storePreview?.variantLabel || "Variante padrao",
+      image: input.imageSrc || input.storePreview?.imageSrc || null,
+      amount:
+        typeof input.amount === "number" && Number.isFinite(input.amount)
+          ? String(input.amount)
+          : String(checkoutAmount),
+      currency: input.currency || input.storePreview?.currency || checkoutCurrency || null,
+      utm_source: input.attribution?.source || null,
+      utm_medium: input.attribution?.medium || null,
+      utm_campaign: input.attribution?.campaign || null,
+      utm_content: input.attribution?.content || null,
+      utm_term: input.attribution?.term || null,
+      gclid: input.attribution?.gclid || null,
+      fbclid: input.attribution?.fbclid || null,
+      ttclid: input.attribution?.ttclid || null,
+      referrer: input.attribution?.referrer || null,
+    })
     const sourceUrl = selectedDomain?.host
       ? `https://${selectedDomain.host.replace(/^https?:\/\//, "")}`
       : `${getAppBaseUrl()}/checkout/${input.checkoutId}`
@@ -645,6 +696,19 @@ export async function createPublicWhopCheckoutSession(input: {
         swipeShopDomain: input.shopDomain || null,
         swipeProductName: input.storePreview?.productName || checkoutTitle,
         swipeVariantLabel: input.storePreview?.variantLabel || "Variante padrao",
+        swipeProductImage: input.imageSrc || input.storePreview?.imageSrc || null,
+        swipeAmount: checkoutAmount,
+        swipeCurrency: checkoutCurrency || null,
+        utmSource: input.attribution?.source || null,
+        utmMedium: input.attribution?.medium || null,
+        utmCampaign: input.attribution?.campaign || null,
+        utmContent: input.attribution?.content || null,
+        utmTerm: input.attribution?.term || null,
+        gclid: input.attribution?.gclid || null,
+        fbclid: input.attribution?.fbclid || null,
+        ttclid: input.attribution?.ttclid || null,
+        referrer: input.attribution?.referrer || null,
+        landingUrl: sourceUrl,
       },
       plan: {
         company_id: whopAccount.whop_company_id,

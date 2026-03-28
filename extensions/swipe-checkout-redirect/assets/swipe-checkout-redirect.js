@@ -148,6 +148,25 @@
     if (resolvedPayload.imageSrc) {
       nextUrl.searchParams.set("image", resolvedPayload.imageSrc);
     }
+    var sourceParams = new URL(window.location.href).searchParams;
+    [
+      "utm_source",
+      "utm_medium",
+      "utm_campaign",
+      "utm_content",
+      "utm_term",
+      "gclid",
+      "fbclid",
+      "ttclid"
+    ].forEach(function (key) {
+      var value = sourceParams.get(key);
+      if (value) {
+        nextUrl.searchParams.set(key, value);
+      }
+    });
+    if (document.referrer) {
+      nextUrl.searchParams.set("referrer", document.referrer);
+    }
     window.location.href = nextUrl.toString();
   }
 

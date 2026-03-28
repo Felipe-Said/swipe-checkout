@@ -1,6 +1,7 @@
 import { headers } from "next/headers"
 import { notFound } from "next/navigation"
 
+import { CheckoutPixelTracker } from "@/components/checkout-preview/checkout-pixel-tracker"
 import { ShopifyCheckout } from "@/components/checkout-preview/shopify-checkout"
 import { getSupabaseAdmin } from "@/lib/supabase"
 import {
@@ -15,6 +16,7 @@ import {
   loadShopifyVariantPreviewForPublishing,
 } from "@/app/actions/shopify"
 import { createPublicWhopCheckoutSession } from "@/app/actions/whop"
+import type { CheckoutPixelConfig } from "@/lib/pixels-data"
 
 export default async function PublicCheckoutPage({
   params,
@@ -47,6 +49,23 @@ export default async function PublicCheckoutPage({
     typeof resolvedSearchParams.currency === "string" ? resolvedSearchParams.currency : undefined
   const imageFromRedirect =
     typeof resolvedSearchParams.image === "string" ? resolvedSearchParams.image : undefined
+  const attribution = {
+    source:
+      typeof resolvedSearchParams.utm_source === "string" ? resolvedSearchParams.utm_source : null,
+    medium:
+      typeof resolvedSearchParams.utm_medium === "string" ? resolvedSearchParams.utm_medium : null,
+    campaign:
+      typeof resolvedSearchParams.utm_campaign === "string" ? resolvedSearchParams.utm_campaign : null,
+    content:
+      typeof resolvedSearchParams.utm_content === "string" ? resolvedSearchParams.utm_content : null,
+    term:
+      typeof resolvedSearchParams.utm_term === "string" ? resolvedSearchParams.utm_term : null,
+    gclid: typeof resolvedSearchParams.gclid === "string" ? resolvedSearchParams.gclid : null,
+    fbclid: typeof resolvedSearchParams.fbclid === "string" ? resolvedSearchParams.fbclid : null,
+    ttclid: typeof resolvedSearchParams.ttclid === "string" ? resolvedSearchParams.ttclid : null,
+    referrer:
+      typeof resolvedSearchParams.referrer === "string" ? resolvedSearchParams.referrer : null,
+  }
   const shopDomain =
     typeof resolvedSearchParams.shop === "string" ? resolvedSearchParams.shop.trim() : undefined
   const storeIdFromRedirect =
@@ -62,6 +81,36 @@ export default async function PublicCheckoutPage({
   if (!checkout || checkout.status !== "Ativo") {
     notFound()
   }
+
+  const { data: pixelConfigRow } = await supabaseAdmin
+    .from("checkout_pixel_configs")
+    .select(
+      "checkout_id, meta_pixel_id, google_ads_id, tiktok_pixel_id, meta_pixel_ids, google_ads_ids, tiktok_pixel_ids, track_campaign_source"
+    )
+    .eq("checkout_id", checkout.id)
+    .maybeSingle()
+
+  const pixelConfig: CheckoutPixelConfig | null = pixelConfigRow
+    ? {
+        checkoutId: pixelConfigRow.checkout_id,
+        metaPixelIds: Array.isArray(pixelConfigRow.meta_pixel_ids)
+          ? pixelConfigRow.meta_pixel_ids.filter(Boolean)
+          : pixelConfigRow.meta_pixel_id
+            ? [pixelConfigRow.meta_pixel_id]
+            : [],
+        googleAdsIds: Array.isArray(pixelConfigRow.google_ads_ids)
+          ? pixelConfigRow.google_ads_ids.filter(Boolean)
+          : pixelConfigRow.google_ads_id
+            ? [pixelConfigRow.google_ads_id]
+            : [],
+        tiktokPixelIds: Array.isArray(pixelConfigRow.tiktok_pixel_ids)
+          ? pixelConfigRow.tiktok_pixel_ids.filter(Boolean)
+          : pixelConfigRow.tiktok_pixel_id
+            ? [pixelConfigRow.tiktok_pixel_id]
+            : [],
+        trackCampaignSource: Boolean(pixelConfigRow.track_campaign_source),
+      }
+    : null
 
   const config =
     checkout.config && typeof checkout.config === "object" && !Array.isArray(checkout.config)
@@ -178,6 +227,12 @@ export default async function PublicCheckoutPage({
     shopifyProductId: productId,
     shopifyVariantId: variantId,
     shopDomain: shopDomain ?? null,
+    attribution,
+    productName: productNameFromRedirect ?? null,
+    variantLabel: variantLabelFromRedirect ?? null,
+    imageSrc: imageFromRedirect ?? null,
+    amount: Number.isFinite(redirectedAmount) ? redirectedAmount : null,
+    currency: currencyFromRedirect ?? null,
   })
 
   const checkoutConfigWithLiveWhop = {
@@ -194,6 +249,30 @@ export default async function PublicCheckoutPage({
   return (
     <main className="min-h-screen bg-[#111111] px-4 py-8 md:px-8">
       <div className="mx-auto max-w-[1200px] overflow-hidden rounded-[28px] border border-white/10 bg-white shadow-2xl">
+        <CheckoutPixelTracker
+          checkoutId={checkout.id}
+          config={pixelConfig}
+          stage="checkout"
+          productName={
+            storePreviewResult.preview?.productName ||
+            productNameFromRedirect ||
+            "Produto da Shopify"
+          }
+          variantLabel={
+            storePreviewResult.preview?.variantLabel ||
+            variantLabelFromRedirect ||
+            "Variante padrao"
+          }
+          amount={storePreviewResult.preview?.amount ?? (Number.isFinite(redirectedAmount) ? redirectedAmount : 0)}
+          currency={
+            (storePreviewResult.preview?.currency ||
+              currencyFromRedirect ||
+              (config as any).currency ||
+              "BRL") as "BRL" | "USD" | "EUR" | "GBP"
+          }
+          productId={productId ?? null}
+          variantId={variantId ?? null}
+        />
         <ShopifyCheckout
           config={checkoutConfigWithLiveWhop as any}
           device={isMobileDevice ? "mobile" : "desktop"}

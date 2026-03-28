@@ -81,9 +81,9 @@ export default function CheckoutsPage() {
   const [selectedCheckout, setSelectedCheckout] = React.useState<CheckoutRow | null>(null)
   const [dialogType, setDialogType] = React.useState<"pushcut" | "pixels" | null>(null)
   const [pushcutUrlsValue, setPushcutUrlsValue] = React.useState("")
-  const [metaPixelId, setMetaPixelId] = React.useState("")
-  const [googleAdsId, setGoogleAdsId] = React.useState("")
-  const [tiktokPixelId, setTiktokPixelId] = React.useState("")
+  const [metaPixelIdsValue, setMetaPixelIdsValue] = React.useState("")
+  const [googleAdsIdsValue, setGoogleAdsIdsValue] = React.useState("")
+  const [tiktokPixelIdsValue, setTiktokPixelIdsValue] = React.useState("")
   const [trackCampaignSource, setTrackCampaignSource] = React.useState(true)
   const [accountId, setAccountId] = React.useState("")
   const [userId, setUserId] = React.useState("")
@@ -177,9 +177,9 @@ export default function CheckoutsPage() {
     const existingConfig = pixelConfigs.find((config) => config.checkoutId === checkout.id)
     setSelectedCheckout(checkout)
     setDialogType("pixels")
-    setMetaPixelId(existingConfig?.metaPixelId ?? "")
-    setGoogleAdsId(existingConfig?.googleAdsId ?? "")
-    setTiktokPixelId(existingConfig?.tiktokPixelId ?? "")
+    setMetaPixelIdsValue((existingConfig?.metaPixelIds ?? []).join("\n"))
+    setGoogleAdsIdsValue((existingConfig?.googleAdsIds ?? []).join("\n"))
+    setTiktokPixelIdsValue((existingConfig?.tiktokPixelIds ?? []).join("\n"))
     setTrackCampaignSource(existingConfig?.trackCampaignSource ?? true)
   }
 
@@ -235,9 +235,9 @@ export default function CheckoutsPage() {
       accountId,
       userId,
       checkoutId: selectedCheckout.id,
-      metaPixelId: metaPixelId.trim(),
-      googleAdsId: googleAdsId.trim(),
-      tiktokPixelId: tiktokPixelId.trim(),
+      metaPixelIds: parseMultiValueField(metaPixelIdsValue),
+      googleAdsIds: parseMultiValueField(googleAdsIdsValue),
+      tiktokPixelIds: parseMultiValueField(tiktokPixelIdsValue),
       trackCampaignSource,
     })
 
@@ -263,9 +263,9 @@ export default function CheckoutsPage() {
     setSelectedCheckout(null)
     setDialogType(null)
     setPushcutUrlsValue("")
-    setMetaPixelId("")
-    setGoogleAdsId("")
-    setTiktokPixelId("")
+    setMetaPixelIdsValue("")
+    setGoogleAdsIdsValue("")
+    setTiktokPixelIdsValue("")
     setTrackCampaignSource(true)
   }
 
@@ -404,15 +404,38 @@ export default function CheckoutsPage() {
               <>
                 <div className="space-y-2">
                   <Label htmlFor="meta-pixel">Meta Pixel</Label>
-                  <Input id="meta-pixel" value={metaPixelId} onChange={(e) => setMetaPixelId(e.target.value)} placeholder="123456789012345" />
+                  <Textarea
+                    id="meta-pixel"
+                    rows={4}
+                    value={metaPixelIdsValue}
+                    onChange={(e) => setMetaPixelIdsValue(e.target.value)}
+                    placeholder={"123456789012345\n987654321098765"}
+                  />
+                  <p className="text-xs text-muted-foreground">Adicione um Pixel ID por linha.</p>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="google-pixel">Google Ads</Label>
-                  <Input id="google-pixel" value={googleAdsId} onChange={(e) => setGoogleAdsId(e.target.value)} placeholder="AW-123456789" />
+                  <Textarea
+                    id="google-pixel"
+                    rows={4}
+                    value={googleAdsIdsValue}
+                    onChange={(e) => setGoogleAdsIdsValue(e.target.value)}
+                    placeholder={"AW-123456789\nAW-123456789/abcDEFghiJKlMNopQ"}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Use um ID por linha. Para conversao de compra, voce pode informar `AW-.../LABEL`.
+                  </p>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="tiktok-pixel">TikTok Pixel</Label>
-                  <Input id="tiktok-pixel" value={tiktokPixelId} onChange={(e) => setTiktokPixelId(e.target.value)} placeholder="C1A2B3C4D5E6F7G8" />
+                  <Textarea
+                    id="tiktok-pixel"
+                    rows={4}
+                    value={tiktokPixelIdsValue}
+                    onChange={(e) => setTiktokPixelIdsValue(e.target.value)}
+                    placeholder={"C1A2B3C4D5E6F7G8\nZ9Y8X7W6V5U4T3S2"}
+                  />
+                  <p className="text-xs text-muted-foreground">Adicione um Pixel ID por linha.</p>
                 </div>
                 <div className="flex items-center justify-between rounded-xl border p-3 text-xs">
                   <div>
@@ -431,10 +454,10 @@ export default function CheckoutsPage() {
                 <div className="space-y-3 rounded-xl border p-3 text-xs">
                   <div className="font-medium">Tutorial de configuracao</div>
                   <div className="space-y-2 text-muted-foreground">
-                    <p>1. Cole os IDs dos pixels das plataformas que vao receber eventos deste checkout.</p>
-                    <p>2. Apenas compras concluidas devem disparar o envio para Meta, Google e TikTok.</p>
-                    <p>3. Quando o rastreio de campanha estiver ativo, salve `utm_source`, `utm_medium`, `utm_campaign` e `gclid/fbclid/ttclid` no clique.</p>
-                    <p>4. Na compra aprovada, envie o evento `Purchase` com valor, moeda, checkout e campanha identificada.</p>
+                    <p>1. Cole um ou mais IDs por plataforma para que este checkout dispare eventos reais em todos eles.</p>
+                    <p>2. O checkout envia `PageView`, `ViewContent`, `InitiateCheckout` e `Purchase` com valor, moeda e item reais.</p>
+                    <p>3. Quando o rastreio de campanha estiver ativo, o checkout preserva `utm_source`, `utm_medium`, `utm_campaign`, `utm_content`, `utm_term` e `gclid/fbclid/ttclid`.</p>
+                    <p>4. Para Google Ads com conversao de compra, use `AW-.../LABEL` quando houver label especifica.</p>
                   </div>
                 </div>
               </>
@@ -530,6 +553,13 @@ function normalizeStatus(value: string): "Ativo" | "Rascunho" | "Pausado" {
   if (value === "Pausado") return "Pausado"
   if (value === "Rascunho") return "Rascunho"
   return "Ativo"
+}
+
+function parseMultiValueField(value: string) {
+  return value
+    .split(/\r?\n|,/)
+    .map((item) => item.trim())
+    .filter(Boolean)
 }
 
 function formatCheckoutDate(value: string) {

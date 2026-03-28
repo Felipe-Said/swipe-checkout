@@ -90,6 +90,30 @@ export async function POST(request: Request) {
       currency: String(payment.currency || "brl").toUpperCase(),
       status,
       date: payment.paid_at || payment.created_at || new Date().toISOString(),
+      attribution_source:
+        typeof metadata.utmSource === "string" ? metadata.utmSource : null,
+      attribution_medium:
+        typeof metadata.utmMedium === "string" ? metadata.utmMedium : null,
+      attribution_campaign:
+        typeof metadata.utmCampaign === "string" ? metadata.utmCampaign : null,
+      attribution_content:
+        typeof metadata.utmContent === "string" ? metadata.utmContent : null,
+      attribution_term:
+        typeof metadata.utmTerm === "string" ? metadata.utmTerm : null,
+      attribution_gclid:
+        typeof metadata.gclid === "string" ? metadata.gclid : null,
+      attribution_fbclid:
+        typeof metadata.fbclid === "string" ? metadata.fbclid : null,
+      attribution_ttclid:
+        typeof metadata.ttclid === "string" ? metadata.ttclid : null,
+      attribution_referrer:
+        typeof metadata.referrer === "string" ? metadata.referrer : null,
+      attribution_landing_url:
+        typeof metadata.sourceUrl === "string"
+          ? metadata.sourceUrl
+          : typeof metadata.landingUrl === "string"
+            ? metadata.landingUrl
+            : null,
     },
     {
       onConflict: "id",

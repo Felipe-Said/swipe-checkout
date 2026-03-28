@@ -4,6 +4,20 @@ import { getSupabaseAdmin } from "@/lib/supabase"
 import type { CheckoutPixelConfig } from "@/lib/pixels-data"
 import type { PushcutCheckoutConfig } from "@/lib/pushcut-data"
 
+function normalizePixelIds(value: unknown, fallback?: unknown) {
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => String(item ?? "").trim())
+      .filter(Boolean)
+  }
+
+  if (typeof fallback === "string" && fallback.trim()) {
+    return [fallback.trim()]
+  }
+
+  return [] as string[]
+}
+
 async function assertCheckoutIntegrationAccess(input: { accountId: string; userId: string }) {
   const supabaseAdmin = getSupabaseAdmin()
 
@@ -116,7 +130,9 @@ export async function loadCheckoutPixelConfigsForSession(input: {
   const supabaseAdmin = getSupabaseAdmin()
   const { data, error } = await supabaseAdmin
     .from("checkout_pixel_configs")
-    .select("checkout_id, meta_pixel_id, google_ads_id, tiktok_pixel_id, track_campaign_source")
+    .select(
+      "checkout_id, meta_pixel_id, google_ads_id, tiktok_pixel_id, meta_pixel_ids, google_ads_ids, tiktok_pixel_ids, track_campaign_source"
+    )
     .in(
       "checkout_id",
       (
@@ -134,9 +150,9 @@ export async function loadCheckoutPixelConfigsForSession(input: {
   return {
     configs: (data ?? []).map((row) => ({
       checkoutId: row.checkout_id,
-      metaPixelId: row.meta_pixel_id ?? "",
-      googleAdsId: row.google_ads_id ?? "",
-      tiktokPixelId: row.tiktok_pixel_id ?? "",
+      metaPixelIds: normalizePixelIds(row.meta_pixel_ids, row.meta_pixel_id),
+      googleAdsIds: normalizePixelIds(row.google_ads_ids, row.google_ads_id),
+      tiktokPixelIds: normalizePixelIds(row.tiktok_pixel_ids, row.tiktok_pixel_id),
       trackCampaignSource: Boolean(row.track_campaign_source),
     })),
   }
@@ -146,9 +162,9 @@ export async function saveCheckoutPixelConfigForSession(input: {
   accountId: string
   userId: string
   checkoutId: string
-  metaPixelId: string
-  googleAdsId: string
-  tiktokPixelId: string
+  metaPixelIds: string[]
+  googleAdsIds: string[]
+  tiktokPixelIds: string[]
   trackCampaignSource: boolean
 }) {
   await assertCheckoutIntegrationAccess(input)
@@ -169,9 +185,12 @@ export async function saveCheckoutPixelConfigForSession(input: {
   const { error } = await supabaseAdmin.from("checkout_pixel_configs").upsert(
     {
       checkout_id: input.checkoutId,
-      meta_pixel_id: input.metaPixelId,
-      google_ads_id: input.googleAdsId,
-      tiktok_pixel_id: input.tiktokPixelId,
+      meta_pixel_id: input.metaPixelIds[0] ?? "",
+      google_ads_id: input.googleAdsIds[0] ?? "",
+      tiktok_pixel_id: input.tiktokPixelIds[0] ?? "",
+      meta_pixel_ids: input.metaPixelIds,
+      google_ads_ids: input.googleAdsIds,
+      tiktok_pixel_ids: input.tiktokPixelIds,
       track_campaign_source: input.trackCampaignSource,
       updated_at: new Date().toISOString(),
     },
@@ -188,9 +207,9 @@ export async function saveCheckoutPixelConfigForSession(input: {
     success: true,
     config: {
       checkoutId: input.checkoutId,
-      metaPixelId: input.metaPixelId,
-      googleAdsId: input.googleAdsId,
-      tiktokPixelId: input.tiktokPixelId,
+      metaPixelIds: input.metaPixelIds,
+      googleAdsIds: input.googleAdsIds,
+      tiktokPixelIds: input.tiktokPixelIds,
       trackCampaignSource: input.trackCampaignSource,
     } satisfies CheckoutPixelConfig,
   }
