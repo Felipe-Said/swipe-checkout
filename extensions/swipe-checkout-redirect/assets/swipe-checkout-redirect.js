@@ -6,7 +6,18 @@
   var shopDomain = configNode.getAttribute("data-shop-domain") || "";
   var productId = configNode.getAttribute("data-product-id") || "";
   var selectedVariantId = configNode.getAttribute("data-selected-variant-id") || "";
+  var currencyCode = configNode.getAttribute("data-currency") || "";
   var enabled = configNode.getAttribute("data-enabled") !== "false";
+  var productDataNode = document.getElementById("swipe-checkout-redirect-product");
+  var productData = null;
+
+  if (productDataNode) {
+    try {
+      productData = JSON.parse(productDataNode.textContent || "null");
+    } catch (_error) {
+      productData = null;
+    }
+  }
 
   if (!enabled || !appUrl || !shopDomain) return;
 
@@ -66,22 +77,76 @@
     return normalizeResourceId(selectedVariantId);
   }
 
+  function resolveProductPayload(variantId, currentProductId) {
+    var normalizedProductId = normalizeResourceId(currentProductId || productId);
+    var normalizedVariantId = normalizeResourceId(variantId);
+
+    if (!productData || !normalizedProductId) {
+      return {
+        productId: normalizedProductId,
+        variantId: normalizedVariantId,
+        productName: "",
+        variantLabel: "",
+        amount: "",
+        currency: currencyCode || "",
+        imageSrc: "",
+      };
+    }
+
+    var variants = Array.isArray(productData.variants) ? productData.variants : [];
+    var selectedVariant = variants.find(function (variant) {
+      return String(variant && variant.id ? variant.id : "") === normalizedVariantId;
+    }) || variants[0] || null;
+
+    return {
+      productId: normalizedProductId || normalizeResourceId(productData.id),
+      variantId: normalizedVariantId || normalizeResourceId(selectedVariant && selectedVariant.id),
+      productName: productData.title || "",
+      variantLabel: selectedVariant && selectedVariant.title ? selectedVariant.title : "",
+      amount:
+        selectedVariant && typeof selectedVariant.price !== "undefined"
+          ? String(Number(selectedVariant.price || 0) / 100)
+          : "",
+      currency: currencyCode || "",
+      imageSrc:
+        (selectedVariant && selectedVariant.image) ||
+        productData.featuredImage ||
+        "",
+    };
+  }
+
   function redirectToSwipe(url, event, variantId, storeId, currentProductId) {
     if (!url) return;
     if (event) {
       event.preventDefault();
       event.stopPropagation();
     }
+    var resolvedPayload = resolveProductPayload(variantId, currentProductId);
     var nextUrl = new URL(url, window.location.origin);
     nextUrl.searchParams.set("shop", shopDomain);
     if (storeId) {
       nextUrl.searchParams.set("store", String(storeId));
     }
-    if (variantId) {
-      nextUrl.searchParams.set("variant", String(variantId));
+    if (resolvedPayload.productId) {
+      nextUrl.searchParams.set("product", String(resolvedPayload.productId));
     }
-    if (currentProductId) {
-      nextUrl.searchParams.set("product", String(currentProductId));
+    if (resolvedPayload.variantId) {
+      nextUrl.searchParams.set("variant", String(resolvedPayload.variantId));
+    }
+    if (resolvedPayload.productName) {
+      nextUrl.searchParams.set("product_name", resolvedPayload.productName);
+    }
+    if (resolvedPayload.variantLabel) {
+      nextUrl.searchParams.set("variant_label", resolvedPayload.variantLabel);
+    }
+    if (resolvedPayload.amount) {
+      nextUrl.searchParams.set("amount", resolvedPayload.amount);
+    }
+    if (resolvedPayload.currency) {
+      nextUrl.searchParams.set("currency", resolvedPayload.currency);
+    }
+    if (resolvedPayload.imageSrc) {
+      nextUrl.searchParams.set("image", resolvedPayload.imageSrc);
     }
     window.location.href = nextUrl.toString();
   }

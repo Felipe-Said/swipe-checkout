@@ -28,6 +28,20 @@ export default async function PublicCheckoutPage({
     typeof resolvedSearchParams.variant === "string" ? resolvedSearchParams.variant : undefined
   const productId =
     typeof resolvedSearchParams.product === "string" ? resolvedSearchParams.product : undefined
+  const productNameFromRedirect =
+    typeof resolvedSearchParams.product_name === "string"
+      ? resolvedSearchParams.product_name
+      : undefined
+  const variantLabelFromRedirect =
+    typeof resolvedSearchParams.variant_label === "string"
+      ? resolvedSearchParams.variant_label
+      : undefined
+  const amountFromRedirect =
+    typeof resolvedSearchParams.amount === "string" ? resolvedSearchParams.amount : undefined
+  const currencyFromRedirect =
+    typeof resolvedSearchParams.currency === "string" ? resolvedSearchParams.currency : undefined
+  const imageFromRedirect =
+    typeof resolvedSearchParams.image === "string" ? resolvedSearchParams.image : undefined
   const shopDomain =
     typeof resolvedSearchParams.shop === "string" ? resolvedSearchParams.shop.trim() : undefined
   const storeIdFromRedirect =
@@ -48,11 +62,34 @@ export default async function PublicCheckoutPage({
     checkout.config && typeof checkout.config === "object" && !Array.isArray(checkout.config)
       ? checkout.config
       : {}
+  const redirectedAmount = Number.parseFloat(amountFromRedirect ?? "")
+  const redirectedCurrency =
+    currencyFromRedirect === "USD" ||
+    currencyFromRedirect === "EUR" ||
+    currencyFromRedirect === "GBP" ||
+    currencyFromRedirect === "BRL"
+      ? currencyFromRedirect
+      : ((config as any).currency || "BRL")
+  const redirectedStorePreview =
+    productNameFromRedirect &&
+    Number.isFinite(redirectedAmount) &&
+    redirectedAmount >= 0
+      ? {
+          storeName: String((config as any).companyName || checkout.name || "Loja Shopify"),
+          currency: redirectedCurrency,
+          productName: productNameFromRedirect,
+          variantLabel: variantLabelFromRedirect || "Variante padrao",
+          amount: redirectedAmount,
+          imageSrc: imageFromRedirect,
+        }
+      : null
   const requiresShopifyResolution = Boolean(
     storeIdFromRedirect || shopDomain || productId || variantId || config.selectedStoreId
   )
 
-  const storePreviewResult =
+  const storePreviewResult = redirectedStorePreview
+    ? { preview: redirectedStorePreview }
+    :
     storeIdFromRedirect
       ? variantId
         ? await loadShopifyVariantPreviewForPublicCheckout({
@@ -106,7 +143,7 @@ export default async function PublicCheckoutPage({
             })
         : { preview: null }
 
-  if (!storePreviewResult.preview && storePreviewResult.error) {
+  if (!storePreviewResult.preview && "error" in storePreviewResult && storePreviewResult.error) {
     console.error("Public checkout Shopify preview failed", {
       checkoutId: checkout.id,
       accountId: checkout.account_id,
