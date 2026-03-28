@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { ChevronDown, Info, ShieldCheck, ShoppingBag } from "lucide-react"
-import { WhopCheckoutEmbed } from "@whop/checkout/react"
+import { WhopCheckoutEmbed, useCheckoutEmbedControls } from "@whop/checkout/react"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -1303,6 +1303,7 @@ function PaymentSection({
   const hasRealWhopCheckout = Boolean(config.whop?.purchaseUrl)
   const hasSelectedWhopAccount = Boolean(config.selectedWhopAccountId)
   const hasEmbeddedSession = Boolean(config.whop?.checkoutConfigurationId || config.whop?.planId)
+  const embedControls = useCheckoutEmbedControls()
   const inferredFullName = contactData.fullName.trim() || `${deliveryData.firstName} ${deliveryData.lastName}`.trim()
   const shouldHideEmbedEmail = Boolean(contactData.email.trim())
   const embedKey = [
@@ -1345,6 +1346,9 @@ function PaymentSection({
     }),
     [config.whopPaddingY]
   )
+  const handleEmbeddedCheckoutSubmit = React.useCallback(() => {
+    void embedControls.current?.submit()
+  }, [embedControls])
 
   return (
     <section className="space-y-4 pt-4">
@@ -1358,11 +1362,13 @@ function PaymentSection({
           {config.whop?.checkoutConfigurationId ? (
             <WhopCheckoutEmbed
               key={embedKey}
+              ref={embedControls}
               sessionId={config.whop.checkoutConfigurationId}
               theme={config.whopTheme}
               themeOptions={embedThemeOptions}
               styles={embedStyles}
               hidePrice={config.whopHidePrice}
+              hideSubmitButton
               hideTermsAndConditions={config.whopHideTermsAndConditions}
               skipRedirect
               hideEmail={shouldHideEmbedEmail}
@@ -1374,11 +1380,13 @@ function PaymentSection({
           ) : (
             <WhopCheckoutEmbed
               key={embedKey}
+              ref={embedControls}
               planId={config.whop?.planId ?? ""}
               theme={config.whopTheme}
               themeOptions={embedThemeOptions}
               styles={embedStyles}
               hidePrice={config.whopHidePrice}
+              hideSubmitButton
               hideTermsAndConditions={config.whopHideTermsAndConditions}
               skipRedirect
               hideEmail={shouldHideEmbedEmail}
@@ -1388,6 +1396,13 @@ function PaymentSection({
               returnUrl={embedReturnUrl}
             />
           )}
+          <div className="border-t px-4 pb-4 pt-3" style={{ borderColor: config.checkoutMutedColor }}>
+            <BuyButton
+              config={config}
+              label={config.buttonText}
+              onClick={handleEmbeddedCheckoutSubmit}
+            />
+          </div>
         </div>
       ) : (
         <div className="rounded-md border p-8 text-center" style={{ borderColor: config.checkoutMutedColor, backgroundColor: config.checkoutSurfaceColor, color: config.checkoutMutedColor }}>
