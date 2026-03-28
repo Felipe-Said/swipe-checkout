@@ -34,7 +34,7 @@ export async function GET(request: Request) {
   const supabaseAdmin = getSupabaseAdmin()
   const { data: store } = await supabaseAdmin
     .from("shopify_stores")
-    .select("default_checkout_id, skip_cart_redirect")
+    .select("id, default_checkout_id, skip_cart_redirect")
     .eq("shop_domain", shop)
     .in("status", ["Pronta", "Conectada"])
     .maybeSingle()
@@ -46,6 +46,7 @@ export async function GET(request: Request) {
   return NextResponse.json(
     {
       checkoutUrl,
+      storeId: store?.id ?? "",
       skipCartRedirect: Boolean(store?.skip_cart_redirect),
     },
     {
@@ -56,4 +57,3 @@ export async function GET(request: Request) {
     }
   )
 }
-

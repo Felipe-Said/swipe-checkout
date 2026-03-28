@@ -23,6 +23,8 @@ export default async function PublicCheckoutPage({
     typeof resolvedSearchParams.variant === "string" ? resolvedSearchParams.variant : undefined
   const shopDomain =
     typeof resolvedSearchParams.shop === "string" ? resolvedSearchParams.shop.trim() : undefined
+  const storeIdFromRedirect =
+    typeof resolvedSearchParams.store === "string" ? resolvedSearchParams.store.trim() : undefined
   const supabaseAdmin = getSupabaseAdmin()
 
   const { data: checkout } = await supabaseAdmin
@@ -41,7 +43,18 @@ export default async function PublicCheckoutPage({
       : {}
 
   const storePreviewResult =
-    shopDomain
+    storeIdFromRedirect
+      ? variantId
+        ? await loadShopifyVariantPreviewForPublishing({
+            storeId: storeIdFromRedirect,
+            accountId: checkout.account_id,
+            variantId,
+          })
+        : await loadShopifyStorePreviewForPublishing({
+            storeId: storeIdFromRedirect,
+            accountId: checkout.account_id,
+          })
+      : shopDomain
       ? variantId
         ? await loadShopifyVariantPreviewByDomainForPublishing({
             shopDomain,

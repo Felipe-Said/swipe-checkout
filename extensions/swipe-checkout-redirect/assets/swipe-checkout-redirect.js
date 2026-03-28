@@ -51,7 +51,7 @@
     return "";
   }
 
-  function redirectToSwipe(url, event, variantId) {
+  function redirectToSwipe(url, event, variantId, storeId) {
     if (!url) return;
     if (event) {
       event.preventDefault();
@@ -59,13 +59,16 @@
     }
     var nextUrl = new URL(url, window.location.origin);
     nextUrl.searchParams.set("shop", shopDomain);
+    if (storeId) {
+      nextUrl.searchParams.set("store", String(storeId));
+    }
     if (variantId) {
       nextUrl.searchParams.set("variant", String(variantId));
     }
     window.location.href = nextUrl.toString();
   }
 
-  function bindProductButtons(root, checkoutUrl, skipCartRedirect) {
+  function bindProductButtons(root, checkoutUrl, skipCartRedirect, storeId) {
     if (!skipCartRedirect) return;
 
     var forms = root.querySelectorAll('form[action*="/cart/add"]');
@@ -75,7 +78,7 @@
       form.addEventListener(
         "submit",
         function (event) {
-          redirectToSwipe(checkoutUrl, event, resolveVariantId(form));
+          redirectToSwipe(checkoutUrl, event, resolveVariantId(form), storeId);
         },
         true
       );
@@ -90,14 +93,14 @@
         function (event) {
           var form = button.closest('form[action*="/cart/add"]');
           if (!form) return;
-          redirectToSwipe(checkoutUrl, event, resolveVariantId(form));
+          redirectToSwipe(checkoutUrl, event, resolveVariantId(form), storeId);
         },
         true
       );
     });
   }
 
-  function bindCartButtons(root, checkoutUrl, skipCartRedirect) {
+  function bindCartButtons(root, checkoutUrl, skipCartRedirect, storeId) {
     if (skipCartRedirect) return;
 
     var checkoutButtons = root.querySelectorAll('button[name="checkout"], a[href="/checkout"], a[href$="/checkout"]');
@@ -107,16 +110,16 @@
       button.addEventListener(
         "click",
         function (event) {
-          redirectToSwipe(checkoutUrl, event, "");
+          redirectToSwipe(checkoutUrl, event, "", storeId);
         },
         true
       );
     });
   }
 
-  function bindAll(checkoutUrl, skipCartRedirect) {
-    bindProductButtons(document, checkoutUrl, skipCartRedirect);
-    bindCartButtons(document, checkoutUrl, skipCartRedirect);
+  function bindAll(checkoutUrl, skipCartRedirect, storeId) {
+    bindProductButtons(document, checkoutUrl, skipCartRedirect, storeId);
+    bindCartButtons(document, checkoutUrl, skipCartRedirect, storeId);
   }
 
   fetch(configUrl, { credentials: "omit" })
@@ -126,10 +129,10 @@
     .then(function (payload) {
       if (!payload || !payload.checkoutUrl) return;
 
-      bindAll(payload.checkoutUrl, Boolean(payload.skipCartRedirect));
+      bindAll(payload.checkoutUrl, Boolean(payload.skipCartRedirect), payload.storeId || "");
 
       var observer = new MutationObserver(function () {
-        bindAll(payload.checkoutUrl, Boolean(payload.skipCartRedirect));
+        bindAll(payload.checkoutUrl, Boolean(payload.skipCartRedirect), payload.storeId || "");
       });
       observer.observe(document.documentElement, { childList: true, subtree: true });
     })
