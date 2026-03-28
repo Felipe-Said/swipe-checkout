@@ -18,11 +18,11 @@ import Link from "next/link"
 
 import { deleteCheckoutForAccount, loadCheckoutsForAccount } from "@/app/actions/whop"
 import { getCurrentAppSession } from "@/lib/app-session"
-import { readConnectedDomains, type ConnectedDomain } from "@/lib/domain-data"
+import { getConnectedDomains, type ConnectedDomain } from "@/lib/domain-data"
 import { supabase } from "@/lib/supabase"
 import { readPushcutConfigs, writePushcutConfigs, type PushcutCheckoutConfig } from "@/lib/pushcut-data"
 import { readCampaignPerformance, readPixelConfigs, writePixelConfigs, type CheckoutPixelConfig } from "@/lib/pixels-data"
-import { readConnectedShopifyStores, type ConnectedShopifyStore } from "@/lib/shopify-store-data"
+import { type ConnectedShopifyStore } from "@/lib/shopify-store-data"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -52,6 +52,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Textarea } from "@/components/ui/textarea"
+import { loadShopifyStoresForSession } from "@/app/actions/shopify"
 
 type CheckoutRow = {
   id: string
@@ -83,15 +84,25 @@ export default function CheckoutsPage() {
     async function load() {
       const session = await getCurrentAppSession()
       setAccountId(session?.accountId ?? "")
-
-      setDomains(readConnectedDomains())
-      setStores(readConnectedShopifyStores())
       setPushcutConfigs(readPushcutConfigs())
       setPixelConfigs(readPixelConfigs())
       readCampaignPerformance()
 
       if (!session?.accountId) {
         return
+      }
+
+      const [domainsResult, storesResult] = await Promise.all([
+        getConnectedDomains(session.accountId),
+        loadShopifyStoresForSession({
+          accountId: session.accountId,
+          userId: session.userId,
+        }),
+      ])
+
+      setDomains(domainsResult)
+      if (!storesResult.error) {
+        setStores(storesResult.stores)
       }
 
       const { data: orders } = await supabase
@@ -273,8 +284,8 @@ export default function CheckoutsPage() {
                     </TableCell>
                     <TableCell className="min-w-[280px] text-muted-foreground">
                       <ConnectionsCell
-                        store={stores.find((store) => store.id === checkout.selectedStoreId)}
-                        domain={domains.find((domain) => domain.id === checkout.selectedDomainId)}
+                        store={resolveCheckoutStore(checkout, stores)}
+                        domain={resolveCheckoutDomain(checkout, domains)}
                       />
                     </TableCell>
                     <TableCell>{checkout.conversions}</TableCell>
@@ -432,6 +443,41 @@ export default function CheckoutsPage() {
         </DialogContent>
       </Dialog>
     </>
+  )
+}
+
+function resolveCheckoutStore(
+  checkout: CheckoutRow,
+  stores: ConnectedShopifyStore[]
+) {
+  if (checkout.selectedStoreId) {
+    const selectedStore = stores.find((store) => store.id === checkout.selectedStoreId)
+    if (selectedStore) {
+      return selectedStore
+    }
+  }
+
+  return (
+    stores.find((store) => store.defaultCheckoutId === checkout.id) ??
+    undefined
+  )
+}
+
+function resolveCheckoutDomain(
+  checkout: CheckoutRow,
+  domains: ConnectedDomain[]
+) {
+  if (checkout.selectedDomainId) {
+    const selectedDomain = domains.find((domain) => domain.id === checkout.selectedDomainId)
+    if (selectedDomain) {
+      return selectedDomain
+    }
+  }
+
+  return (
+    domains.find((domain) => domain.checkoutId === checkout.id && domain.isPrimary) ??
+    domains.find((domain) => domain.checkoutId === checkout.id) ??
+    undefined
   )
 }
 
