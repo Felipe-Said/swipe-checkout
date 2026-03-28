@@ -37,7 +37,7 @@ export function ShopifySetupTutorial() {
                   "Envie ao admin o link da sua loja Shopify para que ele gere o link de instalacao do app.",
                   "Acesse o link de instalacao enviado pelo admin e instale o app na loja correta.",
                   "Ative o App Embed Swipe Checkout Redirect no tema da Shopify.",
-                  "Ao criar o app da loja para as chaves, marque os escopos read_products e write_products.",
+                  "Ao criar o app da loja para as chaves, marque os escopos read_products, write_products e write_draft_orders.",
                   "Entre em Settings no app da loja.",
                   "Copie o Client ID, o Secret e confirme o dominio .myshopify.com da loja.",
                 ].map((step, i) => (

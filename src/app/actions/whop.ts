@@ -584,6 +584,10 @@ export async function createPublicWhopCheckoutSession(input: {
   config: EditorCheckoutConfig
   storePreview?: ShopifyStorePreview | null
   requireResolvedStorePreview?: boolean
+  shopifyStoreId?: string | null
+  shopifyProductId?: string | null
+  shopifyVariantId?: string | null
+  shopDomain?: string | null
 }) {
   if (!input.config.selectedWhopAccountId) {
     return { whop: input.config.whop ?? null }
@@ -635,6 +639,12 @@ export async function createPublicWhopCheckoutSession(input: {
         swipeCheckoutId: input.checkoutId,
         swipeAccountId: input.accountId,
         swipeCheckoutName: checkoutTitle,
+        swipeStoreId: input.shopifyStoreId || input.config.selectedStoreId || null,
+        swipeProductId: input.shopifyProductId || null,
+        swipeVariantId: input.shopifyVariantId || null,
+        swipeShopDomain: input.shopDomain || null,
+        swipeProductName: input.storePreview?.productName || checkoutTitle,
+        swipeVariantLabel: input.storePreview?.variantLabel || "Variante padrao",
       },
       plan: {
         company_id: whopAccount.whop_company_id,

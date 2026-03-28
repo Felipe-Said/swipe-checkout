@@ -172,6 +172,12 @@ export default async function PublicCheckoutPage({
     } as any,
     storePreview: storePreviewResult.preview ?? null,
     requireResolvedStorePreview: requiresShopifyResolution,
+    shopifyStoreId:
+      storeIdFromRedirect ||
+      (typeof (config as any).selectedStoreId === "string" ? (config as any).selectedStoreId : null),
+    shopifyProductId: productId,
+    shopifyVariantId: variantId,
+    shopDomain: shopDomain ?? null,
   })
 
   const checkoutConfigWithLiveWhop = {

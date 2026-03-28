@@ -1,6 +1,7 @@
 import Whop from "@whop/sdk"
 import { NextResponse } from "next/server"
 
+import { syncPaidWhopOrderToShopify } from "@/lib/shopify-order-sync"
 import { getSupabaseAdmin } from "@/lib/supabase"
 
 export async function POST(request: Request) {
@@ -67,10 +68,20 @@ export async function POST(request: Request) {
         ? payment.amount_after_fees
         : 0
 
+  const metadata =
+    payment?.metadata && typeof payment.metadata === "object" && !Array.isArray(payment.metadata)
+      ? payment.metadata
+      : {}
+  const checkoutId =
+    typeof metadata.swipeCheckoutId === "string" && metadata.swipeCheckoutId.trim()
+      ? metadata.swipeCheckoutId.trim()
+      : null
+
   await supabaseAdmin.from("orders").upsert(
     {
       id: String(payment.id || event.id),
       account_id: account.id,
+      checkout_id: checkoutId,
       customer_name:
         payment.user?.name ||
         payment.billing_address?.name ||
@@ -84,6 +95,21 @@ export async function POST(request: Request) {
       onConflict: "id",
     }
   )
+
+  if (event.type === "payment.succeeded") {
+    const syncResult = await syncPaidWhopOrderToShopify({
+      payment,
+      accountId: account.id,
+    })
+
+    if ("error" in syncResult && syncResult.error) {
+      console.error("Shopify order sync failed", {
+        paymentId: String(payment.id || event.id),
+        accountId: account.id,
+        error: syncResult.error,
+      })
+    }
+  }
 
   return NextResponse.json({ received: true })
 }

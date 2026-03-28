@@ -144,7 +144,7 @@ export function ShopifyConnectionForm({
           </div>
 
           <p className="rounded-lg border border-amber-500/20 bg-amber-500/10 p-2 text-[10px] text-amber-500">
-            Use o Client ID e o Secret do app da loja Shopify. Para esse app, os escopos obrigatorios sao read_products e write_products.
+            Use o Client ID e o Secret do app da loja Shopify. Para esse app, os escopos obrigatorios sao read_products, write_products e write_draft_orders.
           </p>
 
           <Button
