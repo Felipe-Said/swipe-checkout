@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { supabase } from "@/lib/supabase"
-import { readAppSession, writeAppSession } from "@/lib/app-session"
+import { getCurrentAppSession, readAppSession, writeAppSession } from "@/lib/app-session"
 import { loadSettingsForSession, saveSettingsProfile } from "@/app/actions/settings"
 import { SettingsHeader } from "@/components/settings/settings-header"
 import { SettingsProfileCard } from "@/components/settings/settings-profile-card"
@@ -33,22 +33,28 @@ export default function SettingsPage() {
 
   React.useEffect(() => {
     async function load() {
+      const appSession = await getCurrentAppSession()
       const {
         data: { user },
       } = await supabase.auth.getUser()
-      const appSession = readAppSession()
 
-      if (!user || !appSession) {
+      if (!appSession) {
         return
       }
 
       setSession({
-        ...user,
+        ...(user ?? {
+          id: appSession.userId,
+          email: appSession.email,
+          user_metadata: {
+            name: appSession.name,
+          },
+        }),
         appSession,
       })
 
       const result = await loadSettingsForSession({
-        userId: user.id,
+        userId: appSession.userId,
         accountId: appSession.accountId,
       })
 
@@ -91,7 +97,7 @@ export default function SettingsPage() {
       photoUrl: profileImage || null,
     })
 
-    if (!profileResult.error && nextEmail && nextEmail !== session.email) {
+    if (!profileResult.error && nextEmail && nextEmail !== session.email && session.id) {
       const { error: authEmailError } = await supabase.auth.updateUser({
         email: nextEmail,
       })
@@ -102,7 +108,7 @@ export default function SettingsPage() {
       }
     }
 
-    if (!profileResult.error && nextName && nextName !== session.user_metadata?.name) {
+    if (!profileResult.error && nextName && nextName !== session.user_metadata?.name && session.id) {
       await supabase.auth.updateUser({
         data: {
           name: nextName,
