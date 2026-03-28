@@ -16,9 +16,12 @@ interface SettingsProfileCardProps {
   onNameChange: (value: string) => void
   onEmailChange: (value: string) => void
   onImageChange: (base64: string) => void
+  onImageError?: (message: string) => void
   onImageRemove: () => void
   onSave: () => void
   isLoading?: boolean
+  feedbackMessage?: string
+  feedbackTone?: "default" | "error"
 }
 
 export function SettingsProfileCard({
@@ -28,9 +31,12 @@ export function SettingsProfileCard({
   onNameChange,
   onEmailChange,
   onImageChange,
+  onImageError,
   onImageRemove,
   onSave,
-  isLoading = false
+  isLoading = false,
+  feedbackMessage,
+  feedbackTone = "default",
 }: SettingsProfileCardProps) {
   const { t } = useI18n()
   const fileInputRef = React.useRef<HTMLInputElement>(null)
@@ -38,11 +44,13 @@ export function SettingsProfileCard({
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
-      const reader = new FileReader()
-      reader.onloadend = () => {
-        onImageChange(reader.result as string)
-      }
-      reader.readAsDataURL(file)
+      void optimizeProfileImage(file)
+        .then((result) => {
+          onImageChange(result)
+        })
+        .catch(() => {
+          onImageError?.("Nao foi possivel processar a foto. Tente outra imagem.")
+        })
     }
   }
 
@@ -138,6 +146,17 @@ export function SettingsProfileCard({
         </div>
 
         <div className="pt-4">
+           {feedbackMessage ? (
+             <div
+               className={
+                 feedbackTone === "error"
+                   ? "mb-4 rounded-xl border border-destructive/20 bg-destructive/5 px-4 py-3 text-sm font-medium text-destructive"
+                   : "mb-4 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 text-sm font-medium text-primary"
+               }
+             >
+               {feedbackMessage}
+             </div>
+           ) : null}
            <Button 
              className="w-full md:w-auto h-12 px-10 text-lg font-black tracking-tighter rounded-xl shadow-lg shadow-primary/20 group relative overflow-hidden" 
              onClick={onSave}
@@ -153,4 +172,52 @@ export function SettingsProfileCard({
       </CardContent>
     </Card>
   )
+}
+
+async function optimizeProfileImage(file: File) {
+  const imageDataUrl = await readFileAsDataUrl(file)
+  const image = await loadImage(imageDataUrl)
+
+  const maxSize = 512
+  const scale = Math.min(maxSize / image.width, maxSize / image.height, 1)
+  const width = Math.max(1, Math.round(image.width * scale))
+  const height = Math.max(1, Math.round(image.height * scale))
+
+  const canvas = document.createElement("canvas")
+  canvas.width = width
+  canvas.height = height
+
+  const context = canvas.getContext("2d")
+  if (!context) {
+    throw new Error("Canvas indisponivel")
+  }
+
+  context.drawImage(image, 0, 0, width, height)
+
+  return canvas.toDataURL("image/jpeg", 0.82)
+}
+
+function readFileAsDataUrl(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onloadend = () => {
+      if (typeof reader.result === "string") {
+        resolve(reader.result)
+        return
+      }
+
+      reject(new Error("Leitura invalida"))
+    }
+    reader.onerror = () => reject(reader.error || new Error("Falha ao ler imagem"))
+    reader.readAsDataURL(file)
+  })
+}
+
+function loadImage(source: string) {
+  return new Promise<HTMLImageElement>((resolve, reject) => {
+    const image = new Image()
+    image.onload = () => resolve(image)
+    image.onerror = () => reject(new Error("Falha ao carregar imagem"))
+    image.src = source
+  })
 }

@@ -30,6 +30,8 @@ export default function SettingsPage() {
   const [loginHistory, setLoginHistory] = React.useState<LoginHistoryItem[]>([])
   const [isSaving, setIsSaving] = React.useState(false)
   const [isChangingPassword, setIsChangingPassword] = React.useState(false)
+  const [profileFeedback, setProfileFeedback] = React.useState("")
+  const [profileFeedbackTone, setProfileFeedbackTone] = React.useState<"default" | "error">("default")
 
   React.useEffect(() => {
     async function load() {
@@ -88,16 +90,24 @@ export default function SettingsPage() {
     }
 
     setIsSaving(true)
+    setProfileFeedback("")
 
     const nextName = profileName.trim()
     const nextEmail = profileEmail.trim()
 
     const profileResult = await saveSettingsProfile({
-      userId: session.id,
+      userId: session.appSession.userId,
       name: nextName,
       email: nextEmail,
       photoUrl: profileImage || null,
     })
+
+    if (profileResult.error) {
+      setProfileFeedbackTone("error")
+      setProfileFeedback(profileResult.error)
+      setIsSaving(false)
+      return
+    }
 
     if (!profileResult.error && nextEmail && nextEmail !== session.email && session.id) {
       const { error: authEmailError } = await supabase.auth.updateUser({
@@ -105,6 +115,8 @@ export default function SettingsPage() {
       })
 
       if (authEmailError) {
+        setProfileFeedbackTone("error")
+        setProfileFeedback(authEmailError.message || "Nao foi possivel atualizar o e-mail.")
         setIsSaving(false)
         return
       }
@@ -143,6 +155,9 @@ export default function SettingsPage() {
           detail: { photoUrl: profileImage || "" },
         }),
       )
+
+      setProfileFeedbackTone("default")
+      setProfileFeedback("Perfil atualizado com sucesso.")
     }
 
     setIsSaving(false)
@@ -207,10 +222,22 @@ export default function SettingsPage() {
             profileImage={profileImage}
             onNameChange={setProfileName}
             onEmailChange={setProfileEmail}
-            onImageChange={setProfileImage}
-            onImageRemove={() => setProfileImage(undefined)}
+            onImageChange={(value) => {
+              setProfileFeedback("")
+              setProfileImage(value)
+            }}
+            onImageError={(message) => {
+              setProfileFeedbackTone("error")
+              setProfileFeedback(message)
+            }}
+            onImageRemove={() => {
+              setProfileFeedback("")
+              setProfileImage(undefined)
+            }}
             onSave={handleSaveProfile}
             isLoading={isSaving}
+            feedbackMessage={profileFeedback}
+            feedbackTone={profileFeedbackTone}
           />
 
           <SettingsPreferencesCard />
