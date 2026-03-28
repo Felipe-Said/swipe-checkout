@@ -13,6 +13,7 @@ import {
 } from "lucide-react"
 
 import { loadDashboardForSession } from "@/app/actions/dashboard"
+import { DashboardRevenueChart } from "@/components/dashboard/dashboard-revenue-chart"
 import { getCurrentAppSession } from "@/lib/app-session"
 import { useI18n } from "@/lib/i18n"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -65,6 +66,24 @@ type DashboardSummary = {
     currency: SupportedCurrency
     updatedAt: string
   }>
+  revenueChart: {
+    day: {
+      points: Array<{ date: string; label: string } & Record<string, string | number>>
+      series: Array<{ key: string; label: string; color: string }>
+    }
+    week: {
+      points: Array<{ date: string; label: string } & Record<string, string | number>>
+      series: Array<{ key: string; label: string; color: string }>
+    }
+    month: {
+      points: Array<{ date: string; label: string } & Record<string, string | number>>
+      series: Array<{ key: string; label: string; color: string }>
+    }
+    year: {
+      points: Array<{ date: string; label: string } & Record<string, string | number>>
+      series: Array<{ key: string; label: string; color: string }>
+    }
+  }
 }
 
 const todayIso = new Date().toISOString().slice(0, 10)
@@ -162,6 +181,12 @@ export default function DashboardPage() {
           </div>
         </div>
       ) : null}
+
+      <DashboardRevenueChart
+        chart={summary.revenueChart}
+        currency={displayCurrency}
+        language={language}
+      />
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5">
         <SummaryCard

@@ -30,6 +30,7 @@ type DashboardCheckoutRow = {
 type DashboardOrderRow = {
   id: string
   accountId: string
+  checkoutId: string | null
   customerName: string
   amount: number
   currency: SupportedCurrency
@@ -48,6 +49,25 @@ type DashboardCampaignRow = {
 }
 
 type DashboardCurrencyMap = Record<SupportedCurrency, number>
+type RevenueChartSeries = {
+  key: string
+  label: string
+  color: string
+}
+type RevenueChartPoint = {
+  date: string
+  label: string
+} & Record<string, string | number>
+type RevenueChartGranularity = {
+  points: RevenueChartPoint[]
+  series: RevenueChartSeries[]
+}
+type RevenueChartSummary = {
+  day: RevenueChartGranularity
+  week: RevenueChartGranularity
+  month: RevenueChartGranularity
+  year: RevenueChartGranularity
+}
 
 type DashboardSummary = {
   totalCheckouts: number
@@ -71,6 +91,7 @@ type DashboardSummary = {
     feeRevenueByCurrency: DashboardCurrencyMap
   }>
   campaigns: DashboardCampaignRow[]
+  revenueChart: RevenueChartSummary
 }
 
 function emptyCurrencyMap(): DashboardCurrencyMap {
@@ -107,6 +128,179 @@ function getWindowBounds(referenceDate: string, period: DashboardPeriod) {
   return {
     start,
     end,
+  }
+}
+
+function startOfWeek(date: Date) {
+  const copy = new Date(date)
+  const day = copy.getDay()
+  const diff = day === 0 ? -6 : 1 - day
+  copy.setDate(copy.getDate() + diff)
+  copy.setHours(0, 0, 0, 0)
+  return copy
+}
+
+function startOfMonth(date: Date) {
+  const copy = new Date(date)
+  copy.setDate(1)
+  copy.setHours(0, 0, 0, 0)
+  return copy
+}
+
+function startOfYear(date: Date) {
+  const copy = new Date(date)
+  copy.setMonth(0, 1)
+  copy.setHours(0, 0, 0, 0)
+  return copy
+}
+
+function addDays(date: Date, amount: number) {
+  const copy = new Date(date)
+  copy.setDate(copy.getDate() + amount)
+  return copy
+}
+
+function addMonths(date: Date, amount: number) {
+  const copy = new Date(date)
+  copy.setMonth(copy.getMonth() + amount)
+  return copy
+}
+
+function addYears(date: Date, amount: number) {
+  const copy = new Date(date)
+  copy.setFullYear(copy.getFullYear() + amount)
+  return copy
+}
+
+function emptyRevenueChart(): RevenueChartSummary {
+  return {
+    day: { points: [], series: [] },
+    week: { points: [], series: [] },
+    month: { points: [], series: [] },
+    year: { points: [], series: [] },
+  }
+}
+
+function buildRevenueChart(
+  input: {
+    orders: DashboardOrderRow[]
+    checkoutNames: Map<string, string>
+    referenceDate: string
+  }
+): RevenueChartSummary {
+  const palette = ["#fb4303", "#1d4ed8", "#16a34a", "#a855f7", "#f59e0b"]
+  const referenceEnd = new Date(`${input.referenceDate}T23:59:59.999`)
+  const seriesRevenue = new Map<string, number>()
+
+  for (const order of input.orders) {
+    if (!isPaidStatus(order.status) || !order.checkoutId) continue
+    seriesRevenue.set(order.checkoutId, (seriesRevenue.get(order.checkoutId) ?? 0) + order.amount)
+  }
+
+  const topCheckoutIds = [...seriesRevenue.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 4)
+    .map(([checkoutId]) => checkoutId)
+
+  const series = topCheckoutIds.map((checkoutId, index) => ({
+    key: `checkout_${index + 1}`,
+    label: input.checkoutNames.get(checkoutId) ?? "Checkout",
+    color: palette[index % palette.length],
+    checkoutId,
+  }))
+
+  function createPoints(
+    starts: Date[],
+    formatLabel: (date: Date) => string
+  ): RevenueChartPoint[] {
+    return starts.map((date) => {
+      const point: RevenueChartPoint = {
+        date: date.toISOString(),
+        label: formatLabel(date),
+      }
+
+      for (const currency of ["BRL", "USD", "EUR", "GBP"] as SupportedCurrency[]) {
+        point[`total_${currency}`] = 0
+      }
+
+      for (const item of series) {
+        for (const currency of ["BRL", "USD", "EUR", "GBP"] as SupportedCurrency[]) {
+          point[`${item.key}_${currency}`] = 0
+        }
+      }
+
+      return point
+    })
+  }
+
+  function fillPoints(
+    points: RevenueChartPoint[],
+    keyForDate: (date: Date) => string
+  ) {
+    const pointMap = new Map(points.map((point) => [keyForDate(new Date(point.date)), point]))
+
+    for (const order of input.orders) {
+      if (!isPaidStatus(order.status)) continue
+
+      const currency = normalizeCurrency(order.currency)
+      const orderDate = new Date(order.date)
+      const point = pointMap.get(keyForDate(orderDate))
+      if (!point) continue
+
+      point[`total_${currency}`] = Number(point[`total_${currency}`] ?? 0) + order.amount
+
+      const seriesMatch = series.find((item) => item.checkoutId === order.checkoutId)
+      if (seriesMatch) {
+        const dataKey = `${seriesMatch.key}_${currency}`
+        point[dataKey] = Number(point[dataKey] ?? 0) + order.amount
+      }
+    }
+  }
+
+  const dayStarts = Array.from({ length: 30 }, (_, index) => {
+    const date = addDays(referenceEnd, -(29 - index))
+    date.setHours(0, 0, 0, 0)
+    return date
+  })
+  const weekBase = startOfWeek(referenceEnd)
+  const weekStarts = Array.from({ length: 12 }, (_, index) => addDays(weekBase, (index - 11) * 7))
+  const monthBase = startOfMonth(referenceEnd)
+  const monthStarts = Array.from({ length: 12 }, (_, index) => addMonths(monthBase, index - 11))
+  const yearBase = startOfYear(referenceEnd)
+  const yearStarts = Array.from({ length: 5 }, (_, index) => addYears(yearBase, index - 4))
+
+  const dayPoints = createPoints(dayStarts, (date) =>
+    date.toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })
+  )
+  const weekPoints = createPoints(weekStarts, (date) => {
+    const end = addDays(date, 6)
+    return `${date.toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })} - ${end.toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}`
+  })
+  const monthPoints = createPoints(monthStarts, (date) =>
+    date.toLocaleDateString("pt-BR", { month: "short", year: "2-digit" })
+  )
+  const yearPoints = createPoints(yearStarts, (date) => date.getFullYear().toString())
+
+  fillPoints(dayPoints, (date) => {
+    const copy = new Date(date)
+    copy.setHours(0, 0, 0, 0)
+    return copy.toISOString()
+  })
+  fillPoints(weekPoints, (date) => startOfWeek(date).toISOString())
+  fillPoints(monthPoints, (date) => startOfMonth(date).toISOString())
+  fillPoints(yearPoints, (date) => startOfYear(date).toISOString())
+
+  const chartSeries: RevenueChartSeries[] = series.map(({ key, label, color }) => ({
+    key,
+    label,
+    color,
+  }))
+
+  return {
+    day: { points: dayPoints, series: chartSeries },
+    week: { points: weekPoints, series: chartSeries },
+    month: { points: monthPoints, series: chartSeries },
+    year: { points: yearPoints, series: chartSeries },
   }
 }
 
@@ -212,11 +406,15 @@ export async function loadDashboardForSession(input: {
         activeCheckouts: [],
         taxByAccount: [],
         campaigns: [],
+        revenueChart: emptyRevenueChart(),
       } satisfies DashboardSummary,
     }
   }
 
-  const [checkoutsResult, domainsResult, storesResult, ordersResult, withdrawalsResult] =
+  const chartStart = startOfYear(new Date(`${input.referenceDate}T00:00:00.000`))
+  chartStart.setFullYear(chartStart.getFullYear() - 4)
+
+  const [checkoutsResult, domainsResult, storesResult, ordersResult, withdrawalsResult, chartOrdersResult] =
     await Promise.all([
       supabaseAdmin
         .from("checkouts")
@@ -233,7 +431,7 @@ export async function loadDashboardForSession(input: {
         .in("account_id", visibleAccountIds),
       supabaseAdmin
         .from("orders")
-        .select("id, account_id, customer_name, amount, currency, status, date")
+        .select("id, account_id, checkout_id, customer_name, amount, currency, status, date")
         .in("account_id", visibleAccountIds)
         .gte("date", start.toISOString())
         .lte("date", end.toISOString())
@@ -243,6 +441,13 @@ export async function loadDashboardForSession(input: {
         .select("account_id, amount, currency, status, paid_at, created_at")
         .in("account_id", visibleAccountIds)
         .order("created_at", { ascending: false }),
+      supabaseAdmin
+        .from("orders")
+        .select("id, account_id, checkout_id, customer_name, amount, currency, status, date")
+        .in("account_id", visibleAccountIds)
+        .gte("date", chartStart.toISOString())
+        .lte("date", end.toISOString())
+        .order("date", { ascending: true }),
     ])
 
   if (checkoutsResult.error) return { error: checkoutsResult.error.message }
@@ -250,6 +455,7 @@ export async function loadDashboardForSession(input: {
   if (storesResult.error) return { error: storesResult.error.message }
   if (ordersResult.error) return { error: ordersResult.error.message }
   if (withdrawalsResult.error) return { error: withdrawalsResult.error.message }
+  if (chartOrdersResult.error) return { error: chartOrdersResult.error.message }
 
   const domainByCheckout = new Map<string, string>()
   for (const domain of domainsResult.data ?? []) {
@@ -268,6 +474,18 @@ export async function loadDashboardForSession(input: {
   const recentOrders: DashboardOrderRow[] = (ordersResult.data ?? []).map((order) => ({
     id: order.id,
     accountId: order.account_id,
+    checkoutId: order.checkout_id ?? null,
+    customerName: order.customer_name ?? "Cliente",
+    amount: Number(order.amount ?? 0),
+    currency: normalizeCurrency(order.currency),
+    status: order.status ?? "Pendente",
+    date: order.date,
+  }))
+
+  const chartOrders: DashboardOrderRow[] = (chartOrdersResult.data ?? []).map((order) => ({
+    id: order.id,
+    accountId: order.account_id,
+    checkoutId: order.checkout_id ?? null,
     customerName: order.customer_name ?? "Cliente",
     amount: Number(order.amount ?? 0),
     currency: normalizeCurrency(order.currency),
@@ -393,6 +611,15 @@ export async function loadDashboardForSession(input: {
     .filter((checkout) => checkout.status === "Ativo")
     .slice(0, 5)
 
+  const checkoutNameMap = new Map(
+    visibleCheckoutsRows.map((checkout) => [checkout.id, checkout.name])
+  )
+  const revenueChart = buildRevenueChart({
+    orders: chartOrders,
+    checkoutNames: checkoutNameMap,
+    referenceDate: input.referenceDate,
+  })
+
   return {
     role: sessionRole,
     currentAccountId: currentAccount?.id ?? null,
@@ -412,6 +639,7 @@ export async function loadDashboardForSession(input: {
       activeCheckouts,
       taxByAccount,
       campaigns: [],
+      revenueChart,
     } satisfies DashboardSummary,
   }
 }
