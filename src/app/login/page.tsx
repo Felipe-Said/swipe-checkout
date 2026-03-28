@@ -173,6 +173,13 @@ function LoginContent() {
                   </div>
                 )}
 
+                {message === "reset" && !error && (
+                  <div className="flex items-center gap-2 rounded-lg bg-primary/5 p-3 text-sm text-primary border border-primary/20">
+                    <AlertCircle className="h-4 w-4" />
+                    Sua senha foi redefinida com sucesso. Entre com a nova credencial.
+                  </div>
+                )}
+
                 {error ? <p className="text-sm font-medium text-destructive">{error}</p> : null}
                 
                 <Button className="w-full h-11 font-bold" type="submit" disabled={isLoading}>
