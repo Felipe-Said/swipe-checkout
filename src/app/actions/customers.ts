@@ -89,7 +89,7 @@ export async function loadAdminCustomersData(input: { userId: string }) {
         .order("created_at", { ascending: false }),
       supabaseAdmin
         .from("profiles")
-        .select("id, email, role, status, photo_url"),
+        .select("id, name, email, role, status, photo_url"),
       supabaseAdmin
         .from("orders")
         .select("id, account_id, amount, status"),
@@ -138,7 +138,7 @@ export async function loadAdminCustomersData(input: { userId: string }) {
     return {
       id: account.id,
       profileId: account.profile_id,
-      name: account.name,
+      name: profile?.name?.trim() || account.name,
       email: profile?.email ?? "",
       photoUrl: profile?.photo_url ?? "",
       role: profile?.role === "admin" ? "admin" : "user",

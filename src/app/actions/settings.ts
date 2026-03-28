@@ -88,6 +88,18 @@ export async function saveSettingsProfile(input: {
     return { error: error.message }
   }
 
+  const { error: accountError } = await supabaseAdmin
+    .from("managed_accounts")
+    .update({
+      name: input.name.trim(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("profile_id", input.userId)
+
+  if (accountError) {
+    return { error: accountError.message }
+  }
+
   return { success: true }
 }
 
