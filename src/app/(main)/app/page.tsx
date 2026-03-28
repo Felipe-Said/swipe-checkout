@@ -13,6 +13,7 @@ import {
 } from "lucide-react"
 
 import { loadDashboardForSession } from "@/app/actions/dashboard"
+import { DashboardCustomerFunnel } from "@/components/dashboard/dashboard-customer-funnel"
 import { DashboardRevenueChart } from "@/components/dashboard/dashboard-revenue-chart"
 import { getCurrentAppSession } from "@/lib/app-session"
 import { useI18n } from "@/lib/i18n"
@@ -84,6 +85,12 @@ type DashboardSummary = {
       series: Array<{ key: string; label: string; color: string }>
     }
   }
+  customerFunnel: Array<{
+    label: string
+    value: number
+    color: string
+    displayValue: string
+  }>
 }
 
 const todayIso = new Date().toISOString().slice(0, 10)
@@ -182,11 +189,14 @@ export default function DashboardPage() {
         </div>
       ) : null}
 
-      <DashboardRevenueChart
-        chart={summary.revenueChart}
-        currency={displayCurrency}
-        language={language}
-      />
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.7fr)_minmax(340px,1fr)]">
+        <DashboardRevenueChart
+          chart={summary.revenueChart}
+          currency={displayCurrency}
+          language={language}
+        />
+        <DashboardCustomerFunnel funnel={summary.customerFunnel} />
+      </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5">
         <SummaryCard

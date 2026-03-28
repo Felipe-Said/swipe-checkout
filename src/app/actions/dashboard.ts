@@ -92,6 +92,12 @@ type DashboardSummary = {
   }>
   campaigns: DashboardCampaignRow[]
   revenueChart: RevenueChartSummary
+  customerFunnel: Array<{
+    label: string
+    value: number
+    color: string
+    displayValue: string
+  }>
 }
 
 function emptyCurrencyMap(): DashboardCurrencyMap {
@@ -179,6 +185,46 @@ function emptyRevenueChart(): RevenueChartSummary {
     month: { points: [], series: [] },
     year: { points: [], series: [] },
   }
+}
+
+function buildCustomerFunnel(orders: DashboardOrderRow[]) {
+  const total = orders.length
+  const paid = orders.filter((order) => isPaidStatus(order.status)).length
+  const pending = orders.filter((order) => {
+    const normalized = (order.status ?? "").toLowerCase()
+    return normalized === "pending" || normalized === "pendente"
+  }).length
+  const failed = orders.filter((order) => {
+    const normalized = (order.status ?? "").toLowerCase()
+    return normalized === "failed" || normalized === "falha"
+  }).length
+
+  return [
+    {
+      label: "Entraram no checkout",
+      value: total,
+      displayValue: total.toLocaleString("pt-BR"),
+      color: "#fb4303",
+    },
+    {
+      label: "Pagamento pendente",
+      value: pending,
+      displayValue: pending.toLocaleString("pt-BR"),
+      color: "#f59e0b",
+    },
+    {
+      label: "Pagamento aprovado",
+      value: paid,
+      displayValue: paid.toLocaleString("pt-BR"),
+      color: "#16a34a",
+    },
+    {
+      label: "Pagamento com falha",
+      value: failed,
+      displayValue: failed.toLocaleString("pt-BR"),
+      color: "#dc2626",
+    },
+  ]
 }
 
 function buildRevenueChart(
@@ -407,6 +453,7 @@ export async function loadDashboardForSession(input: {
         taxByAccount: [],
         campaigns: [],
         revenueChart: emptyRevenueChart(),
+        customerFunnel: [],
       } satisfies DashboardSummary,
     }
   }
@@ -619,6 +666,7 @@ export async function loadDashboardForSession(input: {
     checkoutNames: checkoutNameMap,
     referenceDate: input.referenceDate,
   })
+  const customerFunnel = buildCustomerFunnel(recentOrders)
 
   return {
     role: sessionRole,
@@ -640,6 +688,7 @@ export async function loadDashboardForSession(input: {
       taxByAccount,
       campaigns: [],
       revenueChart,
+      customerFunnel,
     } satisfies DashboardSummary,
   }
 }
