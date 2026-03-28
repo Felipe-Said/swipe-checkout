@@ -1,3 +1,4 @@
+import { headers } from "next/headers"
 import { notFound } from "next/navigation"
 
 import { ShopifyCheckout } from "@/components/checkout-preview/shopify-checkout"
@@ -22,6 +23,10 @@ export default async function PublicCheckoutPage({
   params: Promise<{ id: string }>
   searchParams?: Promise<Record<string, string | string[] | undefined>>
 }) {
+  const requestHeaders = await headers()
+  const userAgent = requestHeaders.get("user-agent") ?? ""
+  const isMobileDevice =
+    /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile/i.test(userAgent)
   const { id } = await params
   const resolvedSearchParams = searchParams ? await searchParams : {}
   const variantId =
@@ -185,7 +190,7 @@ export default async function PublicCheckoutPage({
       <div className="mx-auto max-w-[1200px] overflow-hidden rounded-[28px] border border-white/10 bg-white shadow-2xl">
         <ShopifyCheckout
           config={checkoutConfigWithLiveWhop as any}
-          device="desktop"
+          device={isMobileDevice ? "mobile" : "desktop"}
           previewPage="checkout"
           shippingMethods={[]}
           storePreview={storePreviewResult.preview ?? null}
