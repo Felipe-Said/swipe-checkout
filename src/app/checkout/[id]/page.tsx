@@ -3,7 +3,9 @@ import { notFound } from "next/navigation"
 import { ShopifyCheckout } from "@/components/checkout-preview/shopify-checkout"
 import { getSupabaseAdmin } from "@/lib/supabase"
 import {
+  loadShopifyStorePreviewByDomainForPublishing,
   loadShopifyStorePreviewForPublishing,
+  loadShopifyVariantPreviewByDomainForPublishing,
   loadShopifyVariantPreviewForPublishing,
 } from "@/app/actions/shopify"
 import { createPublicWhopCheckoutSession } from "@/app/actions/whop"
@@ -19,6 +21,8 @@ export default async function PublicCheckoutPage({
   const resolvedSearchParams = searchParams ? await searchParams : {}
   const variantId =
     typeof resolvedSearchParams.variant === "string" ? resolvedSearchParams.variant : undefined
+  const shopDomain =
+    typeof resolvedSearchParams.shop === "string" ? resolvedSearchParams.shop.trim() : undefined
   const supabaseAdmin = getSupabaseAdmin()
 
   const { data: checkout } = await supabaseAdmin
@@ -37,18 +41,29 @@ export default async function PublicCheckoutPage({
       : {}
 
   const storePreviewResult =
-    config.selectedStoreId
+    shopDomain
       ? variantId
-        ? await loadShopifyVariantPreviewForPublishing({
-            storeId: String(config.selectedStoreId),
+        ? await loadShopifyVariantPreviewByDomainForPublishing({
+            shopDomain,
             accountId: checkout.account_id,
             variantId,
           })
-        : await loadShopifyStorePreviewForPublishing({
-            storeId: String(config.selectedStoreId),
+        : await loadShopifyStorePreviewByDomainForPublishing({
+            shopDomain,
             accountId: checkout.account_id,
           })
-      : { preview: null }
+      : config.selectedStoreId
+        ? variantId
+          ? await loadShopifyVariantPreviewForPublishing({
+              storeId: String(config.selectedStoreId),
+              accountId: checkout.account_id,
+              variantId,
+            })
+          : await loadShopifyStorePreviewForPublishing({
+              storeId: String(config.selectedStoreId),
+              accountId: checkout.account_id,
+            })
+        : { preview: null }
 
   const whopSessionResult = await createPublicWhopCheckoutSession({
     checkoutId: checkout.id,
@@ -59,7 +74,9 @@ export default async function PublicCheckoutPage({
 
   const checkoutConfigWithLiveWhop = {
     ...(config as any),
-    whop: whopSessionResult.whop ?? (config as any).whop,
+    whop: (config as any).selectedWhopAccountId
+      ? whopSessionResult.whop ?? null
+      : (config as any).whop,
   }
 
   return (

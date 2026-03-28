@@ -10,6 +10,47 @@
 
   var configUrl = appUrl + "/api/shopify/storefront-config?shop=" + encodeURIComponent(shopDomain);
 
+  function resolveVariantId(form) {
+    if (form) {
+      var variantInput =
+        form.querySelector('input[name="id"]') ||
+        form.querySelector('select[name="id"]') ||
+        form.querySelector('input[name="variant"]') ||
+        form.querySelector('select[name="variant"]') ||
+        form.querySelector('[name="id"]') ||
+        form.querySelector('[data-variant-id]');
+
+      if (variantInput) {
+        return (
+          variantInput.value ||
+          variantInput.getAttribute("value") ||
+          variantInput.getAttribute("data-variant-id") ||
+          ""
+        );
+      }
+    }
+
+    var urlVariant = new URL(window.location.href).searchParams.get("variant");
+    if (urlVariant) return urlVariant;
+
+    var checkedVariant =
+      document.querySelector('input[name="id"]:checked') ||
+      document.querySelector('input[name="variant"]:checked') ||
+      document.querySelector('[data-variant-id][aria-selected="true"]') ||
+      document.querySelector('[data-variant-id].is-selected');
+
+    if (checkedVariant) {
+      return (
+        checkedVariant.value ||
+        checkedVariant.getAttribute("value") ||
+        checkedVariant.getAttribute("data-variant-id") ||
+        ""
+      );
+    }
+
+    return "";
+  }
+
   function redirectToSwipe(url, event, variantId) {
     if (!url) return;
     if (event) {
@@ -17,22 +58,11 @@
       event.stopPropagation();
     }
     var nextUrl = new URL(url, window.location.origin);
+    nextUrl.searchParams.set("shop", shopDomain);
     if (variantId) {
       nextUrl.searchParams.set("variant", String(variantId));
     }
     window.location.href = nextUrl.toString();
-  }
-
-  function resolveVariantId(form) {
-    if (!form) return "";
-
-    var variantInput =
-      form.querySelector('input[name="id"]') ||
-      form.querySelector('select[name="id"]') ||
-      form.querySelector('[name="id"]');
-
-    if (!variantInput) return "";
-    return variantInput.value || variantInput.getAttribute("value") || "";
   }
 
   function bindProductButtons(root, checkoutUrl, skipCartRedirect) {

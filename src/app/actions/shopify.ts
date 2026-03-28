@@ -352,6 +352,23 @@ async function fetchShopifyStorePreview(input: { storeId: string; accountId: str
   }
 }
 
+async function fetchShopifyStorePreviewByDomain(input: { shopDomain: string; accountId: string }) {
+  const supabaseAdmin = getSupabaseAdmin()
+  const { data: store, error } = await supabaseAdmin
+    .from("shopify_stores")
+    .select("id")
+    .eq("account_id", input.accountId)
+    .eq("shop_domain", normalizeShopDomain(input.shopDomain))
+    .in("status", ["Pronta", "Conectada"])
+    .maybeSingle()
+
+  if (error || !store?.id) {
+    return { error: "Loja Shopify nao encontrada.", preview: null as ShopifyStorePreview | null }
+  }
+
+  return fetchShopifyStorePreview({ storeId: store.id, accountId: input.accountId })
+}
+
 async function fetchShopifyVariantPreview(input: {
   storeId: string
   accountId: string
@@ -456,6 +473,31 @@ async function fetchShopifyVariantPreview(input: {
   }
 }
 
+async function fetchShopifyVariantPreviewByDomain(input: {
+  shopDomain: string
+  accountId: string
+  variantId: string
+}) {
+  const supabaseAdmin = getSupabaseAdmin()
+  const { data: store, error } = await supabaseAdmin
+    .from("shopify_stores")
+    .select("id")
+    .eq("account_id", input.accountId)
+    .eq("shop_domain", normalizeShopDomain(input.shopDomain))
+    .in("status", ["Pronta", "Conectada"])
+    .maybeSingle()
+
+  if (error || !store?.id) {
+    return { error: "Loja Shopify nao encontrada.", preview: null as ShopifyStorePreview | null }
+  }
+
+  return fetchShopifyVariantPreview({
+    storeId: store.id,
+    accountId: input.accountId,
+    variantId: input.variantId,
+  })
+}
+
 export async function loadShopifyStorePreviewForSession(input: {
   storeId: string
   accountId: string
@@ -472,12 +514,27 @@ export async function loadShopifyStorePreviewForPublishing(input: {
   return fetchShopifyStorePreview(input)
 }
 
+export async function loadShopifyStorePreviewByDomainForPublishing(input: {
+  shopDomain: string
+  accountId: string
+}) {
+  return fetchShopifyStorePreviewByDomain(input)
+}
+
 export async function loadShopifyVariantPreviewForPublishing(input: {
   storeId: string
   accountId: string
   variantId: string
 }) {
   return fetchShopifyVariantPreview(input)
+}
+
+export async function loadShopifyVariantPreviewByDomainForPublishing(input: {
+  shopDomain: string
+  accountId: string
+  variantId: string
+}) {
+  return fetchShopifyVariantPreviewByDomain(input)
 }
 
 export async function loadShopifyStoresForSession(input: { accountId: string; userId: string }) {
