@@ -5,6 +5,7 @@ import { ChevronDown, Info, ShieldCheck, ShoppingBag } from "lucide-react"
 import { WhopCheckoutEmbed, useCheckoutEmbedControls } from "@whop/checkout/react"
 
 import { cn } from "@/lib/utils"
+import { trackCheckoutBehaviorEvent } from "@/lib/checkout-behavior"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -60,6 +61,12 @@ type ShopifyStorePreview = {
   variantLabel: string
   amount: number
   imageSrc?: string
+}
+
+type CheckoutBehaviorTracking = {
+  enabled: boolean
+  checkoutId: string
+  stage: "checkout" | "thank-you"
 }
 
 interface CheckoutConfig {
@@ -444,6 +451,7 @@ export function ShopifyCheckout({
   shippingMethods,
   storePreview,
   onConfigUpdate,
+  behaviorTracking,
 }: {
   config: CheckoutConfig
   device: "desktop" | "mobile"
@@ -451,6 +459,7 @@ export function ShopifyCheckout({
   shippingMethods: ShippingMethod[]
   storePreview?: ShopifyStorePreview | null
   onConfigUpdate?: (key: keyof CheckoutConfig, value: string | boolean | number) => void
+  behaviorTracking?: CheckoutBehaviorTracking
 }) {
   const [isSummaryOpen, setIsSummaryOpen] = React.useState(false)
   const [resolvedLocale, setResolvedLocale] = React.useState<SupportedLocale>(config.locale)
@@ -471,6 +480,7 @@ export function ShopifyCheckout({
   const [selectedShippingId, setSelectedShippingId] = React.useState<string | null>(null)
   const isMobile = device === "mobile"
   const isOnePage = config.layoutStyle === "one-page"
+  const behaviorEnabled = Boolean(behaviorTracking?.enabled && behaviorTracking.checkoutId)
 
   React.useEffect(() => {
     const locale = resolveLocale(config.localeMode, config.locale)
@@ -536,6 +546,70 @@ export function ShopifyCheckout({
   const totalPrice = basePrice + shippingPrice
   const formattedPrice = formatPrice(basePrice, resolvedLocale, effectiveCurrency)
   const formattedTotalPrice = formatPrice(totalPrice, resolvedLocale, effectiveCurrency)
+
+  React.useEffect(() => {
+    if (!behaviorEnabled || !behaviorTracking) return
+
+    if (behaviorTracking.stage === "checkout") {
+      void trackCheckoutBehaviorEvent({
+        checkoutId: behaviorTracking.checkoutId,
+        eventType: "checkout_viewed",
+        metadata: {
+          device,
+          layoutStyle: config.layoutStyle,
+        },
+      })
+      return
+    }
+
+    if (behaviorTracking.stage === "thank-you") {
+      void trackCheckoutBehaviorEvent({
+        checkoutId: behaviorTracking.checkoutId,
+        eventType: "order_completed",
+        metadata: {
+          device,
+          layoutStyle: config.layoutStyle,
+        },
+      })
+    }
+  }, [behaviorEnabled, behaviorTracking, config.layoutStyle, device])
+
+  React.useEffect(() => {
+    if (!behaviorEnabled || previewPage !== "checkout" || !behaviorTracking) return
+
+    const hasStartedContact = Object.values(contactData).some((value) => value.trim().length > 0)
+    if (!hasStartedContact) return
+
+    void trackCheckoutBehaviorEvent({
+      checkoutId: behaviorTracking.checkoutId,
+      eventType: "contact_started",
+      metadata: {
+        device,
+      },
+    })
+  }, [behaviorEnabled, behaviorTracking, contactData, device, previewPage])
+
+  React.useEffect(() => {
+    if (!behaviorEnabled || previewPage !== "checkout" || !behaviorTracking) return
+
+    const hasTypedDelivery =
+      deliveryData.address.trim().length > 0 ||
+      deliveryData.city.trim().length > 0 ||
+      deliveryData.state.trim().length > 0 ||
+      deliveryData.zip.trim().length > 0 ||
+      (!contactData.fullName.trim() &&
+        (deliveryData.firstName.trim().length > 0 || deliveryData.lastName.trim().length > 0))
+
+    if (!hasTypedDelivery) return
+
+    void trackCheckoutBehaviorEvent({
+      checkoutId: behaviorTracking.checkoutId,
+      eventType: "delivery_started",
+      metadata: {
+        device,
+      },
+    })
+  }, [behaviorEnabled, behaviorTracking, contactData.fullName, deliveryData, device, previewPage])
 
   if (previewPage === "thank-you") {
     return (
@@ -610,6 +684,30 @@ export function ShopifyCheckout({
                 locale={resolvedLocale}
                 contactData={contactData}
                 deliveryData={deliveryData}
+                onPaymentViewed={
+                  behaviorEnabled && behaviorTracking
+                    ? () =>
+                        trackCheckoutBehaviorEvent({
+                          checkoutId: behaviorTracking.checkoutId,
+                          eventType: "payment_viewed",
+                          metadata: {
+                            device,
+                          },
+                        })
+                    : undefined
+                }
+                onPaymentStarted={
+                  behaviorEnabled && behaviorTracking
+                    ? () =>
+                        trackCheckoutBehaviorEvent({
+                          checkoutId: behaviorTracking.checkoutId,
+                          eventType: "payment_started",
+                          metadata: {
+                            device,
+                          },
+                        })
+                    : undefined
+                }
               />
               <CheckoutFooter compact={isMobile} config={config} copy={copy} />
             </div>
@@ -658,6 +756,30 @@ export function ShopifyCheckout({
                   locale={resolvedLocale}
                   contactData={contactData}
                   deliveryData={deliveryData}
+                  onPaymentViewed={
+                    behaviorEnabled && behaviorTracking
+                      ? () =>
+                          trackCheckoutBehaviorEvent({
+                            checkoutId: behaviorTracking.checkoutId,
+                            eventType: "payment_viewed",
+                            metadata: {
+                              device,
+                            },
+                          })
+                      : undefined
+                  }
+                  onPaymentStarted={
+                    behaviorEnabled && behaviorTracking
+                      ? () =>
+                          trackCheckoutBehaviorEvent({
+                            checkoutId: behaviorTracking.checkoutId,
+                            eventType: "payment_started",
+                            metadata: {
+                              device,
+                            },
+                          })
+                      : undefined
+                  }
                 />
                 {!hasRealWhopPayment ? (
                   <div className="pt-6">
@@ -1309,6 +1431,8 @@ function PaymentSection({
   locale,
   contactData,
   deliveryData,
+  onPaymentViewed,
+  onPaymentStarted,
 }: {
   config: CheckoutConfig
   copy: Copy
@@ -1326,11 +1450,14 @@ function PaymentSection({
     state: string
     zip: string
   }
+  onPaymentViewed?: () => void | Promise<void>
+  onPaymentStarted?: () => void | Promise<void>
 }) {
   const hasRealWhopCheckout = Boolean(config.whop?.purchaseUrl)
   const hasSelectedWhopAccount = Boolean(config.selectedWhopAccountId)
   const hasEmbeddedSession = Boolean(config.whop?.checkoutConfigurationId || config.whop?.planId)
   const embedControls = useCheckoutEmbedControls()
+  const paymentSectionRef = React.useRef<HTMLElement | null>(null)
   const inferredFullName = contactData.fullName.trim() || `${deliveryData.firstName} ${deliveryData.lastName}`.trim()
   const shouldHideEmbedEmail = Boolean(contactData.email.trim())
   const embedKey = [
@@ -1374,11 +1501,34 @@ function PaymentSection({
     [config.whopPaddingY]
   )
   const handleEmbeddedCheckoutSubmit = React.useCallback(() => {
+    void onPaymentStarted?.()
     void embedControls.current?.submit()
-  }, [embedControls])
+  }, [embedControls, onPaymentStarted])
+
+  React.useEffect(() => {
+    if (!onPaymentViewed || typeof IntersectionObserver === "undefined") return
+
+    const node = paymentSectionRef.current
+    if (!node) return
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0]
+        if (!entry?.isIntersecting) return
+        void onPaymentViewed()
+        observer.disconnect()
+      },
+      {
+        threshold: 0.45,
+      }
+    )
+
+    observer.observe(node)
+    return () => observer.disconnect()
+  }, [onPaymentViewed])
 
   return (
-    <section className="space-y-4 pt-4">
+    <section ref={paymentSectionRef} className="space-y-4 pt-4">
       <h2 className="text-lg font-medium" style={{ color: config.checkoutTextColor }}>{copy.payment}</h2>
       <p className="text-sm" style={{ color: config.checkoutMutedColor }}>{copy.paymentSafe}</p>
       {hasEmbeddedSession ? (

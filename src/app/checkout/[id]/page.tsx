@@ -279,6 +279,11 @@ export default async function PublicCheckoutPage({
           previewPage="checkout"
           shippingMethods={[]}
           storePreview={storePreviewResult.preview ?? null}
+          behaviorTracking={{
+            enabled: true,
+            checkoutId: checkout.id,
+            stage: "checkout",
+          }}
         />
       </div>
     </main>

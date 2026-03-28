@@ -48,6 +48,13 @@ type DashboardCampaignRow = {
   updatedAt: string
 }
 
+type DashboardCheckoutBehaviorRow = {
+  checkoutId: string
+  sessionId: string
+  eventType: string
+  lastSeenAt: string
+}
+
 type DashboardCurrencyMap = Record<SupportedCurrency, number>
 type RevenueChartSeries = {
   key: string
@@ -187,44 +194,33 @@ function emptyRevenueChart(): RevenueChartSummary {
   }
 }
 
-function buildCustomerFunnel(orders: DashboardOrderRow[]) {
-  const total = orders.length
-  const paid = orders.filter((order) => isPaidStatus(order.status)).length
-  const pending = orders.filter((order) => {
-    const normalized = (order.status ?? "").toLowerCase()
-    return normalized === "pending" || normalized === "pendente"
-  }).length
-  const failed = orders.filter((order) => {
-    const normalized = (order.status ?? "").toLowerCase()
-    return normalized === "failed" || normalized === "falha"
-  }).length
+function buildCustomerFunnel(events: DashboardCheckoutBehaviorRow[]) {
+  const eventSessionMap = new Map<string, Set<string>>()
 
-  return [
-    {
-      label: "Entraram no checkout",
-      value: total,
-      displayValue: total.toLocaleString("pt-BR"),
-      color: "#fb4303",
-    },
-    {
-      label: "Pagamento pendente",
-      value: pending,
-      displayValue: pending.toLocaleString("pt-BR"),
-      color: "#f59e0b",
-    },
-    {
-      label: "Pagamento aprovado",
-      value: paid,
-      displayValue: paid.toLocaleString("pt-BR"),
-      color: "#16a34a",
-    },
-    {
-      label: "Pagamento com falha",
-      value: failed,
-      displayValue: failed.toLocaleString("pt-BR"),
-      color: "#dc2626",
-    },
-  ]
+  for (const event of events) {
+    const current = eventSessionMap.get(event.eventType) ?? new Set<string>()
+    current.add(event.sessionId)
+    eventSessionMap.set(event.eventType, current)
+  }
+
+  const stages = [
+    { label: "Acessou checkout", eventType: "checkout_viewed", color: "#fb4303" },
+    { label: "Iniciou contato", eventType: "contact_started", color: "#f97316" },
+    { label: "Iniciou entrega", eventType: "delivery_started", color: "#f59e0b" },
+    { label: "Chegou ao pagamento", eventType: "payment_viewed", color: "#2563eb" },
+    { label: "Iniciou pagamento", eventType: "payment_started", color: "#8b5cf6" },
+    { label: "Concluiu pedido", eventType: "order_completed", color: "#16a34a" },
+  ] as const
+
+  return stages.map((stage) => {
+    const value = eventSessionMap.get(stage.eventType)?.size ?? 0
+    return {
+      label: stage.label,
+      value,
+      displayValue: value.toLocaleString("pt-BR"),
+      color: stage.color,
+    }
+  })
 }
 
 function buildRevenueChart(
@@ -461,7 +457,7 @@ export async function loadDashboardForSession(input: {
   const chartStart = startOfYear(new Date(`${input.referenceDate}T00:00:00.000`))
   chartStart.setFullYear(chartStart.getFullYear() - 4)
 
-  const [checkoutsResult, domainsResult, storesResult, ordersResult, withdrawalsResult, chartOrdersResult] =
+  const [checkoutsResult, domainsResult, storesResult, ordersResult, withdrawalsResult, chartOrdersResult, behaviorEventsResult] =
     await Promise.all([
       supabaseAdmin
         .from("checkouts")
@@ -495,6 +491,13 @@ export async function loadDashboardForSession(input: {
         .gte("date", chartStart.toISOString())
         .lte("date", end.toISOString())
         .order("date", { ascending: true }),
+      supabaseAdmin
+        .from("checkout_behavior_events")
+        .select("checkout_id, session_id, event_type, last_seen_at")
+        .in("account_id", visibleAccountIds)
+        .gte("last_seen_at", start.toISOString())
+        .lte("last_seen_at", end.toISOString())
+        .order("last_seen_at", { ascending: false }),
     ])
 
   if (checkoutsResult.error) return { error: checkoutsResult.error.message }
@@ -503,6 +506,7 @@ export async function loadDashboardForSession(input: {
   if (ordersResult.error) return { error: ordersResult.error.message }
   if (withdrawalsResult.error) return { error: withdrawalsResult.error.message }
   if (chartOrdersResult.error) return { error: chartOrdersResult.error.message }
+  if (behaviorEventsResult.error) return { error: behaviorEventsResult.error.message }
 
   const domainByCheckout = new Map<string, string>()
   for (const domain of domainsResult.data ?? []) {
@@ -538,6 +542,15 @@ export async function loadDashboardForSession(input: {
     currency: normalizeCurrency(order.currency),
     status: order.status ?? "Pendente",
     date: order.date,
+  }))
+
+  const checkoutBehaviorEvents: DashboardCheckoutBehaviorRow[] = (
+    behaviorEventsResult.data ?? []
+  ).map((event) => ({
+    checkoutId: event.checkout_id,
+    sessionId: event.session_id,
+    eventType: event.event_type,
+    lastSeenAt: event.last_seen_at,
   }))
 
   const visibleCheckoutsRows = (checkoutsResult.data ?? []).map((checkout) => {
@@ -666,7 +679,7 @@ export async function loadDashboardForSession(input: {
     checkoutNames: checkoutNameMap,
     referenceDate: input.referenceDate,
   })
-  const customerFunnel = buildCustomerFunnel(recentOrders)
+  const customerFunnel = buildCustomerFunnel(checkoutBehaviorEvents)
 
   return {
     role: sessionRole,

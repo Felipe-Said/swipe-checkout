@@ -18,7 +18,7 @@ export function DashboardCustomerFunnel({
       <CardHeader>
         <CardTitle>Comportamento no Checkout</CardTitle>
         <CardDescription>
-          Etapas reais dos clientes no checkout com base nos pedidos do periodo.
+          Etapas reais dos clientes no checkout com atualizacao automatica por sessao.
         </CardDescription>
       </CardHeader>
       <CardContent>

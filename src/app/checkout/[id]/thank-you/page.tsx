@@ -112,6 +112,11 @@ export default async function PublicCheckoutThankYouPage({
             amount,
             imageSrc,
           }}
+          behaviorTracking={{
+            enabled: true,
+            checkoutId: checkout.id,
+            stage: "thank-you",
+          }}
         />
       </div>
     </main>

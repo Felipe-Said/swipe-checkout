@@ -141,6 +141,16 @@ export default function DashboardPage() {
     void load()
   }, [loadData])
 
+  React.useEffect(() => {
+    if (!sessionUserId) return
+
+    const interval = window.setInterval(() => {
+      void loadData(sessionUserId)
+    }, 15000)
+
+    return () => window.clearInterval(interval)
+  }, [loadData, sessionUserId])
+
   const displayCurrency = currency === "USD" || currency === "EUR" ? currency : "BRL"
   const summaryRevenue = summary?.revenueByCurrency[displayCurrency] ?? 0
   const summaryFeeRevenue = summary?.feeRevenueByCurrency[displayCurrency] ?? 0
