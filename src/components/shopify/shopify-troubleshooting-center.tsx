@@ -42,23 +42,23 @@ export function ShopifyTroubleshootingCenter() {
       </CardHeader>
 
       <CardContent className="space-y-4">
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           {issues.map((issue, i) => (
             <div
               key={i}
-              className="group space-y-4 rounded-2xl border border-destructive/5 bg-background/40 p-5 transition-all hover:border-destructive/20"
+              className="group flex min-h-[220px] flex-col rounded-2xl border border-destructive/5 bg-background/40 p-5 transition-all hover:border-destructive/20"
             >
-              <div className="flex items-center gap-3">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-destructive/10 text-destructive transition-transform group-hover:scale-110">
+              <div className="flex items-start gap-3">
+                <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-destructive/10 text-destructive transition-transform group-hover:scale-110">
                   <issue.icon className="h-4 w-4" />
                 </div>
-                <h4 className="text-sm font-black tracking-tight">{issue.title}</h4>
+                <h4 className="text-sm font-black leading-tight tracking-tight">{issue.title}</h4>
               </div>
-              <p className="text-xs leading-relaxed text-muted-foreground">{issue.description}</p>
+              <p className="mt-4 flex-1 text-sm leading-relaxed text-muted-foreground">{issue.description}</p>
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-8 w-full justify-between text-[11px] font-bold text-destructive hover:bg-destructive/10 hover:text-destructive"
+                className="mt-5 h-9 w-full justify-between rounded-xl px-0 text-sm font-bold text-destructive hover:bg-transparent hover:text-destructive"
               >
                 {issue.action}
                 <ArrowRight className="h-3 w-3" />
@@ -67,7 +67,7 @@ export function ShopifyTroubleshootingCenter() {
           ))}
         </div>
 
-        <div className="mt-6 flex items-center justify-center gap-2 rounded-xl border border-dashed bg-background/20 p-3 text-xs text-muted-foreground">
+        <div className="mt-6 flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed bg-background/20 p-4 text-center text-sm text-muted-foreground sm:flex-row">
           <HelpCircle className="h-4 w-4" />
           Ainda tem duvidas?
           <a href="#" className="font-bold text-primary hover:underline">
