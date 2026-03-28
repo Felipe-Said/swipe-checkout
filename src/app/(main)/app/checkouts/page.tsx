@@ -16,13 +16,19 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 
+import {
+  loadCheckoutPixelConfigsForSession,
+  loadCheckoutPushcutConfigsForSession,
+  saveCheckoutPixelConfigForSession,
+  saveCheckoutPushcutConfigForSession,
+} from "@/app/actions/checkout-integrations"
 import { deleteCheckoutForAccount, loadCheckoutsForAccount } from "@/app/actions/whop"
 import { loadDomainsForSession } from "@/app/actions/domains"
 import { getCurrentAppSession } from "@/lib/app-session"
 import { type ConnectedDomain } from "@/lib/domain-data"
 import { supabase } from "@/lib/supabase"
-import { readPushcutConfigs, writePushcutConfigs, type PushcutCheckoutConfig } from "@/lib/pushcut-data"
-import { readCampaignPerformance, readPixelConfigs, writePixelConfigs, type CheckoutPixelConfig } from "@/lib/pixels-data"
+import { type PushcutCheckoutConfig } from "@/lib/pushcut-data"
+import { type CheckoutPixelConfig } from "@/lib/pixels-data"
 import { type ConnectedShopifyStore } from "@/lib/shopify-store-data"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -80,25 +86,32 @@ export default function CheckoutsPage() {
   const [tiktokPixelId, setTiktokPixelId] = React.useState("")
   const [trackCampaignSource, setTrackCampaignSource] = React.useState(true)
   const [accountId, setAccountId] = React.useState("")
+  const [userId, setUserId] = React.useState("")
 
   React.useEffect(() => {
     async function load() {
       const session = await getCurrentAppSession()
       setAccountId(session?.accountId ?? "")
-      setPushcutConfigs(readPushcutConfigs())
-      setPixelConfigs(readPixelConfigs())
-      readCampaignPerformance()
+      setUserId(session?.userId ?? "")
 
       if (!session?.accountId) {
         return
       }
 
-      const [domainsResult, storesResult] = await Promise.all([
+      const [domainsResult, storesResult, pushcutResult, pixelsResult] = await Promise.all([
         loadDomainsForSession({
           accountId: session.accountId,
           userId: session.userId,
         }),
         loadShopifyStoresForSession({
+          accountId: session.accountId,
+          userId: session.userId,
+        }),
+        loadCheckoutPushcutConfigsForSession({
+          accountId: session.accountId,
+          userId: session.userId,
+        }),
+        loadCheckoutPixelConfigsForSession({
           accountId: session.accountId,
           userId: session.userId,
         }),
@@ -109,6 +122,12 @@ export default function CheckoutsPage() {
       }
       if (!storesResult.error) {
         setStores(storesResult.stores)
+      }
+      if (!pushcutResult.error) {
+        setPushcutConfigs(pushcutResult.configs)
+      }
+      if (!pixelsResult.error) {
+        setPixelConfigs(pixelsResult.configs)
       }
 
       const { data: orders } = await supabase
@@ -148,14 +167,14 @@ export default function CheckoutsPage() {
   }
 
   const handleOpenPushcut = (checkout: CheckoutRow) => {
-    const existingConfig = readPushcutConfigs().find((config) => config.checkoutId === checkout.id)
+    const existingConfig = pushcutConfigs.find((config) => config.checkoutId === checkout.id)
     setSelectedCheckout(checkout)
     setDialogType("pushcut")
     setPushcutUrlsValue(existingConfig?.webhookUrls.join("\n") ?? "")
   }
 
   const handleOpenPixels = (checkout: CheckoutRow) => {
-    const existingConfig = readPixelConfigs().find((config) => config.checkoutId === checkout.id)
+    const existingConfig = pixelConfigs.find((config) => config.checkoutId === checkout.id)
     setSelectedCheckout(checkout)
     setDialogType("pixels")
     setMetaPixelId(existingConfig?.metaPixelId ?? "")
@@ -164,7 +183,7 @@ export default function CheckoutsPage() {
     setTrackCampaignSource(existingConfig?.trackCampaignSource ?? true)
   }
 
-  const handleSavePushcut = () => {
+  const handleSavePushcut = async () => {
     if (!selectedCheckout) {
       return
     }
@@ -174,49 +193,69 @@ export default function CheckoutsPage() {
       .map((url) => url.trim())
       .filter(Boolean)
 
-    const nextConfigs = [...pushcutConfigs]
-    const existingIndex = nextConfigs.findIndex((config) => config.checkoutId === selectedCheckout.id)
-
-    if (existingIndex >= 0) {
-      nextConfigs[existingIndex] = {
-        ...nextConfigs[existingIndex],
-        webhookUrls,
-      }
-    } else {
-      nextConfigs.push({
-        checkoutId: selectedCheckout.id,
-        webhookUrls,
-      })
+    if (!accountId || !userId) {
+      return
     }
 
-    setPushcutConfigs(nextConfigs)
-    writePushcutConfigs(nextConfigs)
+    const result = await saveCheckoutPushcutConfigForSession({
+      accountId,
+      userId,
+      checkoutId: selectedCheckout.id,
+      webhookUrls,
+    })
+
+    if (result.error || !result.config) {
+      return
+    }
+
+    setPushcutConfigs((currentConfigs) => {
+      const existingIndex = currentConfigs.findIndex((config) => config.checkoutId === selectedCheckout.id)
+      if (existingIndex >= 0) {
+        const nextConfigs = [...currentConfigs]
+        nextConfigs[existingIndex] = result.config
+        return nextConfigs
+      }
+
+      return [...currentConfigs, result.config]
+    })
+
     handleCloseDialog()
   }
 
-  const handleSavePixels = () => {
+  const handleSavePixels = async () => {
     if (!selectedCheckout) {
       return
     }
 
-    const nextConfigs = [...pixelConfigs]
-    const existingIndex = nextConfigs.findIndex((config) => config.checkoutId === selectedCheckout.id)
-    const nextValue: CheckoutPixelConfig = {
+    if (!accountId || !userId) {
+      return
+    }
+
+    const result = await saveCheckoutPixelConfigForSession({
+      accountId,
+      userId,
       checkoutId: selectedCheckout.id,
       metaPixelId: metaPixelId.trim(),
       googleAdsId: googleAdsId.trim(),
       tiktokPixelId: tiktokPixelId.trim(),
       trackCampaignSource,
+    })
+
+    if (result.error || !result.config) {
+      return
     }
 
-    if (existingIndex >= 0) {
-      nextConfigs[existingIndex] = nextValue
-    } else {
-      nextConfigs.push(nextValue)
-    }
+    setPixelConfigs((currentConfigs) => {
+      const existingIndex = currentConfigs.findIndex((config) => config.checkoutId === selectedCheckout.id)
+      if (existingIndex >= 0) {
+        const nextConfigs = [...currentConfigs]
+        nextConfigs[existingIndex] = result.config as CheckoutPixelConfig
+        return nextConfigs
+      }
 
-    setPixelConfigs(nextConfigs)
-    writePixelConfigs(nextConfigs)
+      return [...currentConfigs, result.config as CheckoutPixelConfig]
+    })
+
     handleCloseDialog()
   }
 
