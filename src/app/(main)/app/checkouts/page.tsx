@@ -385,7 +385,7 @@ export default function CheckoutsPage() {
       </div>
 
       <Dialog open={selectedCheckout !== null} onOpenChange={(open) => !open && handleCloseDialog()}>
-        <DialogContent className="max-w-md p-4">
+        <DialogContent className="max-h-[85vh] max-w-md overflow-y-auto p-4">
           <DialogHeader>
             <DialogTitle>{dialogType === "pixels" ? "Pixels" : "PushCut"}</DialogTitle>
             <DialogDescription>
