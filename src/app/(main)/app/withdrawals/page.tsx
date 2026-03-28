@@ -2,24 +2,42 @@
 
 import * as React from "react"
 
+import {
+  createWithdrawalForSession,
+  loadWithdrawalsForSession,
+  saveBankAccountForSession,
+} from "@/app/actions/withdrawals"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { supabase } from "@/lib/supabase"
-import { getManagedAccounts, type ManagedAccount } from "@/lib/account-metrics"
+import { getCurrentAppSession } from "@/lib/app-session"
 import {
-  createWithdrawal,
-  getBankAccount,
   getBankFieldDefinitions,
-  getWithdrawalsByAccount,
-  saveBankAccount,
   type BankAccountDetails,
   type SupportedWithdrawalCurrency,
-  type WithdrawalRecord,
-  readWithdrawalsStore,
   withdrawalCurrencyOptions,
 } from "@/lib/withdrawals-data"
+
+type ManagedAccount = {
+  id: string
+  profileId: string | null
+  name: string
+  email: string
+  role: "admin" | "user"
+  feeRate: number
+  billingCycleDays: number
+}
+
+type WithdrawalRecord = {
+  id: string
+  accountId: string
+  currency: SupportedWithdrawalCurrency
+  amount: number
+  requestedAt: string
+  paidAt: string | null
+  status: "pending" | "paid"
+}
 
 const emptyBankAccount: BankAccountDetails = {
   holderName: "",
@@ -38,84 +56,97 @@ const minimumWithdrawalByCurrency: Record<SupportedWithdrawalCurrency, number> =
 }
 
 export default function WithdrawalsPage() {
+  const [sessionUserId, setSessionUserId] = React.useState("")
   const [accountId, setAccountId] = React.useState("")
-  const [account, setAccount] = React.useState<ManagedAccount | null>(null)
   const [sessionRole, setSessionRole] = React.useState<"admin" | "user">("user")
   const [accounts, setAccounts] = React.useState<ManagedAccount[]>([])
   const [currency, setCurrency] = React.useState<SupportedWithdrawalCurrency>("BRL")
   const [bankAccount, setBankAccount] = React.useState<BankAccountDetails>(emptyBankAccount)
   const [withdrawals, setWithdrawals] = React.useState<WithdrawalRecord[]>([])
+  const [bankAccounts, setBankAccounts] = React.useState<
+    Partial<Record<SupportedWithdrawalCurrency, BankAccountDetails>>
+  >({})
+  const [availableByCurrency, setAvailableByCurrency] = React.useState<
+    Record<SupportedWithdrawalCurrency, number>
+  >({
+    BRL: 0,
+    USD: 0,
+    EUR: 0,
+    GBP: 0,
+  })
+  const [adminPendingWithdrawals, setAdminPendingWithdrawals] = React.useState<WithdrawalRecord[]>([])
+  const [adminPaidTotal, setAdminPaidTotal] = React.useState(0)
+  const [adminCurrentDailyProfit, setAdminCurrentDailyProfit] = React.useState(0)
   const [requestAmount, setRequestAmount] = React.useState("1500")
+
+  const loadData = React.useCallback(
+    async (userId: string, nextAccountId?: string | null) => {
+      const result = await loadWithdrawalsForSession({
+        userId,
+        accountId: nextAccountId,
+      })
+
+      if ("error" in result) {
+        return
+      }
+
+      setSessionRole(result.role)
+      setAccounts(result.accounts)
+      setAccountId(result.currentAccountId ?? "")
+      setBankAccounts(result.bankAccounts)
+      setWithdrawals(result.withdrawals)
+      setAdminPendingWithdrawals(result.adminPendingWithdrawals)
+      setAdminPaidTotal(result.adminPaidTotal)
+      setAdminCurrentDailyProfit(result.adminCurrentDailyProfit)
+      setAvailableByCurrency(result.availableByCurrency)
+    },
+    []
+  )
 
   React.useEffect(() => {
     async function load() {
-      const { data: { user } } = await supabase.auth.getUser()
-      const accs = await getManagedAccounts()
-      setAccounts(accs)
-      
-      if (user) {
-        // Find role from profiles or metadata
-        const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
-        setSessionRole(profile?.role || "user")
-        
-        const currentAccount = accs.find((account) => account.email === user.email) ?? accs[0]
-        if (currentAccount) {
-          setAccountId(currentAccount.id)
-          setAccount(currentAccount)
-          setBankAccount(getBankAccount(currentAccount.id, "BRL") ?? emptyBankAccount)
-          setWithdrawals(getWithdrawalsByAccount(currentAccount.id))
-        }
+      const session = await getCurrentAppSession()
+      if (!session?.userId) {
+        return
       }
+
+      setSessionUserId(session.userId)
+      await loadData(session.userId, session.accountId)
     }
-    load()
-  }, [])
+
+    void load()
+  }, [loadData])
 
   React.useEffect(() => {
-    if (!accountId) {
-      return
-    }
-
-    setBankAccount(getBankAccount(accountId, currency) ?? emptyBankAccount)
-  }, [accountId, currency])
+    setBankAccount(bankAccounts[currency] ?? emptyBankAccount)
+  }, [bankAccounts, currency])
 
   const bankFieldDefinitions = getBankFieldDefinitions(currency)
   const minimumWithdrawalAmount = minimumWithdrawalByCurrency[currency]
-  const availableAmountRaw = account
-    ? calculateAvailableWithdrawalAmount({
-        account,
-        currency,
-        withdrawals,
-      })
-    : 0
+  const availableAmountRaw = availableByCurrency[currency] ?? 0
   const availableAmount = Number.isFinite(availableAmountRaw) ? availableAmountRaw : 0
   const paidWithdrawalsTotal = withdrawals
     .filter((withdrawal) => withdrawal.status === "paid")
     .reduce((sum, withdrawal) => sum + withdrawal.amount, 0)
   const pendingWithdrawals = withdrawals.filter((withdrawal) => withdrawal.status === "pending")
-  const store = readWithdrawalsStore()
-  const allWithdrawals = store.withdrawals
-  const adminPaidTotal = allWithdrawals
-    .filter((withdrawal) => withdrawal.status === "paid")
-    .reduce((sum, withdrawal) => sum + withdrawal.amount, 0)
-  const adminPendingWithdrawals = allWithdrawals.filter((withdrawal) => withdrawal.status === "pending")
-  const adminCurrentDailyProfit = accounts
-    .filter((item) => item.role === "user")
-    .reduce(
-      (sum, item) =>
-        sum + (((item.estimatedDailyRevenueByCurrency?.BRL || 0) ?? 0) * (item.feeRate || 0)) / 100,
-      0
-    )
 
-  const handleSaveBankAccount = () => {
-    if (!accountId) {
+  const handleSaveBankAccount = async () => {
+    if (!sessionUserId || !accountId) {
       return
     }
 
-    saveBankAccount(accountId, currency, bankAccount)
+    await saveBankAccountForSession({
+      userId: sessionUserId,
+      accountId,
+      currency,
+      details: bankAccount,
+    })
+
+    await loadData(sessionUserId, accountId)
   }
 
-  const handleCreateWithdrawal = () => {
-    if (!accountId) {
+  const handleCreateWithdrawal = async () => {
+    if (!sessionUserId || !accountId) {
       return
     }
 
@@ -124,8 +155,14 @@ export default function WithdrawalsPage() {
       return
     }
 
-    const nextStore = createWithdrawal(accountId, amount, currency)
-    setWithdrawals(nextStore.withdrawals.filter((withdrawal) => withdrawal.accountId === accountId))
+    await createWithdrawalForSession({
+      userId: sessionUserId,
+      accountId,
+      currency,
+      amount,
+    })
+
+    await loadData(sessionUserId, accountId)
   }
 
   return (
@@ -142,10 +179,10 @@ export default function WithdrawalsPage() {
       {sessionRole === "admin" ? (
         <div className="grid gap-6">
           <div className="grid gap-4 md:grid-cols-3">
-            <MetricCard
-              title="Valores Pagos"
-              value={formatCurrency(adminPaidTotal, "BRL")}
-              description="Total ja concluido manualmente."
+                  <MetricCard
+                    title="Valores Pagos"
+                    value={formatCurrency(adminPaidTotal, "BRL")}
+                    description="Total ja concluido manualmente."
             />
             <MetricCard
               title="Valores Pendentes"
@@ -385,38 +422,4 @@ function MetricCard({
       <div className="mt-1 text-xs text-muted-foreground">{description}</div>
     </div>
   )
-}
-
-function calculateAvailableWithdrawalAmount({
-  account,
-  currency,
-  withdrawals,
-}: {
-  account: ManagedAccount
-  currency: SupportedWithdrawalCurrency
-  withdrawals: WithdrawalRecord[]
-}) {
-  const startDate = new Date(account.settlementStartedAt || new Date())
-  const now = new Date()
-  const startTimestamp = Number.isFinite(startDate.getTime())
-    ? startDate.getTime()
-    : now.getTime()
-  const billingCycleDays =
-    typeof account.billingCycleDays === "number" && account.billingCycleDays > 0
-      ? account.billingCycleDays
-      : 2
-  const estimatedDailyRevenue =
-    typeof account.estimatedDailyRevenueByCurrency?.[currency] === "number"
-      ? account.estimatedDailyRevenueByCurrency[currency] ?? 0
-      : 0
-  const elapsedMs = Math.max(now.getTime() - startTimestamp, 0)
-  const elapsedDays = Math.floor(elapsedMs / (1000 * 60 * 60 * 24))
-  const completedCycles = Math.floor(elapsedDays / billingCycleDays)
-  const releasedAmount = completedCycles * billingCycleDays * estimatedDailyRevenue
-
-  const reservedAmount = withdrawals
-    .filter((withdrawal) => withdrawal.currency === currency)
-    .reduce((sum, withdrawal) => sum + withdrawal.amount, 0)
-
-  return Math.max(releasedAmount - reservedAmount, 0)
 }
