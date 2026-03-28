@@ -7,7 +7,6 @@ import {
   Settings,
   MessageSquare,
   Users,
-  CreditCard,
   Globe,
   Store,
   Landmark,
@@ -128,15 +127,16 @@ export function MainSidebar({
 
   return (
     <Sidebar variant="inset" {...props}>
-      <div className="flex h-full min-h-0 flex-col">
-        <SidebarHeader>
-          <div className="flex items-center gap-2 px-3 py-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white text-[#fb4303]">
-              <CreditCard className="h-4 w-4" />
+        <div className="flex h-full min-h-0 flex-col">
+          <SidebarHeader>
+            <div className="px-3 py-3">
+              <img
+                src="/swipe-logo-white.svg"
+                alt="Swipe"
+                className="h-8 w-auto max-w-[140px]"
+              />
             </div>
-            <span className="text-xl font-bold tracking-tight text-white">Swipe</span>
-          </div>
-        </SidebarHeader>
+          </SidebarHeader>
         <SidebarContent className="min-h-0 flex-1">
           <SidebarGroup>
             <SidebarMenu>
