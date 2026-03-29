@@ -79,6 +79,7 @@ type CheckoutBehaviorTracking = {
 }
 
 const CHECKOUT_CSS_SCOPE_SELECTOR = "[data-swipe-checkout-root]"
+const CUSTOM_LAYOUT_SELECTOR = `${CHECKOUT_CSS_SCOPE_SELECTOR}[data-swipe-custom-layout='true']`
 
 function findMatchingBrace(source: string, openIndex: number) {
   let depth = 0
@@ -158,6 +159,19 @@ function scopeCheckoutCss(css: string) {
   }
 
   return result
+}
+
+function buildInjectedCheckoutCss(css: string) {
+  const scopedCss = scopeCheckoutCss(css)
+  if (!scopedCss) return ""
+
+  const customLayoutBaseCss = `
+${CUSTOM_LAYOUT_SELECTOR} [data-swipe-slot] {
+  display: none !important;
+}
+`
+
+  return `${customLayoutBaseCss}\n${scopedCss}`
 }
 
 interface CheckoutConfig {
@@ -652,7 +666,8 @@ export function ShopifyCheckout({
   const totalPrice = basePrice + shippingPrice
   const formattedPrice = formatPrice(basePrice, resolvedLocale, effectiveCurrency)
   const formattedTotalPrice = formatPrice(totalPrice, resolvedLocale, effectiveCurrency)
-  const scopedCustomCss = React.useMemo(() => scopeCheckoutCss(config.customCss ?? ""), [config.customCss])
+  const hasCustomLayout = Boolean(config.customCss?.trim())
+  const injectedCustomCss = React.useMemo(() => buildInjectedCheckoutCss(config.customCss ?? ""), [config.customCss])
 
   React.useEffect(() => {
     if (!behaviorEnabled || !behaviorTracking) return
@@ -734,14 +749,15 @@ export function ShopifyCheckout({
     <div
       className={cn("min-h-full", config.fontFamily)}
       data-swipe-checkout-root=""
+      data-swipe-custom-layout={hasCustomLayout ? "true" : "false"}
       data-swipe-device={device}
       data-swipe-layout-style={config.layoutStyle}
       data-swipe-page="checkout"
       style={{ backgroundColor: config.checkoutBackgroundColor, color: config.checkoutTextColor }}
     >
-      {scopedCustomCss ? <style dangerouslySetInnerHTML={{ __html: scopedCustomCss }} /> : null}
+      {injectedCustomCss ? <style dangerouslySetInnerHTML={{ __html: injectedCustomCss }} /> : null}
       {isMobile && !isOnePage ? (
-        <div className="border-b p-4" style={{ backgroundColor: config.checkoutSurfaceColor, borderColor: config.checkoutMutedColor }}>
+        <div data-swipe-slot="mobile-summary" className="border-b p-4" style={{ backgroundColor: config.checkoutSurfaceColor, borderColor: config.checkoutMutedColor }}>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 text-sm">
               <ShoppingBag className="h-4 w-4" />
@@ -762,10 +778,10 @@ export function ShopifyCheckout({
         </div>
       ) : null}
 
-      <div className={cn("min-h-full", isOnePage ? "mx-auto w-full max-w-[1120px] px-4 py-6 sm:px-6 lg:px-8 lg:py-10" : isMobile ? "px-6 py-7" : "flex min-h-full")}>
+      <div data-swipe-slot="checkout-shell" className={cn("min-h-full", isOnePage ? "mx-auto w-full max-w-[1120px] px-4 py-6 sm:px-6 lg:px-8 lg:py-10" : isMobile ? "px-6 py-7" : "flex min-h-full")}>
         {isOnePage ? (
-          <div className={cn("grid gap-8", isMobile ? "grid-cols-1" : "grid-cols-[minmax(0,1.2fr)_380px]")}>
-            <div className="space-y-8">
+          <div data-swipe-slot="checkout-layout" className={cn("grid gap-8", isMobile ? "grid-cols-1" : "grid-cols-[minmax(0,1.2fr)_380px]")}>
+            <div data-swipe-slot="checkout-main" className="space-y-8">
               <CheckoutBrand config={config} />
               <CheckoutTopBlock config={config} copy={copy} accentColor={config.checkoutAccentColor} isMobile={isMobile} />
               <ContactSection
@@ -820,7 +836,7 @@ export function ShopifyCheckout({
               <CheckoutFooter compact={isMobile} config={config} copy={copy} />
             </div>
 
-            <aside className="h-fit rounded-2xl border p-5 lg:sticky lg:top-8" style={{ backgroundColor: config.checkoutSurfaceColor, borderColor: config.checkoutMutedColor }}>
+            <aside data-swipe-slot="summary-sidebar" className="h-fit rounded-2xl border p-5 lg:sticky lg:top-8" style={{ backgroundColor: config.checkoutSurfaceColor, borderColor: config.checkoutMutedColor }}>
               <div className="space-y-6">
                 <div className="border-b pb-4" style={{ borderColor: config.checkoutMutedColor }}>
                   <p className="text-xs uppercase tracking-[0.2em]" style={{ color: config.checkoutMutedColor }}>{copy.orderSummary}</p>
@@ -836,8 +852,8 @@ export function ShopifyCheckout({
           </div>
         ) : (
           <>
-            <div className={cn("flex-1", isMobile ? "" : "max-w-[60%] p-12 pr-8")}>
-            <div className={cn("mx-auto space-y-8", isMobile ? "max-w-none" : "max-w-[600px]")}>
+            <div data-swipe-slot="checkout-main-column" className={cn("flex-1", isMobile ? "" : "max-w-[60%] p-12 pr-8")}>
+            <div data-swipe-slot="checkout-main" className={cn("mx-auto space-y-8", isMobile ? "max-w-none" : "max-w-[600px]")}>
               <CheckoutBrand config={config} />
               <CheckoutTopBlock config={config} copy={copy} accentColor={config.checkoutAccentColor} isMobile={isMobile} />
               <ContactSection
@@ -900,8 +916,8 @@ export function ShopifyCheckout({
             </div>
 
             {!isMobile ? (
-              <div className="flex-1 border-l p-12 pl-8" style={{ backgroundColor: config.checkoutSurfaceColor, borderColor: config.checkoutMutedColor }}>
-                <div className="max-w-[400px] space-y-6">
+              <div data-swipe-slot="summary-sidebar" className="flex-1 border-l p-12 pl-8" style={{ backgroundColor: config.checkoutSurfaceColor, borderColor: config.checkoutMutedColor }}>
+                <div data-swipe-slot="summary-content" className="max-w-[400px] space-y-6">
                   <OrderItem config={config} name={productName} price={formattedPrice} variantLabel={variantLabel} imageSrc={productImageSrc} />
                   {config.showCouponField ? <CouponBar config={config} copy={copy} /> : null}
                   <SummaryRows copy={copy} config={config} subtotalPrice={formattedPrice} shippingPrice={shippingPrice} totalPrice={formattedTotalPrice} locale={resolvedLocale} currency={effectiveCurrency} />
@@ -964,6 +980,7 @@ function ThankYouPage({
       : 10
   const autoRedirectEnabled = Boolean(config.thankYouAutoRedirectEnabled && autoRedirectHref)
   const [secondsRemaining, setSecondsRemaining] = React.useState(autoRedirectDelaySeconds)
+  const hasCustomLayout = Boolean(config.customCss?.trim())
   const formattedDateTime = React.useMemo(() => {
     if (thankYouMeta?.paidAt) {
       try {
@@ -1016,7 +1033,7 @@ function ThankYouPage({
             ? `Automatische Weiterleitung in ${secondsRemaining}s.`
             : `Redirecionando automaticamente em ${secondsRemaining}s.`
     : undefined
-  const scopedCustomCss = React.useMemo(() => scopeCheckoutCss(config.customCss ?? ""), [config.customCss])
+  const injectedCustomCss = React.useMemo(() => buildInjectedCheckoutCss(config.customCss ?? ""), [config.customCss])
   const confirmationCard = (
     <OrderConfirmationCard
       orderId={thankYouMeta?.orderId ?? "SWIPE"}
@@ -1083,6 +1100,7 @@ function ThankYouPage({
     <div
       className={cn("flex min-h-full items-center justify-center px-4 py-8 sm:px-6 sm:py-10", config.fontFamily)}
       data-swipe-checkout-root=""
+      data-swipe-custom-layout={hasCustomLayout ? "true" : "false"}
       data-swipe-device={device}
       data-swipe-layout-style={config.layoutStyle}
       data-swipe-page="thank-you"
@@ -1094,8 +1112,9 @@ function ThankYouPage({
         backgroundPosition: "center",
       }}
     >
-      {scopedCustomCss ? <style dangerouslySetInnerHTML={{ __html: scopedCustomCss }} /> : null}
+      {injectedCustomCss ? <style dangerouslySetInnerHTML={{ __html: injectedCustomCss }} /> : null}
       <div
+        data-swipe-slot="thank-you-shell"
         className="w-full max-w-[520px] rounded-[28px] border p-5 text-center shadow-sm sm:p-8"
         style={{
           backgroundColor: config.checkoutSurfaceColor,
@@ -1106,7 +1125,7 @@ function ThankYouPage({
           backgroundSize: `${thankYouCardBackgroundSize}%`,
         }}
       >
-        <div className="mx-auto flex min-h-full w-full max-w-[420px] items-center justify-center py-3 sm:py-6">
+        <div data-swipe-slot="thank-you-confirmation" className="mx-auto flex min-h-full w-full max-w-[420px] items-center justify-center py-3 sm:py-6">
           {confirmationCard}
         </div>
       </div>
@@ -1156,16 +1175,16 @@ function CheckCircleBadge({ accentColor }: { accentColor: string }) {
 function CheckoutBrand({ config }: { config: CheckoutConfig }) {
   return config.showLogo ? (
     config.logoDisplayMode === "image" && config.logoSrc ? (
-      <div className="flex items-center">
+      <div data-swipe-slot="brand" className="flex items-center">
         <img src={config.logoSrc} alt={config.companyName} className="h-auto max-w-full object-contain" style={{ width: `${config.logoWidth}px` }} />
       </div>
     ) : (
-      <div className="text-2xl font-bold tracking-tight" style={{ color: config.checkoutTextColor }}>
+      <div data-swipe-slot="brand" className="text-2xl font-bold tracking-tight" style={{ color: config.checkoutTextColor }}>
         {config.companyName}
       </div>
     )
   ) : (
-    <div className="h-0" />
+    <div data-swipe-slot="brand" className="h-0" />
   )
 }
 
@@ -1189,6 +1208,7 @@ function CheckoutTopBlock({
   if (bannerSrc) {
     return (
       <div
+        data-swipe-slot="top-block"
         className={cn("overflow-hidden bg-white", config.bannerFullBleed ? "-mx-6 rounded-none border-0 sm:-mx-8 lg:-mx-10" : "rounded-2xl border")}
         style={{ borderColor: config.checkoutMutedColor }}
       >
@@ -1207,7 +1227,7 @@ function CheckoutTopBlock({
 
 function CheckoutProgress({ copy, accentColor }: { copy: Copy; accentColor: string }) {
   return (
-    <nav className="flex items-center gap-2 text-xs" style={{ color: accentColor }}>
+    <nav data-swipe-slot="top-block" className="flex items-center gap-2 text-xs" style={{ color: accentColor }}>
       <span>{copy.cart}</span>
       <ChevronDown className="h-3 w-3 -rotate-90" />
       <span className="font-medium">{copy.information}</span>
@@ -1241,7 +1261,7 @@ function ContactSection({
   >
 }) {
   return (
-    <section className="space-y-4">
+    <section data-swipe-slot="contact" className="space-y-4">
       <div className={cn("gap-2", compact ? "space-y-2" : "flex items-center justify-between")}>
         <h2 className="text-lg font-medium" style={{ color: config.checkoutTextColor }}>{copy.contact}</h2>
       </div>
@@ -1307,7 +1327,7 @@ function DeliverySection({
   >
 }) {
   return (
-    <section className="space-y-4 pt-4">
+    <section data-swipe-slot="delivery" className="space-y-4 pt-4">
       <h2 className="text-lg font-medium" style={{ color: config.checkoutTextColor }}>{copy.delivery}</h2>
       <div className={cn("gap-4", compact ? "grid grid-cols-1" : "grid grid-cols-2")}>
         <Input placeholder={copy.firstName} className="h-11" style={{ borderColor: config.checkoutMutedColor }} autoComplete="given-name" value={deliveryData.firstName} onChange={(e) => onChange((prev) => ({ ...prev, firstName: e.target.value }))} />
@@ -1343,7 +1363,7 @@ function ShippingSection({
   currency: SupportedCurrency
 }) {
   return (
-    <section className="space-y-4 pt-4">
+    <section data-swipe-slot="shipping" className="space-y-4 pt-4">
       <h2 className="text-lg font-medium" style={{ color: config.checkoutTextColor }}>
         {copy.shippingOptionsTitle}
       </h2>
@@ -1495,7 +1515,7 @@ function PaymentSection({
   }, [onPaymentViewed])
 
   return (
-    <section ref={paymentSectionRef} className="space-y-4 pt-4">
+    <section data-swipe-slot="payment" ref={paymentSectionRef} className="space-y-4 pt-4">
       <h2 className="text-lg font-medium" style={{ color: config.checkoutTextColor }}>{copy.payment}</h2>
       <p className="text-sm" style={{ color: config.checkoutMutedColor }}>{copy.paymentSafe}</p>
       {hasEmbeddedSession ? (
@@ -1571,7 +1591,7 @@ function PaymentSection({
 
 function CouponBar({ config, copy }: { config: CheckoutConfig; copy: Copy }) {
   return (
-    <div className="flex gap-2">
+    <div data-swipe-slot="coupon" className="flex gap-2">
       <Input placeholder={copy.couponPlaceholder} className="h-11 bg-white" style={{ borderColor: config.checkoutMutedColor }} />
       <Button variant="outline" className="h-11" style={{ backgroundColor: config.checkoutBackgroundColor, borderColor: config.checkoutMutedColor, color: config.checkoutMutedColor }}>
         {copy.apply}
@@ -1582,7 +1602,7 @@ function CouponBar({ config, copy }: { config: CheckoutConfig; copy: Copy }) {
 
 function InfoBanner({ config, text }: { config: CheckoutConfig; text: string }) {
   return (
-    <div className="flex items-center gap-2 rounded-md border p-4" style={{ backgroundColor: withAlpha(config.checkoutAccentColor, 0.08), borderColor: withAlpha(config.checkoutAccentColor, 0.18), color: config.checkoutAccentColor }}>
+    <div data-swipe-slot="info-banner" className="flex items-center gap-2 rounded-md border p-4" style={{ backgroundColor: withAlpha(config.checkoutAccentColor, 0.08), borderColor: withAlpha(config.checkoutAccentColor, 0.18), color: config.checkoutAccentColor }}>
       <Info className="h-4 w-4" />
       <p className="text-xs">{text}</p>
     </div>
@@ -1653,7 +1673,7 @@ function CheckoutFooter({ compact, config, copy }: { compact: boolean; config: C
   }
 
   return (
-    <footer className="border-t pb-12 pt-8 text-xs" style={{ borderColor: config.checkoutMutedColor, color: config.checkoutMutedColor }}>
+    <footer data-swipe-slot="footer" className="border-t pb-12 pt-8 text-xs" style={{ borderColor: config.checkoutMutedColor, color: config.checkoutMutedColor }}>
       <div className={cn("gap-4", compact ? "grid grid-cols-1" : "flex")}>
         <span>{copy.securePayment}</span>
       </div>
@@ -1671,7 +1691,7 @@ function PolicyLinks({ config, compact, copy }: { config: CheckoutConfig; compac
   ]
 
   return (
-    <div className={cn("pt-4 text-xs", compact ? "space-y-3" : "space-y-2")} style={{ color: config.checkoutMutedColor }}>
+    <div data-swipe-slot="policies" className={cn("pt-4 text-xs", compact ? "space-y-3" : "space-y-2")} style={{ color: config.checkoutMutedColor }}>
       {items.map((item) => (
         <PolicyLink
           key={item.label}
@@ -1757,7 +1777,7 @@ function OrderItem({
   imageSrc?: string
 }) {
   return (
-    <div className="flex items-center gap-4">
+    <div data-swipe-slot="order-item" className="flex items-center gap-4">
       <div className="relative flex h-16 w-16 items-center justify-center rounded-md border bg-white" style={{ borderColor: config.checkoutMutedColor }}>
         {imageSrc ? (
           // External product image from Shopify catalog.
@@ -1800,7 +1820,7 @@ function SummaryRows({
   currency: SupportedCurrency
 }) {
   return (
-    <div className="space-y-2">
+    <div data-swipe-slot="summary-rows" className="space-y-2">
       <div className="flex justify-between text-sm">
         <span style={{ color: config.checkoutMutedColor }}>{copy.subtotal}</span>
         <span className="font-medium" style={{ color: config.checkoutTextColor }}>{subtotalPrice}</span>
