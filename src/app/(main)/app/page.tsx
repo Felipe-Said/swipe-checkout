@@ -176,29 +176,6 @@ export default function DashboardPage() {
         <p className="text-muted-foreground">{t("dash.subtitle")}</p>
       </div>
 
-      {sessionRole === "admin" ? (
-        <div className="grid gap-4 rounded-xl border p-4 lg:grid-cols-[220px_220px]">
-          <div className="space-y-2">
-            <Label htmlFor="metric-date">{t("dash.date_ref")}</Label>
-            <Input id="metric-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="metric-period">{t("dash.period")}</Label>
-            <select
-              id="metric-period"
-              value={period}
-              onChange={(e) => setPeriod(e.target.value as DashboardPeriod)}
-              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-            >
-              <option value="today">{t("dash.today")}</option>
-              <option value="week">{t("dash.7days")}</option>
-              <option value="month">{t("dash.30days")}</option>
-              <option value="quarter">{t("dash.90days")}</option>
-            </select>
-          </div>
-        </div>
-      ) : null}
-
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1.7fr)_minmax(340px,1fr)]">
         <DashboardRevenueChart
           chart={summary.revenueChart}
@@ -206,6 +183,27 @@ export default function DashboardPage() {
           language={language}
         />
         <DashboardCustomerFunnel funnel={summary.customerFunnel} />
+      </div>
+
+      <div className="grid gap-4 rounded-xl border p-4 lg:grid-cols-[220px_220px]">
+        <div className="space-y-2">
+          <Label htmlFor="metric-date">{t("dash.date_ref")}</Label>
+          <Input id="metric-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="metric-period">{t("dash.period")}</Label>
+          <select
+            id="metric-period"
+            value={period}
+            onChange={(e) => setPeriod(e.target.value as DashboardPeriod)}
+            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+          >
+            <option value="today">{t("dash.today")}</option>
+            <option value="week">{t("dash.7days")}</option>
+            <option value="month">{t("dash.30days")}</option>
+            <option value="quarter">{t("dash.90days")}</option>
+          </select>
+        </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5">
