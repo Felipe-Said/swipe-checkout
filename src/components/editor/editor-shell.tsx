@@ -386,6 +386,7 @@ export function EditorShell() {
   const [sessionUserId, setSessionUserId] = React.useState("")
   const [checkoutName, setCheckoutName] = React.useState("Checkout Premium")
   const [isSaving, setIsSaving] = React.useState(false)
+  const isDanielLayout = previewPage === "checkout" && config.layoutStyle === "daniel"
 
   const syncHistoryState = React.useCallback(() => {
     setHistoryState({
@@ -1307,63 +1308,71 @@ export function EditorShell() {
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="show-checkout-steps">Exibir Etapas</Label>
-                  <input
-                    type="checkbox"
-                    id="show-checkout-steps"
-                    checked={config.showCheckoutSteps}
-                    onChange={(e) => handleUpdate("showCheckoutSteps", e.target.checked)}
-                    className="h-4 w-4"
-                  />
-                </div>
+                {!isDanielLayout ? (
+                  <>
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="show-checkout-steps">Exibir Etapas</Label>
+                      <input
+                        type="checkbox"
+                        id="show-checkout-steps"
+                        checked={config.showCheckoutSteps}
+                        onChange={(e) => handleUpdate("showCheckoutSteps", e.target.checked)}
+                        className="h-4 w-4"
+                      />
+                    </div>
 
-                <div className="space-y-3 rounded-lg border p-4">
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="banner-full-bleed">Sem bordas</Label>
-                    <input
-                      type="checkbox"
-                      id="banner-full-bleed"
-                      checked={config.bannerFullBleed}
-                      onChange={(e) => handleUpdate("bannerFullBleed", e.target.checked)}
-                      className="h-4 w-4"
-                    />
-                  </div>
-                  <div className="space-y-3">
-                    <div className="space-y-1">
-                      <Label htmlFor="banner-desktop-upload">Banner Desktop</Label>
-                      <p className="text-xs text-muted-foreground">1200 x 220 px</p>
+                    <div className="space-y-3 rounded-lg border p-4">
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="banner-full-bleed">Sem bordas</Label>
+                        <input
+                          type="checkbox"
+                          id="banner-full-bleed"
+                          checked={config.bannerFullBleed}
+                          onChange={(e) => handleUpdate("bannerFullBleed", e.target.checked)}
+                          className="h-4 w-4"
+                        />
+                      </div>
+                      <div className="space-y-3">
+                        <div className="space-y-1">
+                          <Label htmlFor="banner-desktop-upload">Banner Desktop</Label>
+                          <p className="text-xs text-muted-foreground">1200 x 220 px</p>
+                        </div>
+                        <Input
+                          id="banner-desktop-upload"
+                          type="file"
+                          accept=".png,.svg,.jpg,.jpeg,image/png,image/svg+xml,image/jpeg"
+                          onChange={(event) => handleBannerUpload(event, "bannerDesktopSrc")}
+                        />
+                        {config.bannerDesktopSrc ? (
+                          <Button variant="outline" size="sm" onClick={() => handleRemoveBanner("bannerDesktopSrc")}>
+                            Apagar banner desktop
+                          </Button>
+                        ) : null}
+                      </div>
+                      <div className="space-y-3">
+                        <div className="space-y-1">
+                          <Label htmlFor="banner-mobile-upload">Banner Mobile</Label>
+                          <p className="text-xs text-muted-foreground">375 x 140 px</p>
+                        </div>
+                        <Input
+                          id="banner-mobile-upload"
+                          type="file"
+                          accept=".png,.svg,.jpg,.jpeg,image/png,image/svg+xml,image/jpeg"
+                          onChange={(event) => handleBannerUpload(event, "bannerMobileSrc")}
+                        />
+                        {config.bannerMobileSrc ? (
+                          <Button variant="outline" size="sm" onClick={() => handleRemoveBanner("bannerMobileSrc")}>
+                            Apagar banner mobile
+                          </Button>
+                        ) : null}
+                      </div>
                     </div>
-                    <Input
-                      id="banner-desktop-upload"
-                      type="file"
-                      accept=".png,.svg,.jpg,.jpeg,image/png,image/svg+xml,image/jpeg"
-                      onChange={(event) => handleBannerUpload(event, "bannerDesktopSrc")}
-                    />
-                    {config.bannerDesktopSrc ? (
-                      <Button variant="outline" size="sm" onClick={() => handleRemoveBanner("bannerDesktopSrc")}>
-                        Apagar banner desktop
-                      </Button>
-                    ) : null}
+                  </>
+                ) : (
+                  <div className="rounded-lg border p-4 text-sm text-muted-foreground">
+                    O layout `Daniel` mostra apenas os campos que realmente afetam essa versao do checkout.
                   </div>
-                  <div className="space-y-3">
-                    <div className="space-y-1">
-                      <Label htmlFor="banner-mobile-upload">Banner Mobile</Label>
-                      <p className="text-xs text-muted-foreground">375 x 140 px</p>
-                    </div>
-                    <Input
-                      id="banner-mobile-upload"
-                      type="file"
-                      accept=".png,.svg,.jpg,.jpeg,image/png,image/svg+xml,image/jpeg"
-                      onChange={(event) => handleBannerUpload(event, "bannerMobileSrc")}
-                    />
-                    {config.bannerMobileSrc ? (
-                      <Button variant="outline" size="sm" onClick={() => handleRemoveBanner("bannerMobileSrc")}>
-                        Apagar banner mobile
-                      </Button>
-                    ) : null}
-                  </div>
-                </div>
+                )}
 
                 <div className="flex items-center justify-between">
                   <Label htmlFor="show-logo">Exibir Logo/Texto</Label>
@@ -1676,6 +1685,21 @@ export function EditorShell() {
                   </p>
                 )}
 
+                {isDanielLayout ? (
+                  <div className="space-y-2">
+                    <Label htmlFor="daniel-button-text">Texto do botao de compra</Label>
+                    <Input
+                      id="daniel-button-text"
+                      value={config.buttonText}
+                      onChange={(e) => handleUpdate("buttonText", e.target.value)}
+                      placeholder="Finalizar compra"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Se ficar vazio, o checkout usa automaticamente o texto do idioma selecionado.
+                    </p>
+                  </div>
+                ) : null}
+
                 <div className="space-y-3 rounded-lg border p-3">
                   <Label>Fretes visiveis no checkout</Label>
                   <div className="space-y-2">
@@ -1701,52 +1725,56 @@ export function EditorShell() {
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="show-policies">Exibir Politicas</Label>
-                  <input type="checkbox" id="show-policies" checked={config.showPolicies} onChange={(e) => handleUpdate("showPolicies", e.target.checked)} className="h-4 w-4" />
-                </div>
+                {!isDanielLayout ? (
+                  <>
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="show-policies">Exibir Politicas</Label>
+                      <input type="checkbox" id="show-policies" checked={config.showPolicies} onChange={(e) => handleUpdate("showPolicies", e.target.checked)} className="h-4 w-4" />
+                    </div>
 
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="show-coupon-field">Exibir campo de cupom</Label>
-                  <input
-                    type="checkbox"
-                    id="show-coupon-field"
-                    checked={config.showCouponField}
-                    onChange={(e) => handleUpdate("showCouponField", e.target.checked)}
-                    className="h-4 w-4"
-                  />
-                </div>
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="show-coupon-field">Exibir campo de cupom</Label>
+                      <input
+                        type="checkbox"
+                        id="show-coupon-field"
+                        checked={config.showCouponField}
+                        onChange={(e) => handleUpdate("showCouponField", e.target.checked)}
+                        className="h-4 w-4"
+                      />
+                    </div>
 
-                {config.showPolicies ? (
-                  <div className="space-y-6">
-                    <PolicyEditor
-                      title="Politica de reembolso"
-                      mode={config.refundPolicyMode}
-                      url={config.refundPolicyUrl}
-                      text={config.refundPolicyText}
-                      onModeChange={(value) => handleUpdate("refundPolicyMode", value)}
-                      onUrlChange={(value) => handleUpdate("refundPolicyUrl", value)}
-                      onTextChange={(value) => handleUpdate("refundPolicyText", value)}
-                    />
-                    <PolicyEditor
-                      title="Politica de privacidade"
-                      mode={config.privacyPolicyMode}
-                      url={config.privacyPolicyUrl}
-                      text={config.privacyPolicyText}
-                      onModeChange={(value) => handleUpdate("privacyPolicyMode", value)}
-                      onUrlChange={(value) => handleUpdate("privacyPolicyUrl", value)}
-                      onTextChange={(value) => handleUpdate("privacyPolicyText", value)}
-                    />
-                    <PolicyEditor
-                      title="Termos de servico"
-                      mode={config.termsPolicyMode}
-                      url={config.termsPolicyUrl}
-                      text={config.termsPolicyText}
-                      onModeChange={(value) => handleUpdate("termsPolicyMode", value)}
-                      onUrlChange={(value) => handleUpdate("termsPolicyUrl", value)}
-                      onTextChange={(value) => handleUpdate("termsPolicyText", value)}
-                    />
-                  </div>
+                    {config.showPolicies ? (
+                      <div className="space-y-6">
+                        <PolicyEditor
+                          title="Politica de reembolso"
+                          mode={config.refundPolicyMode}
+                          url={config.refundPolicyUrl}
+                          text={config.refundPolicyText}
+                          onModeChange={(value) => handleUpdate("refundPolicyMode", value)}
+                          onUrlChange={(value) => handleUpdate("refundPolicyUrl", value)}
+                          onTextChange={(value) => handleUpdate("refundPolicyText", value)}
+                        />
+                        <PolicyEditor
+                          title="Politica de privacidade"
+                          mode={config.privacyPolicyMode}
+                          url={config.privacyPolicyUrl}
+                          text={config.privacyPolicyText}
+                          onModeChange={(value) => handleUpdate("privacyPolicyMode", value)}
+                          onUrlChange={(value) => handleUpdate("privacyPolicyUrl", value)}
+                          onTextChange={(value) => handleUpdate("privacyPolicyText", value)}
+                        />
+                        <PolicyEditor
+                          title="Termos de servico"
+                          mode={config.termsPolicyMode}
+                          url={config.termsPolicyUrl}
+                          text={config.termsPolicyText}
+                          onModeChange={(value) => handleUpdate("termsPolicyMode", value)}
+                          onUrlChange={(value) => handleUpdate("termsPolicyUrl", value)}
+                          onTextChange={(value) => handleUpdate("termsPolicyText", value)}
+                        />
+                      </div>
+                    ) : null}
+                  </>
                 ) : null}
                   </>
                 )}

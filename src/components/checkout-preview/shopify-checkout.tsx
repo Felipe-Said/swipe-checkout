@@ -365,9 +365,17 @@ const DANIEL_CHECKOUT_CSS = `
 
 [data-swipe-slot="daniel-shell"] .payment-frame {
   overflow: hidden;
-  border: 1px solid var(--daniel-border, rgba(0, 0, 0, 0.14));
+  border: 0;
   border-radius: 1rem;
   background: #ffffff;
+  box-shadow: none;
+}
+
+[data-swipe-slot="daniel-shell"] .payment-frame iframe,
+[data-swipe-slot="daniel-shell"] .payment-frame [data-whop-embed-root],
+[data-swipe-slot="daniel-shell"] .payment-frame > div {
+  border: 0 !important;
+  box-shadow: none !important;
 }
 
 @media (max-width: 640px) {
@@ -2240,6 +2248,26 @@ function resolveDanielFreeLabel(locale: SupportedLocale) {
   }
 }
 
+function resolveDanielBuyButtonLabel(locale: SupportedLocale, configuredLabel?: string) {
+  const trimmed = configuredLabel?.trim()
+  if (trimmed) {
+    return trimmed
+  }
+
+  switch (locale) {
+    case "pt-BR":
+      return "Finalizar compra"
+    case "es-ES":
+      return "Finalizar compra"
+    case "fr-FR":
+      return "Finaliser l'achat"
+    case "de-DE":
+      return "Kauf abschliessen"
+    default:
+      return "Complete purchase"
+  }
+}
+
 function resolveDanielLocationActionLabel(locale: SupportedLocale) {
   switch (locale) {
     case "pt-BR":
@@ -2584,6 +2612,7 @@ function PaymentSection({
     }),
     [config.whopPaddingY]
   )
+  const resolvedButtonLabel = resolveDanielBuyButtonLabel(locale, config.buttonText)
   const handleEmbeddedCheckoutSubmit = React.useCallback(() => {
     void onPaymentStarted?.()
     void embedControls.current?.submit()
@@ -2633,7 +2662,7 @@ function PaymentSection({
               themeOptions={embedThemeOptions}
               styles={embedStyles}
               hidePrice={config.whopHidePrice}
-              hideSubmitButton={variant !== "daniel"}
+              hideSubmitButton
               hideTermsAndConditions={config.whopHideTermsAndConditions}
               skipRedirect
               hideEmail={shouldHideEmbedEmail}
@@ -2651,7 +2680,7 @@ function PaymentSection({
               themeOptions={embedThemeOptions}
               styles={embedStyles}
               hidePrice={config.whopHidePrice}
-              hideSubmitButton={variant !== "daniel"}
+              hideSubmitButton
               hideTermsAndConditions={config.whopHideTermsAndConditions}
               skipRedirect
               hideEmail={shouldHideEmbedEmail}
@@ -2661,7 +2690,15 @@ function PaymentSection({
               returnUrl={embedReturnUrl}
             />
           )}
-          {variant !== "daniel" ? (
+          {variant === "daniel" ? (
+            <div className="px-1 pb-1 pt-3">
+              <BuyButton
+                config={config}
+                label={resolvedButtonLabel}
+                onClick={handleEmbeddedCheckoutSubmit}
+              />
+            </div>
+          ) : (
             <div className="border-t px-4 pb-4 pt-3" style={{ borderColor: config.checkoutMutedColor }}>
               <BuyButton
                 config={config}
@@ -2669,7 +2706,7 @@ function PaymentSection({
                 onClick={handleEmbeddedCheckoutSubmit}
               />
             </div>
-          ) : null}
+          )}
         </div>
       ) : (
         <div className="rounded-md border p-8 text-center" style={{ borderColor: config.checkoutMutedColor, backgroundColor: config.checkoutSurfaceColor, color: config.checkoutMutedColor }}>
