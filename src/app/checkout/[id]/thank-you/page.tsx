@@ -86,20 +86,31 @@ export default async function PublicCheckoutThankYouPage({
   const productName =
     typeof resolvedSearchParams.product_name === "string"
       ? resolvedSearchParams.product_name
-      : "Produto da Shopify"
+      : (typeof (checkout.config as any)?.productName === "string" &&
+          (checkout.config as any).productName.trim()) ||
+        checkout.name ||
+        "Produto"
   const variantLabel =
     typeof resolvedSearchParams.variant_label === "string"
       ? resolvedSearchParams.variant_label
-      : "Variante padrao"
+      : (typeof (checkout.config as any)?.productVariantLabel === "string" &&
+          (checkout.config as any).productVariantLabel.trim()) ||
+        "Variante padrao"
   const rawAmount =
     typeof resolvedSearchParams.amount === "string"
       ? Number.parseFloat(resolvedSearchParams.amount)
-      : 0
+      : Number.isFinite((checkout.config as any)?.productPrice)
+        ? Number((checkout.config as any).productPrice)
+        : Number.isFinite((checkout.config as any)?.whop?.amount)
+          ? Number((checkout.config as any).whop.amount)
+          : 0
   const amount = Number.isFinite(rawAmount) ? rawAmount : 0
   const currency =
     typeof resolvedSearchParams.currency === "string"
       ? resolvedSearchParams.currency
-      : "BRL"
+      : (typeof (checkout.config as any)?.currency === "string"
+          ? (checkout.config as any).currency
+          : "BRL")
   const imageSrc =
     typeof resolvedSearchParams.image === "string" ? resolvedSearchParams.image : undefined
   const productId =

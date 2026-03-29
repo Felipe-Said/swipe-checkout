@@ -1,4 +1,3 @@
-import { readDemoSession } from "./demo-auth"
 import { supabase } from "./supabase"
 
 export type AppSession = {
@@ -67,20 +66,6 @@ export async function getCurrentAppSession(): Promise<AppSession | null> {
   } = await supabase.auth.getUser()
 
   if (!user) {
-    const demoSession = readDemoSession()
-    if (demoSession) {
-      return {
-        userId: demoSession.email,
-        name: demoSession.name,
-        email: demoSession.email,
-        role: demoSession.role,
-        accountId: null,
-        keyFrozen: false,
-        withdrawalsEnabled: true,
-        messengerEnabled: true,
-      }
-    }
-
     return null
   }
 

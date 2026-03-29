@@ -8,7 +8,6 @@ import { resolveLoginProfile } from "@/app/auth/actions"
 import { recordLoginEvent } from "@/app/actions/settings"
 import { useSearchParams } from "next/navigation"
 import { clearAppSession, writeAppSession } from "@/lib/app-session"
-import { clearDemoSession } from "@/lib/demo-auth"
 import { supabase } from "@/lib/supabase"
 import { Button } from "@/components/ui/button"
 import {
@@ -59,7 +58,6 @@ function LoginContent() {
     event.preventDefault()
     setIsLoading(true)
     setError("")
-    clearDemoSession()
     clearAppSession()
 
     const formData = new FormData(event.currentTarget)

@@ -2,12 +2,19 @@
 
 import * as React from "react"
 import { Plus, Truck } from "lucide-react"
+import { toast } from "sonner"
 
+import {
+  createShippingMethodForSession,
+  loadShippingMethodsForSession,
+  updateShippingMethodStatusForSession,
+} from "@/app/actions/shipping"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { readShippingMethods, type ShippingMethod, writeShippingMethods } from "@/lib/shipping-data"
+import { getCurrentAppSession } from "@/lib/app-session"
+import { type ShippingMethod } from "@/lib/shipping-data"
 
 const initialForm = {
   name: "",
@@ -19,37 +26,90 @@ const initialForm = {
 export default function ShippingPage() {
   const [shippingMethods, setShippingMethods] = React.useState<ShippingMethod[]>([])
   const [form, setForm] = React.useState(initialForm)
+  const [accountId, setAccountId] = React.useState<string | null>(null)
+  const [userId, setUserId] = React.useState<string | null>(null)
+  const [isSubmitting, setIsSubmitting] = React.useState(false)
 
   React.useEffect(() => {
-    setShippingMethods(readShippingMethods())
+    async function loadPageData() {
+      const session = await getCurrentAppSession()
+      setAccountId(session?.accountId ?? null)
+      setUserId(session?.userId ?? null)
+
+      if (!session?.accountId || !session.userId) {
+        setShippingMethods([])
+        return
+      }
+
+      const result = await loadShippingMethodsForSession({
+        accountId: session.accountId,
+        userId: session.userId,
+      })
+
+      if (result.error) {
+        toast.error(result.error)
+        return
+      }
+
+      setShippingMethods(result.methods)
+    }
+
+    void loadPageData()
   }, [])
 
-  const handleCreateShipping = () => {
+  const handleCreateShipping = async () => {
     if (!form.name || !form.description || !form.price || !form.eta) {
+      toast.error("Preencha todos os campos do frete.")
       return
     }
 
-    const nextMethod: ShippingMethod = {
-      id: `${form.name.toLowerCase().replace(/\s+/g, "-")}-${Date.now()}`,
+    if (!accountId || !userId) {
+      toast.error("Sessao invalida para criar frete.")
+      return
+    }
+
+    setIsSubmitting(true)
+    const result = await createShippingMethodForSession({
+      accountId,
+      userId,
       name: form.name,
       description: form.description,
       price: Number(form.price),
       eta: form.eta,
-      active: true,
+    })
+    setIsSubmitting(false)
+
+    if (result.error || !result.method) {
+      toast.error(result.error || "Nao foi possivel criar o frete.")
+      return
     }
 
-    const nextMethods = [...shippingMethods, nextMethod]
-    setShippingMethods(nextMethods)
-    writeShippingMethods(nextMethods)
+    setShippingMethods((prev) => [...prev, result.method])
     setForm(initialForm)
+    toast.success("Frete criado com sucesso.")
   }
 
-  const toggleShipping = (id: string) => {
-    const nextMethods = shippingMethods.map((method) =>
-      method.id === id ? { ...method, active: !method.active } : method
+  const toggleShipping = async (id: string) => {
+    const currentMethod = shippingMethods.find((method) => method.id === id)
+    if (!currentMethod || !accountId || !userId) {
+      return
+    }
+
+    const result = await updateShippingMethodStatusForSession({
+      accountId,
+      userId,
+      shippingId: id,
+      active: !currentMethod.active,
+    })
+
+    if (result.error || !result.method) {
+      toast.error(result.error || "Nao foi possivel atualizar o frete.")
+      return
+    }
+
+    setShippingMethods((prev) =>
+      prev.map((method) => (method.id === id ? result.method! : method))
     )
-    setShippingMethods(nextMethods)
-    writeShippingMethods(nextMethods)
   }
 
   return (
@@ -109,9 +169,9 @@ export default function ShippingPage() {
                 placeholder="1 a 2 dias uteis"
               />
             </div>
-            <Button className="w-full" onClick={handleCreateShipping}>
+            <Button className="w-full" onClick={handleCreateShipping} disabled={isSubmitting}>
               <Plus className="mr-2 h-4 w-4" />
-              Criar Frete
+              {isSubmitting ? "Criando..." : "Criar Frete"}
             </Button>
           </CardContent>
         </Card>

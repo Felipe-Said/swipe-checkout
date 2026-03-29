@@ -9,10 +9,11 @@ import {
   loadShopifyVariantPreviewForPublishing,
 } from "@/app/actions/shopify"
 
-const DEFAULT_CHECKOUT_AMOUNT = 1250
-
 type EditorCheckoutConfig = {
   companyName?: string
+  productName?: string
+  productVariantLabel?: string
+  productPrice?: number
   currency?: "BRL" | "USD" | "EUR" | "GBP"
   selectedDomainId?: string
   selectedStoreId?: string
@@ -106,6 +107,22 @@ function normalizeWhopCurrency(currency: string | undefined) {
 
 function hasValidStorePreview(preview?: ShopifyStorePreview | null) {
   return Boolean(preview && Number.isFinite(preview.amount) && preview.amount > 0 && preview.productName)
+}
+
+function resolveConfiguredCheckoutAmount(config: EditorCheckoutConfig) {
+  if (Number.isFinite(config.productPrice) && Number(config.productPrice) > 0) {
+    return Number(config.productPrice)
+  }
+
+  if (Number.isFinite(config.whop?.amount) && Number(config.whop?.amount) > 0) {
+    return Number(config.whop?.amount)
+  }
+
+  return 0
+}
+
+function resolveConfiguredCheckoutTitle(config: EditorCheckoutConfig, fallback: string) {
+  return (config.productName?.trim() || fallback).slice(0, 30)
 }
 
 function buildThankYouRedirectUrl(
@@ -525,12 +542,21 @@ export async function saveCheckoutFromEditor(input: {
           checkoutId,
         }
       }
+
       const checkoutAmount =
         storePreview && Number.isFinite(storePreview.amount) && storePreview.amount > 0
           ? storePreview.amount
-          : DEFAULT_CHECKOUT_AMOUNT
+          : resolveConfiguredCheckoutAmount(input.config)
+      if (!(checkoutAmount > 0)) {
+        return {
+          error: "Configure um valor real para o produto antes de publicar este checkout.",
+          checkoutId,
+        }
+      }
       const checkoutCurrency = storePreview?.currency ?? input.config.currency
-      const checkoutTitle = (storePreview?.productName || cleanName).slice(0, 30)
+      const checkoutTitle = storePreview?.productName
+        ? storePreview.productName.slice(0, 30)
+        : resolveConfiguredCheckoutTitle(input.config, cleanName)
 
       const redirectUrl = buildThankYouRedirectUrl(checkoutId, selectedDomain?.host)
       const sourceUrl = selectedDomain?.host
@@ -652,16 +678,24 @@ export async function createPublicWhopCheckoutSession(input: {
     const checkoutAmount =
       input.storePreview && Number.isFinite(input.storePreview.amount) && input.storePreview.amount > 0
         ? input.storePreview.amount
-        : DEFAULT_CHECKOUT_AMOUNT
+        : resolveConfiguredCheckoutAmount(input.config)
+    if (!(checkoutAmount > 0)) {
+      return {
+        error: "Configure um valor real para o produto antes de abrir este checkout.",
+      }
+    }
     const checkoutCurrency = input.storePreview?.currency ?? input.config.currency
-    const checkoutTitle = (input.storePreview?.productName || "Checkout Swipe").slice(0, 30)
+    const checkoutTitle = input.storePreview?.productName
+      ? input.storePreview.productName.slice(0, 30)
+      : resolveConfiguredCheckoutTitle(input.config, input.config.companyName?.trim() || "Checkout Swipe")
     const redirectUrl = buildThankYouRedirectUrl(input.checkoutId, selectedDomain?.host, {
       shop: input.shopDomain || null,
       store: input.shopifyStoreId || input.config.selectedStoreId || null,
       product: input.shopifyProductId || null,
       variant: input.shopifyVariantId || null,
       product_name: input.productName || input.storePreview?.productName || checkoutTitle,
-      variant_label: input.variantLabel || input.storePreview?.variantLabel || "Variante padrao",
+      variant_label:
+        input.variantLabel || input.storePreview?.variantLabel || input.config.productVariantLabel || "Variante padrao",
       image: input.imageSrc || input.storePreview?.imageSrc || null,
       amount:
         typeof input.amount === "number" && Number.isFinite(input.amount)
@@ -694,8 +728,10 @@ export async function createPublicWhopCheckoutSession(input: {
         swipeProductId: input.shopifyProductId || null,
         swipeVariantId: input.shopifyVariantId || null,
         swipeShopDomain: input.shopDomain || null,
-        swipeProductName: input.storePreview?.productName || checkoutTitle,
-        swipeVariantLabel: input.storePreview?.variantLabel || "Variante padrao",
+        swipeProductName:
+          input.productName || input.storePreview?.productName || input.config.productName || checkoutTitle,
+        swipeVariantLabel:
+          input.variantLabel || input.storePreview?.variantLabel || input.config.productVariantLabel || "Variante padrao",
         swipeProductImage: input.imageSrc || input.storePreview?.imageSrc || null,
         swipeAmount: checkoutAmount,
         swipeCurrency: checkoutCurrency || null,

@@ -15,6 +15,7 @@ import {
   loadShopifyVariantPreviewForPublicCheckout,
   loadShopifyVariantPreviewForPublishing,
 } from "@/app/actions/shopify"
+import { loadShippingMethodsForCheckout } from "@/app/actions/shipping"
 import { createPublicWhopCheckoutSession } from "@/app/actions/whop"
 import type { CheckoutPixelConfig } from "@/lib/pixels-data"
 
@@ -245,6 +246,14 @@ export default async function PublicCheckoutPage({
       ? whopSessionResult.whop ?? null
       : (config as any).whop,
   }
+  const shippingMethodsResult = await loadShippingMethodsForCheckout({
+    accountId: checkout.account_id,
+    shippingMethodIds: Array.isArray((config as any).selectedShippingMethodIds)
+      ? (config as any).selectedShippingMethodIds.filter(
+          (value: unknown): value is string => typeof value === "string" && value.length > 0
+        )
+      : [],
+  })
 
   return (
     <main className="min-h-screen bg-[#111111] px-4 py-8 md:px-8">
@@ -256,14 +265,27 @@ export default async function PublicCheckoutPage({
           productName={
             storePreviewResult.preview?.productName ||
             productNameFromRedirect ||
-            "Produto da Shopify"
+            (typeof (config as any).productName === "string" && (config as any).productName.trim()) ||
+            checkout.name ||
+            "Produto"
           }
           variantLabel={
             storePreviewResult.preview?.variantLabel ||
             variantLabelFromRedirect ||
+            (typeof (config as any).productVariantLabel === "string" &&
+            (config as any).productVariantLabel.trim()) ||
             "Variante padrao"
           }
-          amount={storePreviewResult.preview?.amount ?? (Number.isFinite(redirectedAmount) ? redirectedAmount : 0)}
+          amount={
+            storePreviewResult.preview?.amount ??
+            (Number.isFinite(redirectedAmount)
+              ? redirectedAmount
+              : Number.isFinite((config as any).productPrice)
+                ? Number((config as any).productPrice)
+                : Number.isFinite((config as any).whop?.amount)
+                  ? Number((config as any).whop?.amount)
+                  : 0)
+          }
           currency={
             (storePreviewResult.preview?.currency ||
               currencyFromRedirect ||
@@ -277,7 +299,7 @@ export default async function PublicCheckoutPage({
           config={checkoutConfigWithLiveWhop as any}
           device={isMobileDevice ? "mobile" : "desktop"}
           previewPage="checkout"
-          shippingMethods={[]}
+          shippingMethods={shippingMethodsResult.methods}
           storePreview={storePreviewResult.preview ?? null}
           behaviorTracking={{
             enabled: true,

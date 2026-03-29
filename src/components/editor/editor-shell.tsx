@@ -24,6 +24,7 @@ import {
   saveCheckoutFromEditor,
 } from "@/app/actions/whop"
 import { loadDomainsForSession } from "@/app/actions/domains"
+import { loadShippingMethodsForSession } from "@/app/actions/shipping"
 import {
   loadShopifyStoreOptionsForSession,
   loadShopifyStorePreviewForSession,
@@ -40,7 +41,7 @@ import { ShopifyCheckout } from "../checkout-preview/shopify-checkout"
 import { getCurrentAppSession } from "@/lib/app-session"
 import { getManagedAccounts, type ManagedAccount } from "@/lib/account-metrics"
 import { type ConnectedDomain } from "@/lib/domain-data"
-import { readShippingMethods, type ShippingMethod } from "@/lib/shipping-data"
+import { type ShippingMethod } from "@/lib/shipping-data"
 import { type ConnectedShopifyStore } from "@/lib/shopify-store-data"
 
 type PolicyMode = "link" | "text"
@@ -93,6 +94,9 @@ type EditorConfig = {
   fontFamily: string
   showLogo: boolean
   companyName: string
+  productName: string
+  productVariantLabel: string
+  productPrice: number
   buttonText: string
   layoutStyle: "classic" | "one-page"
   showCheckoutSteps: boolean
@@ -193,6 +197,9 @@ const initialConfig: EditorConfig = {
   fontFamily: "font-sans",
   showLogo: true,
   companyName: "Minha Loja Premium",
+  productName: "Produto principal",
+  productVariantLabel: "Variante padrao",
+  productPrice: 0,
   buttonText: "Finalizar Compra",
   layoutStyle: "classic",
   showCheckoutSteps: true,
@@ -265,7 +272,7 @@ const initialConfig: EditorConfig = {
   upsellDescription: "Adicione um produto complementar com um clique, usando os mesmos dados da compra atual.",
   upsellButtonText: "Adicionar a compra",
   upsellPrice: 97,
-  selectedShippingMethodIds: ["standard", "express"],
+  selectedShippingMethodIds: [],
   selectedDomainId: "",
   selectedStoreId: "",
   selectedWhopAccountId: "",
@@ -416,7 +423,16 @@ export function EditorShell() {
       const session = await getCurrentAppSession()
       setSessionAccountId(session?.accountId ?? "")
       setSessionUserId(session?.userId ?? "")
-      setShippingMethods(readShippingMethods())
+
+      if (session?.accountId && session.userId) {
+        const availableShippingMethods = await loadShippingMethodsForSession({
+          accountId: session.accountId,
+          userId: session.userId,
+        })
+        setShippingMethods(availableShippingMethods.methods ?? [])
+      } else {
+        setShippingMethods([])
+      }
 
       const availableAccounts = await getManagedAccounts()
       const serverWhopAccount = session?.userId
@@ -1176,6 +1192,41 @@ export function EditorShell() {
                 <div className="space-y-4">
                   <Label>Nome da Marca</Label>
                   <Input value={config.companyName} onChange={(e) => handleUpdate("companyName", e.target.value)} />
+                </div>
+
+                <div className="space-y-4 rounded-lg border p-4">
+                  <div className="space-y-2">
+                    <Label>Produto principal</Label>
+                    <Input
+                      value={config.productName}
+                      onChange={(e) => handleUpdate("productName", e.target.value)}
+                      placeholder="Nome do produto vendido"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Variante principal</Label>
+                    <Input
+                      value={config.productVariantLabel}
+                      onChange={(e) => handleUpdate("productVariantLabel", e.target.value)}
+                      placeholder="Ex.: Padrao / Preto / 40"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Valor do produto</Label>
+                    <Input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={config.productPrice}
+                      onChange={(e) => handleUpdate("productPrice", Number(e.target.value || 0))}
+                      placeholder="0.00"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Usado no checkout quando nao houver produto real da Shopify.
+                    </p>
+                  </div>
                 </div>
 
                 <div className="space-y-4">

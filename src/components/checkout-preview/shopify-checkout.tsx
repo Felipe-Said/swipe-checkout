@@ -84,6 +84,9 @@ interface CheckoutConfig {
   fontFamily: string
   showLogo: boolean
   companyName: string
+  productName: string
+  productVariantLabel: string
+  productPrice: number
   buttonText: string
   layoutStyle: "classic" | "one-page"
   showCheckoutSteps: boolean
@@ -223,7 +226,6 @@ type Copy = {
 const POLICY_TEXT_MAX_LENGTH = 1200
 const FALLBACK_LOCALE: SupportedLocale = "pt-BR"
 const FALLBACK_CURRENCY: SupportedCurrency = "BRL"
-const ORDER_TOTAL = 1250
 const UNRESOLVED_PRODUCT_NAME = "Produto da Shopify"
 const UNRESOLVED_VARIANT_LABEL = "Variante real nao encontrada"
 
@@ -273,7 +275,7 @@ const COPY: Record<SupportedLocale, Copy> = {
     termsPolicy: "Termos de servico",
     popupDescription: "Conteudo exibido sem sair do checkout.",
     variantDefault: "Variante padrao",
-    productName: "Produto Premium Mock",
+    productName: "Produto",
     thankYouOrderSummary: "Resumo do pedido confirmado",
     upsellBadge: "Oferta adicional",
     upsellAccepted: "Oferta adicionada automaticamente ao pedido",
@@ -317,7 +319,7 @@ const COPY: Record<SupportedLocale, Copy> = {
     termsPolicy: "Terms of service",
     popupDescription: "Content displayed without leaving checkout.",
     variantDefault: "Default variant",
-    productName: "Premium Mock Product",
+    productName: "Product",
     thankYouOrderSummary: "Confirmed order summary",
     upsellBadge: "Additional offer",
     upsellAccepted: "Offer added automatically to the order",
@@ -361,7 +363,7 @@ const COPY: Record<SupportedLocale, Copy> = {
     termsPolicy: "Terminos del servicio",
     popupDescription: "Contenido mostrado sin salir del checkout.",
     variantDefault: "Variante predeterminada",
-    productName: "Producto Premium Mock",
+    productName: "Producto",
     thankYouOrderSummary: "Resumen del pedido confirmado",
     upsellBadge: "Oferta adicional",
     upsellAccepted: "Oferta agregada automaticamente al pedido",
@@ -405,7 +407,7 @@ const COPY: Record<SupportedLocale, Copy> = {
     termsPolicy: "Conditions d'utilisation",
     popupDescription: "Contenu affiche sans quitter le checkout.",
     variantDefault: "Variante par defaut",
-    productName: "Produit Premium Mock",
+    productName: "Produit",
     thankYouOrderSummary: "Resume de commande confirme",
     upsellBadge: "Offre additionnelle",
     upsellAccepted: "Offre ajoutee automatiquement a la commande",
@@ -449,7 +451,7 @@ const COPY: Record<SupportedLocale, Copy> = {
     termsPolicy: "Nutzungsbedingungen",
     popupDescription: "Inhalt wird angezeigt, ohne den Checkout zu verlassen.",
     variantDefault: "Standardvariante",
-    productName: "Premium Mock Produkt",
+    productName: "Produkt",
     thankYouOrderSummary: "Bestatigte Bestellubersicht",
     upsellBadge: "Zusatzangebot",
     upsellAccepted: "Angebot wurde automatisch zur Bestellung hinzugefugt",
@@ -554,10 +556,15 @@ export function ShopifyCheckout({
     availableShippingMethods.find((method) => method.id === selectedShippingId) ?? null
   const effectiveCurrency = storePreview?.currency ?? resolvedCurrency
   const hasSelectedStore = Boolean(config.selectedStoreId)
-  const productName = storePreview?.productName || (hasSelectedStore ? UNRESOLVED_PRODUCT_NAME : copy.productName)
-  const variantLabel = storePreview?.variantLabel || (hasSelectedStore ? UNRESOLVED_VARIANT_LABEL : copy.variantDefault)
+  const productName =
+    storePreview?.productName ||
+    (hasSelectedStore ? UNRESOLVED_PRODUCT_NAME : resolveConfiguredProductName(config, copy))
+  const variantLabel =
+    storePreview?.variantLabel ||
+    (hasSelectedStore ? UNRESOLVED_VARIANT_LABEL : resolveConfiguredVariantLabel(config, copy))
   const productImageSrc = storePreview?.imageSrc
-  const basePrice = storePreview?.amount ?? (hasSelectedStore ? 0 : ORDER_TOTAL)
+  const basePrice =
+    storePreview?.amount ?? (hasSelectedStore ? 0 : resolveConfiguredBasePrice(config))
   const shippingPrice = selectedShipping?.price ?? 0
   const totalPrice = basePrice + shippingPrice
   const formattedPrice = formatPrice(basePrice, resolvedLocale, effectiveCurrency)
@@ -1740,6 +1747,26 @@ function resolveCurrency(
 ): SupportedCurrency {
   if (mode === "manual") return manualCurrency
   return LOCALE_TO_CURRENCY[locale] ?? manualCurrency ?? FALLBACK_CURRENCY
+}
+
+function resolveConfiguredProductName(config: CheckoutConfig, copy: Copy) {
+  return config.productName?.trim() || config.companyName?.trim() || copy.productName
+}
+
+function resolveConfiguredVariantLabel(config: CheckoutConfig, copy: Copy) {
+  return config.productVariantLabel?.trim() || copy.variantDefault
+}
+
+function resolveConfiguredBasePrice(config: CheckoutConfig) {
+  if (Number.isFinite(config.productPrice) && Number(config.productPrice) >= 0) {
+    return Number(config.productPrice)
+  }
+
+  if (Number.isFinite(config.whop?.amount) && Number(config.whop?.amount) >= 0) {
+    return Number(config.whop?.amount)
+  }
+
+  return 0
 }
 
 function normalizeLocale(locale: string): SupportedLocale | null {
