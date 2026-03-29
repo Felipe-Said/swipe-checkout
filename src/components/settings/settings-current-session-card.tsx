@@ -4,7 +4,6 @@ import * as React from "react"
 import { Monitor, MapPin, Clock, ShieldCheck } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { useI18n } from "@/lib/i18n"
 
 interface SettingsCurrentSessionCardProps {
   device: string
@@ -23,8 +22,6 @@ export function SettingsCurrentSessionCard({
   locationDetails,
   sessionDetails,
 }: SettingsCurrentSessionCardProps) {
-  const { t } = useI18n()
-
   return (
     <Card className="overflow-hidden border-primary/10 bg-card/40 shadow-xl backdrop-blur-sm transition-all group hover:border-primary/20">
       <CardHeader className="relative border-b border-primary/10 bg-primary/5 pb-6">
@@ -33,17 +30,17 @@ export function SettingsCurrentSessionCard({
             <Monitor className="h-6 w-6" />
           </div>
           <div>
-            <CardTitle className="text-xl">{t("settings.session.title")}</CardTitle>
-            <CardDescription>{t("settings.session.desc")}</CardDescription>
+            <CardTitle className="text-xl">Sessao Atual</CardTitle>
+            <CardDescription>Informacoes da sessao aberta neste navegador.</CardDescription>
           </div>
         </div>
       </CardHeader>
 
       <CardContent className="p-8">
         <div className="grid grid-cols-1 gap-4">
-          <SessionStat icon={Monitor} label={t("nav.device")} value={device} subValue={deviceDetails} />
-          <SessionStat icon={MapPin} label={t("nav.location")} value={city} subValue={locationDetails} />
-          <SessionStat icon={Clock} label={t("settings.last_access")} value={date} subValue={sessionDetails} />
+          <SessionStat icon={Monitor} label="Dispositivo" value={device} subValue={deviceDetails} />
+          <SessionStat icon={MapPin} label="Localizacao" value={city} subValue={locationDetails} />
+          <SessionStat icon={Clock} label="Ultimo acesso" value={date} subValue={sessionDetails} />
         </div>
 
         <div className="mt-8 flex items-center justify-between gap-4 rounded-2xl border border-dashed border-emerald-500/20 bg-emerald-500/5 p-4">
@@ -53,10 +50,10 @@ export function SettingsCurrentSessionCard({
             </div>
             <div className="space-y-1">
               <h4 className="text-[11px] font-black uppercase tracking-wider text-emerald-500/80">
-                {t("nav.secure_session")}
+                Sessao autenticada
               </h4>
               <p className="text-[10px] font-bold leading-tight text-muted-foreground">
-                {t("nav.secure_desc")}
+                Esta sessao esta ativa neste navegador com credenciais validas.
               </p>
             </div>
           </div>
@@ -64,7 +61,7 @@ export function SettingsCurrentSessionCard({
             variant="outline"
             className="h-5 border-emerald-500/30 text-[9px] font-black uppercase text-emerald-500"
           >
-            {t("nav.verified")}
+            Ativa
           </Badge>
         </div>
       </CardContent>

@@ -67,7 +67,7 @@ export function LandingEditorShowcase() {
                 </div>
                 <div className="flex items-center gap-3">
                   <div className="rounded-md border bg-background px-3 py-1 text-[10px] font-medium text-muted-foreground">
-                    Demo editor
+                    Editor visual
                   </div>
                   <div className="flex gap-2 rounded-md bg-muted px-2 py-1">
                     <Monitor className="h-3 w-3 text-muted-foreground" />
@@ -80,9 +80,9 @@ export function LandingEditorShowcase() {
                 <div className="w-52 rounded-none border-r bg-card p-3">
                   <div className="border-b px-2 pb-4">
                     <div className="text-sm font-semibold">Editor de checkout</div>
-                    <div className="mt-1 text-[11px] text-muted-foreground">
-                      Preview da area de criacao
-                    </div>
+                     <div className="mt-1 text-[11px] text-muted-foreground">
+                       Area de configuracao do checkout
+                     </div>
                   </div>
 
                   <div className="mt-4 flex gap-2 px-2">
@@ -145,7 +145,7 @@ export function LandingEditorShowcase() {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <div className="rounded-full border bg-background px-3 py-1 text-[10px] font-medium text-muted-foreground">
-                        Checkout demo
+                        Checkout publicado
                       </div>
                       <div className="rounded-md border bg-background px-3 py-1 text-[10px] font-medium text-muted-foreground">
                         Layout classico

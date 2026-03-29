@@ -59,11 +59,11 @@ export function LandingHero() {
             className="h-14 bg-background/50 px-8 text-lg font-semibold backdrop-blur-sm"
             asChild
           >
-            <Link href="/login">
-              <PlayCircle className="mr-2 h-5 w-5" />
-              Ver demonstracao
-            </Link>
-          </Button>
+              <Link href="/login">
+                <PlayCircle className="mr-2 h-5 w-5" />
+                Ver plataforma
+              </Link>
+            </Button>
         </div>
 
         <div className="relative mx-auto mt-12 max-w-6xl animate-in zoom-in fade-in duration-1000 delay-300">
@@ -113,8 +113,8 @@ export function LandingHero() {
                     <div className="flex-1 rounded-xl border border-zinc-800 bg-zinc-900 p-4">
                       <div>
                         <div className="text-lg font-semibold text-white">Painel do usuario</div>
-                        <div className="text-xs text-zinc-400">
-                          Preview interno da plataforma para novos visitantes.
+                      <div className="text-xs text-zinc-400">
+                          Visao da plataforma para novos visitantes.
                         </div>
                       </div>
 
@@ -153,7 +153,7 @@ export function LandingHero() {
                             </div>
                           </div>
                           <div className="rounded-full bg-white/10 px-2 py-1 text-[10px] font-medium text-white">
-                            Demo live
+                            Operacao em destaque
                           </div>
                         </div>
 

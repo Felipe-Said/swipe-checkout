@@ -95,44 +95,31 @@ export default function StoresPage() {
     if (!accountId || !userId) return
 
     setIsConnecting(true)
-    setCurrentStep("connecting")
+    setCurrentStep("syncing")
 
-    setTimeout(() => {
-      setCurrentStep("authorizing")
+    const result = await connectShopifyStore({
+      accountId,
+      userId,
+      storeName,
+      shopDomain,
+      clientId,
+      clientSecret,
+    })
 
-      setTimeout(() => {
-        setCurrentStep("syncing")
+    if (result.error) {
+      toast.error(result.error)
+      setCurrentStep("identifying")
+      setIsConnecting(false)
+      return
+    }
 
-        setTimeout(async () => {
-          const result = await connectShopifyStore({
-            accountId,
-            userId,
-            storeName,
-            shopDomain,
-            clientId,
-            clientSecret,
-          })
-
-          if (result.error) {
-            toast.error(result.error)
-            setCurrentStep("identifying")
-            setIsConnecting(false)
-            return
-          }
-
-          try {
-            await loadStores(accountId, userId)
-            setCurrentStep("completed")
-            toast.success("Loja conectada com sucesso.")
-          } finally {
-            setIsConnecting(false)
-            setTimeout(() => {
-              setCurrentStep("identifying")
-            }, 3000)
-          }
-        }, 2500)
-      }, 2000)
-    }, 1500)
+    try {
+      await loadStores(accountId, userId)
+      setCurrentStep("completed")
+      toast.success("Loja conectada com sucesso.")
+    } finally {
+      setIsConnecting(false)
+    }
   }
 
   const handleSync = async (id: string) => {

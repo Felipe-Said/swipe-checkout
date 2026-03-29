@@ -95,6 +95,12 @@ export default function MessengerPage() {
   }
 
   const accountMessages = messages.filter((message) => message.accountId === accountId)
+  const lastAdminMessage =
+    [...accountMessages].reverse().find((message) => message.from === "admin") ?? null
+  const channelStatus = messengerEnabled ? "Canal habilitado" : "Canal desativado"
+  const lastReplyLabel = lastAdminMessage
+    ? formatRelativeLabel(lastAdminMessage.createdAt)
+    : "Nenhuma resposta do admin ainda."
 
   return (
     <div className="flex flex-col gap-6">
@@ -167,19 +173,47 @@ export default function MessengerPage() {
             <div className="rounded-lg border p-4">
               <div className="mb-2 flex items-center gap-2 font-medium">
                 <Shield className="h-4 w-4" />
-                Atendimento ativo
+                {channelStatus}
               </div>
               <p className="text-sm text-muted-foreground">
-                Sua conta pode falar diretamente com o admin a qualquer momento.
+                {messengerEnabled
+                  ? "Sua conta pode trocar mensagens reais com o admin enquanto o canal estiver habilitado."
+                  : "Este canal depende da liberacao do admin para ficar disponivel."}
               </p>
             </div>
             <div className="rounded-lg border p-4">
               <div className="text-sm font-medium">Ultima resposta</div>
-              <p className="mt-1 text-sm text-muted-foreground">Ha menos de 10 minutos.</p>
+              <p className="mt-1 text-sm text-muted-foreground">{lastReplyLabel}</p>
             </div>
           </CardContent>
         </Card>
       </div>
     </div>
   )
+}
+
+function formatRelativeLabel(value: string) {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) {
+    return "Resposta registrada recentemente."
+  }
+
+  const diffMs = Date.now() - date.getTime()
+  const diffMinutes = Math.max(Math.floor(diffMs / 60000), 0)
+
+  if (diffMinutes < 1) {
+    return "Agora mesmo."
+  }
+
+  if (diffMinutes < 60) {
+    return `Ha ${diffMinutes} minuto${diffMinutes === 1 ? "" : "s"}.`
+  }
+
+  const diffHours = Math.floor(diffMinutes / 60)
+  if (diffHours < 24) {
+    return `Ha ${diffHours} hora${diffHours === 1 ? "" : "s"}.`
+  }
+
+  const diffDays = Math.floor(diffHours / 24)
+  return `Ha ${diffDays} dia${diffDays === 1 ? "" : "s"}.`
 }

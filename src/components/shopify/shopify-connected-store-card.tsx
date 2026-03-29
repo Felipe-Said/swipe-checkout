@@ -19,7 +19,6 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
-import { Progress } from "@/components/ui/progress"
 import {
   Tooltip,
   TooltipContent,
@@ -69,6 +68,17 @@ export function ShopifyConnectedStoreCard({
   const hasIssues = store.status === "Atencao necessaria" || store.status === "Falha"
   const [defaultCheckoutId, setDefaultCheckoutId] = React.useState(store.defaultCheckoutId ?? "")
   const [skipCartRedirect, setSkipCartRedirect] = React.useState(Boolean(store.skipCartRedirect))
+  const importedProducts = store.productCount ?? 0
+  const importedVariants = store.variantCount ?? 0
+  const catalogStatusLabel =
+    importedProducts > 0 || importedVariants > 0 ? "Catalogo importado" : "Catalogo ainda vazio"
+  const connectionSummary = hasIssues
+    ? "A ultima tentativa da integracao encontrou problema e pode exigir reconexao."
+    : isSyncing
+      ? "A integracao esta executando uma sincronizacao real neste momento."
+      : isReady
+        ? "A loja esta conectada e pronta para usar o fluxo salvo abaixo."
+        : "A conexao ainda precisa ser concluida antes de operar normalmente."
 
   React.useEffect(() => {
     setDefaultCheckoutId(store.defaultCheckoutId ?? "")
@@ -163,14 +173,12 @@ export function ShopifyConnectedStoreCard({
                   <span className="text-[10px] font-bold text-muted-foreground">ULTIMA VEZ EM:</span>
                   <span className="text-sm font-bold">{store.lastSync ?? "Nenhuma"}</span>
                 </div>
-                <div className="space-y-1.5">
-                  <div className="flex justify-between text-[11px]">
-                    <span className="text-muted-foreground">Integridade</span>
-                    <span className={cn("font-bold", hasIssues ? "text-destructive" : "text-emerald-500")}>
-                      {hasIssues ? "0%" : isSyncing ? "45%" : "100%"}
-                    </span>
+                <div className="space-y-1">
+                  <span className="text-[10px] font-bold text-muted-foreground">STATUS REAL:</span>
+                  <div className="flex items-center gap-2">
+                    <StatusBadge status={store.status} />
+                    <span className="text-[11px] text-muted-foreground">{catalogStatusLabel}</span>
                   </div>
-                  <Progress value={hasIssues ? 0 : isSyncing ? 45 : 100} className="h-1.5" />
                 </div>
               </div>
             </div>
@@ -178,7 +186,7 @@ export function ShopifyConnectedStoreCard({
             <div className="space-y-3">
               <div className="flex items-center gap-2 px-1 text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
                 <ShieldCheck className="h-3 w-3" />
-                Seguranca
+                Estado da Conexao
               </div>
               <div className="space-y-3 rounded-2xl border border-primary/5 bg-muted/30 p-4">
                 <div className="flex items-center gap-2">
@@ -191,17 +199,13 @@ export function ShopifyConnectedStoreCard({
                           ? "bg-primary shadow-primary/50"
                           : "bg-emerald-500 shadow-emerald-500/50"
                     )}
-                  />
+                    />
                   <span className="text-[11px] font-bold">
-                    {hasIssues ? "Credenciais exigem revisao" : isReady ? "Client Credentials" : "Validacao em andamento"}
+                    {store.status}
                   </span>
                 </div>
-                <div className="text-[10px] italic leading-relaxed text-muted-foreground">
-                  {hasIssues
-                    ? '"A loja perdeu o estado valido da conexao. Use Reconectar para testar Client ID, Secret e escopos de novo."'
-                    : isReady
-                      ? '"Conexao validada. Ative o App Embed do Swipe no tema para redirecionar a storefront."'
-                      : '"A conexao esta em validacao e pode demorar alguns instantes para estabilizar."'}
+                <div className="text-[10px] leading-relaxed text-muted-foreground">
+                  {connectionSummary}
                 </div>
               </div>
             </div>
@@ -260,7 +264,7 @@ export function ShopifyConnectedStoreCard({
 
         {isSyncing && (
           <div className="flex items-center justify-between border-t border-primary/10 bg-primary/5 px-6 py-2 text-[11px] font-bold text-primary animate-pulse">
-            <span>SINCRONIZANDO CATALOGO EM TEMPO REAL...</span>
+            <span>SINCRONIZANDO CATALOGO...</span>
             <RefreshCw className="h-3 w-3 animate-spin" />
           </div>
         )}
