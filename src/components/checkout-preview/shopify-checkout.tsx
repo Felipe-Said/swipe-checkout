@@ -78,6 +78,88 @@ type CheckoutBehaviorTracking = {
   stage: "checkout" | "thank-you"
 }
 
+const CHECKOUT_CSS_SCOPE_SELECTOR = "[data-swipe-checkout-root]"
+
+function findMatchingBrace(source: string, openIndex: number) {
+  let depth = 0
+
+  for (let index = openIndex; index < source.length; index += 1) {
+    const char = source[index]
+
+    if (char === "{") depth += 1
+    if (char === "}") {
+      depth -= 1
+      if (depth === 0) return index
+    }
+  }
+
+  return -1
+}
+
+function scopeCheckoutSelector(selector: string) {
+  const trimmed = selector.trim()
+  if (!trimmed) return trimmed
+
+  const replacedGlobals = trimmed
+    .replace(/:root\b/gi, CHECKOUT_CSS_SCOPE_SELECTOR)
+    .replace(/\bhtml\b/gi, CHECKOUT_CSS_SCOPE_SELECTOR)
+    .replace(/\bbody\b/gi, CHECKOUT_CSS_SCOPE_SELECTOR)
+
+  if (replacedGlobals.includes(CHECKOUT_CSS_SCOPE_SELECTOR)) {
+    return replacedGlobals
+  }
+
+  if (/^(from|to|\d+%)$/i.test(replacedGlobals)) {
+    return replacedGlobals
+  }
+
+  return `${CHECKOUT_CSS_SCOPE_SELECTOR} ${replacedGlobals}`
+}
+
+function scopeCheckoutCss(css: string) {
+  if (!css.trim()) return ""
+
+  let index = 0
+  let result = ""
+
+  while (index < css.length) {
+    const openIndex = css.indexOf("{", index)
+    if (openIndex === -1) {
+      result += css.slice(index)
+      break
+    }
+
+    const selector = css.slice(index, openIndex)
+    const closeIndex = findMatchingBrace(css, openIndex)
+
+    if (closeIndex === -1) {
+      result += css.slice(index)
+      break
+    }
+
+    const blockContent = css.slice(openIndex + 1, closeIndex)
+    const trimmedSelector = selector.trim()
+
+    if (/^@(-webkit-)?keyframes\b/i.test(trimmedSelector)) {
+      result += `${selector}{${blockContent}}`
+    } else if (/^@(media|supports|container|layer|document)\b/i.test(trimmedSelector)) {
+      result += `${selector}{${scopeCheckoutCss(blockContent)}}`
+    } else if (trimmedSelector.startsWith("@")) {
+      result += `${selector}{${blockContent}}`
+    } else {
+      const scopedSelector = selector
+        .split(",")
+        .map((item) => scopeCheckoutSelector(item))
+        .join(", ")
+      result += `${scopedSelector}{${blockContent}}`
+    }
+
+    index = closeIndex + 1
+  }
+
+  return result
+}
+
 interface CheckoutConfig {
   primaryColor: string
   borderRadius: string
@@ -570,6 +652,7 @@ export function ShopifyCheckout({
   const totalPrice = basePrice + shippingPrice
   const formattedPrice = formatPrice(basePrice, resolvedLocale, effectiveCurrency)
   const formattedTotalPrice = formatPrice(totalPrice, resolvedLocale, effectiveCurrency)
+  const scopedCustomCss = React.useMemo(() => scopeCheckoutCss(config.customCss ?? ""), [config.customCss])
 
   React.useEffect(() => {
     if (!behaviorEnabled || !behaviorTracking) return
@@ -656,7 +739,7 @@ export function ShopifyCheckout({
       data-swipe-page="checkout"
       style={{ backgroundColor: config.checkoutBackgroundColor, color: config.checkoutTextColor }}
     >
-      {config.customCss ? <style dangerouslySetInnerHTML={{ __html: config.customCss }} /> : null}
+      {scopedCustomCss ? <style dangerouslySetInnerHTML={{ __html: scopedCustomCss }} /> : null}
       {isMobile && !isOnePage ? (
         <div className="border-b p-4" style={{ backgroundColor: config.checkoutSurfaceColor, borderColor: config.checkoutMutedColor }}>
           <div className="flex items-center justify-between">
@@ -933,6 +1016,7 @@ function ThankYouPage({
             ? `Automatische Weiterleitung in ${secondsRemaining}s.`
             : `Redirecionando automaticamente em ${secondsRemaining}s.`
     : undefined
+  const scopedCustomCss = React.useMemo(() => scopeCheckoutCss(config.customCss ?? ""), [config.customCss])
   const confirmationCard = (
     <OrderConfirmationCard
       orderId={thankYouMeta?.orderId ?? "SWIPE"}
@@ -1010,7 +1094,7 @@ function ThankYouPage({
         backgroundPosition: "center",
       }}
     >
-      {config.customCss ? <style dangerouslySetInnerHTML={{ __html: config.customCss }} /> : null}
+      {scopedCustomCss ? <style dangerouslySetInnerHTML={{ __html: scopedCustomCss }} /> : null}
       <div
         className="w-full max-w-[520px] rounded-[28px] border p-5 text-center shadow-sm sm:p-8"
         style={{
