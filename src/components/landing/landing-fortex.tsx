@@ -21,12 +21,6 @@ import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
 const nav = ["Home", "About", "Services", "Process", "Pricing", "Contact"]
-const trustedLogos = [
-  { name: "Shopify", src: "/brand-logos/shopify.svg", width: 124 },
-  { name: "Google Ads", src: "/brand-logos/google-ads.svg", width: 130 },
-  { name: "Meta Ads", src: "/brand-logos/meta.svg", width: 124 },
-  { name: "TikTok Ads", src: "/brand-logos/tiktok.svg", width: 132 },
-]
 const services = [
   ["001", "Gestao de Checkouts", "Crie, publique e opere checkouts com controle total."],
   ["002", "Editor Visual", "Controle branding, layouts, blocos e responsividade."],
@@ -224,24 +218,6 @@ export function LandingFortex() {
                   </div>
                 </div>
               </div>
-            </div>
-          </div>
-        </section>
-
-        <section className="border-b border-white/10">
-          <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-6 px-5 py-8 text-white/42 sm:px-8 lg:px-12">
-            <div className="text-xs uppercase tracking-[0.32em]">Trusted</div>
-            <div className="grid grid-cols-2 items-center gap-x-8 gap-y-6 lg:grid-cols-4">
-              {trustedLogos.map((item) => (
-                <div key={item.name} className="flex min-h-14 items-center rounded-[20px] border border-white/10 bg-white px-5 py-4">
-                  <img
-                    src={item.src}
-                    alt={item.name}
-                    width={item.width}
-                    className="h-auto max-h-7 w-auto"
-                  />
-                </div>
-              ))}
             </div>
           </div>
         </section>
