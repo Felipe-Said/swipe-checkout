@@ -61,6 +61,67 @@ function emptyAvailableMap() {
   } satisfies Record<SupportedWithdrawalCurrency, number>
 }
 
+type AvailableBalanceInput = {
+  supabaseAdmin: ReturnType<typeof getSupabaseAdmin>
+  accountId: string
+  billingCycleDays: number
+}
+
+async function calculateAvailableByCurrency(input: AvailableBalanceInput) {
+  const availableByCurrency = emptyAvailableMap()
+  const now = Date.now()
+
+  const [ordersResult, withdrawalsResult] = await Promise.all([
+    input.supabaseAdmin
+      .from("orders")
+      .select("amount, currency, status, date")
+      .eq("account_id", input.accountId)
+      .order("date", { ascending: false }),
+    input.supabaseAdmin
+      .from("withdrawals")
+      .select("amount, currency, status")
+      .eq("account_id", input.accountId),
+  ])
+
+  if (ordersResult.error) {
+    return { error: ordersResult.error.message, availableByCurrency }
+  }
+
+  if (withdrawalsResult.error) {
+    return { error: withdrawalsResult.error.message, availableByCurrency }
+  }
+
+  for (const order of ordersResult.data ?? []) {
+    const status = (order.status ?? "").toLowerCase()
+    if (status !== "pago" && status !== "paid") {
+      continue
+    }
+
+    const orderDate = order.date ? new Date(order.date) : null
+    if (!orderDate || !Number.isFinite(orderDate.getTime())) {
+      continue
+    }
+
+    const releaseMs = input.billingCycleDays * 24 * 60 * 60 * 1000
+    if (orderDate.getTime() + releaseMs > now) {
+      continue
+    }
+
+    const currency = normalizeCurrency(order.currency)
+    availableByCurrency[currency] += Number(order.amount ?? 0)
+  }
+
+  for (const withdrawal of withdrawalsResult.data ?? []) {
+    const currency = normalizeCurrency(withdrawal.currency)
+    availableByCurrency[currency] = Math.max(
+      availableByCurrency[currency] - Number(withdrawal.amount ?? 0),
+      0
+    )
+  }
+
+  return { availableByCurrency }
+}
+
 async function resolveSession(input: { userId: string }) {
   const supabaseAdmin = getSupabaseAdmin()
   const { data: profile } = await supabaseAdmin
@@ -405,7 +466,11 @@ export async function createWithdrawalForSession(input: {
   amount: number
 }) {
   try {
-    const { supabaseAdmin } = await resolveSession({ userId: input.userId })
+    const { supabaseAdmin, role } = await resolveSession({ userId: input.userId })
+    if (role === "admin") {
+      return { error: "Admins nao solicitam saques por esta tela." }
+    }
+
     const account = await resolveAccountForUser({
       userId: input.userId,
       accountId: input.accountId,
@@ -417,7 +482,7 @@ export async function createWithdrawalForSession(input: {
 
     const { data: accountConfig } = await supabaseAdmin
       .from("managed_accounts")
-      .select("withdrawals_enabled")
+      .select("withdrawals_enabled, billing_cycle_days")
       .eq("id", account.id)
       .maybeSingle()
 
@@ -427,10 +492,40 @@ export async function createWithdrawalForSession(input: {
 
     const { data: bankAccount } = await supabaseAdmin
       .from("bank_accounts")
-      .select("pix_key")
+      .select("holder_name, document, bank_name, agency, account_number, pix_key")
       .eq("account_id", account.id)
       .eq("currency", input.currency)
       .maybeSingle()
+
+    if (!(Number.isFinite(input.amount) && input.amount > 0)) {
+      return { error: "Informe um valor de saque valido." }
+    }
+
+    const hasBankDestination = Boolean(
+      bankAccount?.pix_key ||
+        bankAccount?.account_number ||
+        bankAccount?.holder_name ||
+        bankAccount?.bank_name
+    )
+
+    if (!bankAccount || !hasBankDestination) {
+      return { error: "Cadastre os dados bancarios desta moeda antes de solicitar o saque." }
+    }
+
+    const availableResult = await calculateAvailableByCurrency({
+      supabaseAdmin,
+      accountId: account.id,
+      billingCycleDays: Math.max(Number(accountConfig?.billing_cycle_days ?? 2), 1),
+    })
+
+    if (availableResult.error) {
+      return { error: availableResult.error }
+    }
+
+    const availableAmount = availableResult.availableByCurrency[input.currency] ?? 0
+    if (input.amount > availableAmount) {
+      return { error: "O valor solicitado ultrapassa o saldo disponivel para saque." }
+    }
 
     const { error } = await supabaseAdmin.from("withdrawals").insert({
       account_id: account.id,

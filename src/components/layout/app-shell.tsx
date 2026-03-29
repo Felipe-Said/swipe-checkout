@@ -20,6 +20,33 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [session, setSession] = React.useState<AppSession | null>(null)
   const [ready, setReady] = React.useState(false)
 
+  const shouldRedirectRestrictedRoute = React.useCallback(
+    (nextSession: AppSession) => {
+      if (nextSession.role === "admin") {
+        return null
+      }
+
+      if (pathname === "/app/customers") {
+        return nextSession.messengerEnabled ? "/app/messenger" : "/app"
+      }
+
+      if (!nextSession.messengerEnabled && pathname === "/app/messenger") {
+        return "/app"
+      }
+
+      if (!nextSession.withdrawalsEnabled && pathname === "/app/withdrawals") {
+        return "/app"
+      }
+
+      if (nextSession.keyFrozen && pathname === "/app/whop") {
+        return "/app"
+      }
+
+      return null
+    },
+    [pathname]
+  )
+
   React.useEffect(() => {
     let cancelled = false
 
@@ -50,18 +77,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
           writeAppSession(syncedSession)
 
-          if (syncedSession.role !== "admin" && pathname === "/app/customers") {
-            router.replace(syncedSession.messengerEnabled ? "/app/messenger" : "/app")
-            return
-          }
-
-          if (syncedSession.role !== "admin" && !syncedSession.messengerEnabled && pathname === "/app/messenger") {
-            router.replace("/app")
-            return
-          }
-
-          if (syncedSession.role !== "admin" && !syncedSession.withdrawalsEnabled && pathname === "/app/withdrawals") {
-            router.replace("/app")
+          const restrictedRedirect = shouldRedirectRestrictedRoute(syncedSession)
+          if (restrictedRedirect) {
+            router.replace(restrictedRedirect)
             return
           }
 
@@ -77,18 +95,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         return
       }
 
-      if (nextSession.role !== "admin" && pathname === "/app/customers") {
-        router.replace(nextSession.messengerEnabled ? "/app/messenger" : "/app")
-        return
-      }
-
-      if (nextSession.role !== "admin" && !nextSession.messengerEnabled && pathname === "/app/messenger") {
-        router.replace("/app")
-        return
-      }
-
-      if (nextSession.role !== "admin" && !nextSession.withdrawalsEnabled && pathname === "/app/withdrawals") {
-        router.replace("/app")
+      const restrictedRedirect = shouldRedirectRestrictedRoute(nextSession)
+      if (restrictedRedirect) {
+        router.replace(restrictedRedirect)
         return
       }
 
@@ -103,7 +112,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     return () => {
       cancelled = true
     }
-  }, [pathname, router])
+  }, [pathname, router, shouldRedirectRestrictedRoute])
 
   if (!ready || !session) {
     return null

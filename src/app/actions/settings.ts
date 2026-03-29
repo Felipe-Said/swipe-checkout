@@ -73,12 +73,25 @@ export async function saveSettingsProfile(input: {
   photoUrl?: string | null
 }) {
   const supabaseAdmin = getSupabaseAdmin()
+  const nextName = input.name.trim()
+  const nextEmail = input.email.trim()
+
+  const { error: authError } = await supabaseAdmin.auth.admin.updateUserById(input.userId, {
+    email: nextEmail,
+    user_metadata: {
+      name: nextName,
+    },
+  })
+
+  if (authError) {
+    return { error: authError.message }
+  }
 
   const { error } = await supabaseAdmin
     .from("profiles")
     .update({
-      name: input.name.trim(),
-      email: input.email.trim(),
+      name: nextName,
+      email: nextEmail,
       photo_url: input.photoUrl || null,
       updated_at: new Date().toISOString(),
     })
@@ -91,7 +104,7 @@ export async function saveSettingsProfile(input: {
   const { error: accountError } = await supabaseAdmin
     .from("managed_accounts")
     .update({
-      name: input.name.trim(),
+      name: nextName,
       updated_at: new Date().toISOString(),
     })
     .eq("profile_id", input.userId)
