@@ -85,6 +85,7 @@ type ContactFormData = {
 }
 
 type DeliveryFormData = {
+  country: string
   firstName: string
   lastName: string
   address: string
@@ -428,6 +429,14 @@ const US_STATES = [
   { value: "WI", label: "Wisconsin" },
   { value: "WY", label: "Wyoming" },
   { value: "DC", label: "District of Columbia" },
+]
+
+const DANIEL_COUNTRIES = [
+  { value: "US", label: "United States" },
+  { value: "BR", label: "Brasil" },
+  { value: "ES", label: "Espana" },
+  { value: "FR", label: "France" },
+  { value: "DE", label: "Deutschland" },
 ]
 
 function findMatchingBrace(source: string, openIndex: number) {
@@ -945,6 +954,7 @@ export function ShopifyCheckout({
     email: "",
   })
   const [deliveryData, setDeliveryData] = React.useState<DeliveryFormData>({
+    country: resolveDanielCountryValue(config.locale),
     firstName: "",
     lastName: "",
     address: "",
@@ -967,6 +977,20 @@ export function ShopifyCheckout({
     setResolvedLocale(locale)
     setResolvedCurrency(currency)
   }, [config.currency, config.currencyMode, config.locale, config.localeMode])
+
+  React.useEffect(() => {
+    const nextCountry = resolveDanielCountryValue(resolvedLocale)
+    setDeliveryData((prev) => {
+      if (prev.country.trim()) {
+        return prev
+      }
+
+      return {
+        ...prev,
+        country: nextCountry,
+      }
+    })
+  }, [resolvedLocale])
 
   React.useEffect(() => {
     const fullName = contactData.fullName.trim()
@@ -1078,6 +1102,7 @@ export function ShopifyCheckout({
 
       setDeliveryData((prev) => ({
         ...prev,
+        country: resolveDanielCountryFromAddress(address) || prev.country,
         address: buildDanielAddressLine(address) || prev.address,
         city:
           address.city ||
@@ -1363,11 +1388,21 @@ export function ShopifyCheckout({
                   <select
                     id="daniel-country"
                     className="select-field has-floating"
-                    value={resolveDanielCountryValue(resolvedLocale)}
-                    disabled
+                    value={deliveryData.country}
                     aria-label={resolveDanielCountryRegionLabel(resolvedLocale)}
+                    onChange={(event) =>
+                      setDeliveryData((prev) => ({
+                        ...prev,
+                        country: event.target.value,
+                        state: prev.country !== event.target.value ? "" : prev.state,
+                      }))
+                    }
                   >
-                    <option>{resolveDanielCountryName(resolvedLocale)}</option>
+                    {DANIEL_COUNTRIES.map((country) => (
+                      <option key={country.value} value={country.value}>
+                        {country.label}
+                      </option>
+                    ))}
                   </select>
                 </div>
                 <div className="row-2">
@@ -1460,25 +1495,42 @@ export function ShopifyCheckout({
                   <label className="floating-label" htmlFor="daniel-state">
                     {copy.state}
                   </label>
-                  <select
-                    id="daniel-state"
-                    className="select-field has-floating"
-                    autoComplete="address-level1"
-                    value={deliveryData.state}
-                    onChange={(event) =>
-                      setDeliveryData((prev) => ({
-                        ...prev,
-                        state: event.target.value,
-                      }))
-                    }
-                  >
-                    <option value="">{resolveDanielSelectStateLabel(resolvedLocale)}</option>
-                    {US_STATES.map((state) => (
-                      <option key={state.value} value={state.value}>
-                        {state.label}
-                      </option>
-                    ))}
-                  </select>
+                  {deliveryData.country === "US" ? (
+                    <select
+                      id="daniel-state"
+                      className="select-field has-floating"
+                      autoComplete="address-level1"
+                      value={deliveryData.state}
+                      onChange={(event) =>
+                        setDeliveryData((prev) => ({
+                          ...prev,
+                          state: event.target.value,
+                        }))
+                      }
+                    >
+                      <option value="">{resolveDanielSelectStateLabel(resolvedLocale)}</option>
+                      {US_STATES.map((state) => (
+                        <option key={state.value} value={state.value}>
+                          {state.label}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      id="daniel-state"
+                      className="field"
+                      type="text"
+                      placeholder={copy.state}
+                      autoComplete="address-level1"
+                      value={deliveryData.state}
+                      onChange={(event) =>
+                        setDeliveryData((prev) => ({
+                          ...prev,
+                          state: event.target.value,
+                        }))
+                      }
+                    />
+                  )}
                 </div>
                 <div className="field-wrap">
                   <input
@@ -2104,6 +2156,15 @@ function resolveDanielCountryValue(locale: SupportedLocale) {
   }
 }
 
+function resolveDanielCountryFromAddress(address: Record<string, string | undefined>) {
+  const code = (address.country_code || "").trim().toUpperCase()
+  if (DANIEL_COUNTRIES.some((country) => country.value === code)) {
+    return code
+  }
+
+  return ""
+}
+
 function resolveDanielFirstNamePlaceholder(locale: SupportedLocale) {
   switch (locale) {
     case "en-US":
@@ -2487,7 +2548,7 @@ function PaymentSection({
       email: contactData.email.trim() || undefined,
       address: {
         name: inferredFullName || undefined,
-        country: resolveWhopCountry(locale),
+        country: resolveWhopCountry(deliveryData.country || resolveDanielCountryValue(locale)),
         line1: deliveryData.address.trim() || undefined,
         line2: deliveryData.apartment.trim() || undefined,
         city: deliveryData.city.trim() || undefined,
@@ -2500,6 +2561,7 @@ function PaymentSection({
       deliveryData.address,
       deliveryData.apartment,
       deliveryData.city,
+      deliveryData.country,
       deliveryData.state,
       deliveryData.zip,
       inferredFullName,
@@ -2935,16 +2997,21 @@ function normalizeLocale(locale: string): SupportedLocale | null {
   return null
 }
 
-function resolveWhopCountry(locale: SupportedLocale) {
-  switch (locale) {
+function resolveWhopCountry(value: SupportedLocale | string) {
+  switch (value) {
+    case "BR":
     case "pt-BR":
       return "BR"
+    case "US":
     case "en-US":
       return "US"
+    case "ES":
     case "es-ES":
       return "ES"
+    case "FR":
     case "fr-FR":
       return "FR"
+    case "DE":
     case "de-DE":
       return "DE"
     default:
