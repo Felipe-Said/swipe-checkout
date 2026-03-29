@@ -174,6 +174,17 @@ ${CUSTOM_LAYOUT_SELECTOR} [data-swipe-slot] {
   return `${customLayoutBaseCss}\n${scopedCss}`
 }
 
+function shouldUseCustomLayoutMode(css: string) {
+  const trimmed = css.trim()
+  if (!trimmed) return false
+
+  return (
+    /\[data-swipe-slot(?:=|\])/i.test(trimmed) ||
+    /data-swipe-custom-layout/i.test(trimmed) ||
+    /\/\*\s*swipe-layout-mode\s*\*\//i.test(trimmed)
+  )
+}
+
 interface CheckoutConfig {
   primaryColor: string
   borderRadius: string
@@ -666,7 +677,7 @@ export function ShopifyCheckout({
   const totalPrice = basePrice + shippingPrice
   const formattedPrice = formatPrice(basePrice, resolvedLocale, effectiveCurrency)
   const formattedTotalPrice = formatPrice(totalPrice, resolvedLocale, effectiveCurrency)
-  const hasCustomLayout = Boolean(config.customCss?.trim())
+  const hasCustomLayout = shouldUseCustomLayoutMode(config.customCss ?? "")
   const injectedCustomCss = React.useMemo(() => buildInjectedCheckoutCss(config.customCss ?? ""), [config.customCss])
 
   React.useEffect(() => {
@@ -755,7 +766,13 @@ export function ShopifyCheckout({
       data-swipe-page="checkout"
       style={{ backgroundColor: config.checkoutBackgroundColor, color: config.checkoutTextColor }}
     >
-      {injectedCustomCss ? <style dangerouslySetInnerHTML={{ __html: injectedCustomCss }} /> : null}
+      {config.customCss?.trim() ? (
+        <style
+          dangerouslySetInnerHTML={{
+            __html: hasCustomLayout ? injectedCustomCss : scopeCheckoutCss(config.customCss),
+          }}
+        />
+      ) : null}
       {isMobile && !isOnePage ? (
         <div data-swipe-slot="mobile-summary" className="border-b p-4" style={{ backgroundColor: config.checkoutSurfaceColor, borderColor: config.checkoutMutedColor }}>
           <div className="flex items-center justify-between">
@@ -980,7 +997,7 @@ function ThankYouPage({
       : 10
   const autoRedirectEnabled = Boolean(config.thankYouAutoRedirectEnabled && autoRedirectHref)
   const [secondsRemaining, setSecondsRemaining] = React.useState(autoRedirectDelaySeconds)
-  const hasCustomLayout = Boolean(config.customCss?.trim())
+  const hasCustomLayout = shouldUseCustomLayoutMode(config.customCss ?? "")
   const formattedDateTime = React.useMemo(() => {
     if (thankYouMeta?.paidAt) {
       try {
@@ -1112,7 +1129,13 @@ function ThankYouPage({
         backgroundPosition: "center",
       }}
     >
-      {injectedCustomCss ? <style dangerouslySetInnerHTML={{ __html: injectedCustomCss }} /> : null}
+      {config.customCss?.trim() ? (
+        <style
+          dangerouslySetInnerHTML={{
+            __html: hasCustomLayout ? injectedCustomCss : scopeCheckoutCss(config.customCss),
+          }}
+        />
+      ) : null}
       <div
         data-swipe-slot="thank-you-shell"
         className="w-full max-w-[520px] rounded-[28px] border p-5 text-center shadow-sm sm:p-8"
