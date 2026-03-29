@@ -378,6 +378,43 @@ const DANIEL_CHECKOUT_CSS = `
   box-shadow: none !important;
 }
 
+[data-swipe-slot="daniel-shell"] .payment-methods-strip {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.7rem;
+  margin-top: 0.95rem;
+  padding: 0 0.25rem 0.25rem;
+}
+
+[data-swipe-slot="daniel-shell"] .payment-method-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 3.7rem;
+  height: 2.1rem;
+  padding: 0.35rem 0.55rem;
+  border: 1px solid rgba(17, 17, 17, 0.12);
+  border-radius: 0.38rem;
+  background: #ffffff;
+  box-shadow: 0 1px 0 rgba(17, 17, 17, 0.03);
+}
+
+[data-swipe-slot="daniel-shell"] .payment-method-badge svg {
+  display: block;
+  height: 1rem;
+  width: auto;
+}
+
+[data-swipe-slot="daniel-shell"] .payment-method-badge.apple-pay {
+  padding-inline: 0.65rem;
+}
+
+[data-swipe-slot="daniel-shell"] .payment-method-badge.mastercard,
+[data-swipe-slot="daniel-shell"] .payment-method-badge.diners {
+  min-width: 3.35rem;
+}
+
 @media (max-width: 640px) {
   [data-swipe-slot="daniel-shell"] .row-2 {
     grid-template-columns: 1fr;
@@ -2328,6 +2365,67 @@ function resolveDanielLocationError(locale: SupportedLocale, code?: number | str
   }
 }
 
+function DanielPaymentMethodsStrip() {
+  return (
+    <div className="payment-methods-strip" aria-label="Accepted payment methods">
+      <span className="payment-method-badge amex" aria-hidden="true">
+        <svg viewBox="0 0 64 24" role="presentation">
+          <rect width="64" height="24" rx="3" fill="#0b6fd3" />
+          <text x="32" y="15.2" textAnchor="middle" fontSize="9.6" fontWeight="700" fill="#ffffff" fontFamily="Arial, sans-serif">
+            AMEX
+          </text>
+        </svg>
+      </span>
+      <span className="payment-method-badge apple-pay" aria-hidden="true">
+        <svg viewBox="0 0 76 24" role="presentation">
+          <text x="38" y="16" textAnchor="middle" fontSize="13.5" fontWeight="600" fill="#111111" fontFamily="Arial, sans-serif">
+            Apple Pay
+          </text>
+        </svg>
+      </span>
+      <span className="payment-method-badge diners" aria-hidden="true">
+        <svg viewBox="0 0 44 24" role="presentation">
+          <rect x="8" y="4" width="28" height="16" rx="8" fill="#dff0ff" stroke="#7aa8d7" />
+          <path d="M22 6.8a5.2 5.2 0 0 1 0 10.4Z" fill="#1b75bb" />
+          <path d="M22 6.8a5.2 5.2 0 0 0 0 10.4Z" fill="#7cb8ea" />
+        </svg>
+      </span>
+      <span className="payment-method-badge discover" aria-hidden="true">
+        <svg viewBox="0 0 66 24" role="presentation">
+          <text x="24" y="15.4" textAnchor="middle" fontSize="8.7" fontWeight="700" fill="#111111" fontFamily="Arial, sans-serif">
+            DISCOVER
+          </text>
+          <path d="M41 20c6.5-6.8 12.5-8 25-8v8Z" fill="#f68b1f" />
+        </svg>
+      </span>
+      <span className="payment-method-badge gpay" aria-hidden="true">
+        <svg viewBox="0 0 62 24" role="presentation">
+          <path d="M10.8 12.2h4.2" stroke="#4285f4" strokeWidth="2.4" strokeLinecap="round" />
+          <path d="M12.2 10.2a3.8 3.8 0 1 0 2.6 6.5" fill="none" stroke="#34a853" strokeWidth="2.2" strokeLinecap="round" />
+          <path d="M12.2 10.2a3.8 3.8 0 0 1 2.5.9" fill="none" stroke="#ea4335" strokeWidth="2.2" strokeLinecap="round" />
+          <path d="M8.8 13.6a3.8 3.8 0 0 1 0-3" fill="none" stroke="#fbbc05" strokeWidth="2.2" strokeLinecap="round" />
+          <text x="39" y="15.5" textAnchor="middle" fontSize="10.6" fontWeight="600" fill="#5f6368" fontFamily="Arial, sans-serif">
+            Pay
+          </text>
+        </svg>
+      </span>
+      <span className="payment-method-badge mastercard" aria-hidden="true">
+        <svg viewBox="0 0 44 24" role="presentation">
+          <circle cx="18" cy="12" r="6.5" fill="#ea001b" />
+          <circle cx="26" cy="12" r="6.5" fill="#f79e1b" fillOpacity="0.95" />
+        </svg>
+      </span>
+      <span className="payment-method-badge visa" aria-hidden="true">
+        <svg viewBox="0 0 50 24" role="presentation">
+          <text x="25" y="15.8" textAnchor="middle" fontSize="13" fontWeight="700" fill="#173a8f" fontFamily="Arial, sans-serif">
+            VISA
+          </text>
+        </svg>
+      </span>
+    </div>
+  )
+}
+
 function buildDanielAddressLine(address: Record<string, string | undefined>) {
   const streetParts = [
     address.house_number,
@@ -2697,6 +2795,7 @@ function PaymentSection({
                 label={resolvedButtonLabel}
                 onClick={handleEmbeddedCheckoutSubmit}
               />
+              <DanielPaymentMethodsStrip />
             </div>
           ) : (
             <div className="border-t px-4 pb-4 pt-3" style={{ borderColor: config.checkoutMutedColor }}>
