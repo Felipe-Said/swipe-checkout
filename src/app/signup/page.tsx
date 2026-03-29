@@ -3,7 +3,7 @@
 import * as React from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { CreditCard, CheckCircle2, Loader2 } from "lucide-react"
+import { CheckCircle2, Loader2 } from "lucide-react"
 import { signup } from "@/app/auth/actions"
 import { toast } from "sonner"
 
@@ -42,10 +42,17 @@ export default function SignupPage() {
   return (
     <div className="container relative flex h-screen flex-col items-center justify-center md:grid lg:max-w-none lg:grid-cols-2 lg:px-0">
       <div className="relative hidden h-full flex-col bg-muted p-10 text-white dark:border-r lg:flex">
-        <div className="absolute inset-0 bg-zinc-900" />
+        <div
+          className="absolute inset-0 bg-cover bg-center"
+          style={{ backgroundImage: "url('/signup-background.png')" }}
+        />
+        <div className="absolute inset-0 bg-zinc-950/62" />
         <Link href="/" className="relative z-20 flex w-fit items-center text-lg font-medium">
-          <CreditCard className="mr-2 h-6 w-6" />
-          Swipe
+          <img
+            src="/swipe-logo-white.svg"
+            alt="Swipe"
+            className="h-8 w-auto max-w-[140px]"
+          />
         </Link>
         
         <div className="relative z-20 mt-12 space-y-6">
