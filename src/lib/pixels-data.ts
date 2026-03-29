@@ -18,19 +18,3 @@ export type CampaignPerformance = {
   purchases: number
   updatedAt: string
 }
-
-export function readPixelConfigs() {
-  return [] as CheckoutPixelConfig[]
-}
-
-export function writePixelConfigs(configs: CheckoutPixelConfig[]) {
-  return configs
-}
-
-export function readCampaignPerformance() {
-  return [] as CampaignPerformance[]
-}
-
-export function writeCampaignPerformance(campaigns: CampaignPerformance[]) {
-  return campaigns
-}
