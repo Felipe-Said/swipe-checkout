@@ -46,6 +46,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         return "/app"
       }
 
+      if (!nextSession.gatewayEnabled && pathname === "/app/gateway") {
+        return "/app"
+      }
+
       return null
     },
     [pathname]
@@ -78,6 +82,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             withdrawalsEnabled: resolvedProfile.session.withdrawalsEnabled,
             messengerEnabled: resolvedProfile.session.messengerEnabled,
             gatewayModeEnabled: resolvedProfile.session.gatewayModeEnabled === true,
+            gatewayEnabled:
+              resolvedProfile.session.role === "admin"
+                ? true
+                : resolvedProfile.session.gatewayEnabled === true,
           }
 
           writeAppSession(syncedSession)

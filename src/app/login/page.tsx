@@ -104,6 +104,10 @@ function LoginContent() {
       withdrawalsEnabled: profileResult.session.withdrawalsEnabled,
       messengerEnabled: profileResult.session.messengerEnabled,
       gatewayModeEnabled: profileResult.session.gatewayModeEnabled === true,
+      gatewayEnabled:
+        profileResult.session.role === "admin"
+          ? true
+          : profileResult.session.gatewayEnabled === true,
     })
 
     await recordLoginEvent({

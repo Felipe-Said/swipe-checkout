@@ -18,6 +18,7 @@ type AdminCustomerAccount = {
   keyFrozen: boolean
   withdrawalsEnabled: boolean
   messengerEnabled: boolean
+  gatewayEnabled: boolean
   billingCycleDays: number
 }
 
@@ -85,7 +86,7 @@ export async function loadAdminCustomersData(input: { userId: string }) {
     await Promise.all([
       supabaseAdmin
         .from("managed_accounts")
-        .select("id, profile_id, name, fee_rate, whop_key, billing_cycle_days, key_frozen, withdrawals_enabled, messenger_enabled")
+        .select("id, profile_id, name, fee_rate, whop_key, billing_cycle_days, key_frozen, withdrawals_enabled, messenger_enabled, gateway_enabled")
         .order("created_at", { ascending: false }),
       supabaseAdmin
         .from("profiles")
@@ -151,6 +152,7 @@ export async function loadAdminCustomersData(input: { userId: string }) {
       keyFrozen: Boolean(account.key_frozen),
       withdrawalsEnabled: account.withdrawals_enabled !== false,
       messengerEnabled: account.messenger_enabled !== false,
+      gatewayEnabled: account.gateway_enabled === true,
       billingCycleDays: account.billing_cycle_days ?? 2,
     }
   })
@@ -223,6 +225,7 @@ export async function adminUpdateCustomerAccount(input: {
     keyFrozen?: boolean
     withdrawalsEnabled?: boolean
     messengerEnabled?: boolean
+    gatewayEnabled?: boolean
     status?: "Ativa" | "Bloqueada"
   }
 }) {
@@ -246,6 +249,7 @@ export async function adminUpdateCustomerAccount(input: {
   if (input.patch.keyFrozen !== undefined) managedAccountPatch.key_frozen = input.patch.keyFrozen
   if (input.patch.withdrawalsEnabled !== undefined) managedAccountPatch.withdrawals_enabled = input.patch.withdrawalsEnabled
   if (input.patch.messengerEnabled !== undefined) managedAccountPatch.messenger_enabled = input.patch.messengerEnabled
+  if (input.patch.gatewayEnabled !== undefined) managedAccountPatch.gateway_enabled = input.patch.gatewayEnabled
 
   if (Object.keys(managedAccountPatch).length > 0) {
     const { error } = await supabaseAdmin

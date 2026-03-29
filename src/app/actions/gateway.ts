@@ -20,6 +20,7 @@ type ManagedGatewayAccountRow = {
   profile_id: string | null
   whop_key: string | null
   whop_company_id: string | null
+  gateway_enabled: boolean | null
   gateway_payout_method_id: string | null
   gateway_payout_method_label: string | null
   gateway_auto_payout_enabled: boolean | null
@@ -220,7 +221,7 @@ export async function loadGatewayPageForSession(input: {
     const { data: account, error: accountError } = await supabaseAdmin
       .from("managed_accounts")
       .select(
-        "id, profile_id, whop_key, whop_company_id, gateway_payout_method_id, gateway_payout_method_label, gateway_auto_payout_enabled"
+        "id, profile_id, whop_key, whop_company_id, gateway_enabled, gateway_payout_method_id, gateway_payout_method_label, gateway_auto_payout_enabled"
       )
       .eq("profile_id", input.userId)
       .maybeSingle()
@@ -230,6 +231,10 @@ export async function loadGatewayPageForSession(input: {
     }
 
     const accountRow = account as ManagedGatewayAccountRow
+    if (accountRow.gateway_enabled !== true) {
+      return { error: "Gateway nao foi liberado para esta conta pelo admin." }
+    }
+
     const whopConnected = Boolean(accountRow.whop_key && accountRow.whop_company_id)
     let payoutMethods: GatewayPayoutMethod[] = []
 
@@ -371,12 +376,21 @@ export async function saveGatewayUserConfig(input: {
 
     const { data: account } = await supabaseAdmin
       .from("managed_accounts")
-      .select("id, profile_id")
+      .select("id, profile_id, gateway_enabled")
       .eq("profile_id", input.userId)
       .maybeSingle()
 
     if (!account) {
       return { error: "Conta nao encontrada." }
+    }
+
+    const platform = await readPlatformGatewaySettings()
+    if (!platform.settings.enabled) {
+      return { error: "O modo gateway global esta desativado." }
+    }
+
+    if (account.gateway_enabled !== true) {
+      return { error: "Gateway nao foi liberado para esta conta pelo admin." }
     }
 
     const { error } = await supabaseAdmin
@@ -419,7 +433,7 @@ export async function loadGatewayRuntimeForAccount(input: {
   const { data: account } = await supabaseAdmin
     .from("managed_accounts")
     .select(
-      "id, whop_key, whop_company_id, gateway_payout_method_id, gateway_auto_payout_enabled"
+      "id, whop_key, whop_company_id, gateway_enabled, gateway_payout_method_id, gateway_auto_payout_enabled"
     )
     .eq("id", input.accountId)
     .maybeSingle()
@@ -430,6 +444,7 @@ export async function loadGatewayRuntimeForAccount(input: {
 
   const accountRow = account as ManagedGatewayAccountRow
   if (
+    accountRow.gateway_enabled !== true ||
     !accountRow.whop_key ||
     !accountRow.whop_company_id ||
     !accountRow.gateway_payout_method_id ||

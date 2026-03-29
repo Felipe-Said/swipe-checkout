@@ -1,0 +1,2 @@
+ALTER TABLE managed_accounts
+ADD COLUMN IF NOT EXISTS gateway_enabled BOOLEAN NOT NULL DEFAULT FALSE;

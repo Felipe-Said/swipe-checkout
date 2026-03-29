@@ -563,9 +563,9 @@ export async function createWithdrawalForSession(input: {
       }
 
       let whopTransferId: string | null = null
+      const platformClient = new Whop({ apiKey: gatewayRuntime.platformApiKey })
       if (feeAmount > 0) {
         try {
-          const platformClient = new Whop({ apiKey: gatewayRuntime.platformApiKey })
           const transfer = await platformClient.transfers.create({
             amount: feeAmount,
             currency: normalizeWhopCurrency(input.currency),
@@ -602,6 +602,25 @@ export async function createWithdrawalForSession(input: {
           platform_covers_fees: gatewayRuntime.platformCoversFees,
         })
       } catch (error) {
+        if (feeAmount > 0 && whopTransferId) {
+          try {
+            await platformClient.transfers.create({
+              amount: feeAmount,
+              currency: normalizeWhopCurrency(input.currency),
+              origin_id: gatewayRuntime.platformCompanyId,
+              destination_id: gatewayRuntime.accountWhopCompanyId,
+              notes: "Swipe gateway fee reversal",
+              metadata: {
+                swipe_account_id: account.id,
+                swipe_user_id: input.userId,
+                swipe_original_transfer_id: whopTransferId,
+              },
+            })
+          } catch {
+            // Best effort reversal; the failure is still surfaced below.
+          }
+        }
+
         return {
           error:
             error instanceof Error

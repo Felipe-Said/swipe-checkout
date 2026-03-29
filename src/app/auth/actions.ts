@@ -31,6 +31,7 @@ async function ensureManagedAccount(userId: string, name: string, role: "admin" 
       withdrawals_enabled: true,
       messenger_enabled: true,
       gateway_auto_payout_enabled: false,
+      gateway_enabled: false,
       payment_mode: "manual",
       settlement_started_at: new Date().toISOString(),
     })
@@ -136,7 +137,7 @@ export async function resolveLoginProfile(userId: string) {
 
   const { data: managedAccount } = await supabaseAdmin
     .from("managed_accounts")
-    .select("id, whop_key, key_frozen, withdrawals_enabled, messenger_enabled")
+    .select("id, whop_key, key_frozen, withdrawals_enabled, messenger_enabled, gateway_enabled")
     .eq("id", ensuredAccount.accountId)
     .maybeSingle()
 
@@ -158,6 +159,8 @@ export async function resolveLoginProfile(userId: string) {
       withdrawalsEnabled: managedAccount?.withdrawals_enabled !== false,
       messengerEnabled: managedAccount?.messenger_enabled !== false,
       gatewayModeEnabled: gatewaySettings?.enabled === true,
+      gatewayEnabled:
+        profile.role === "admin" ? true : managedAccount?.gateway_enabled === true,
       status: profile.status,
     },
   }

@@ -40,6 +40,7 @@ type AdminCustomerAccount = {
   keyFrozen: boolean
   withdrawalsEnabled: boolean
   messengerEnabled: boolean
+  gatewayEnabled: boolean
   billingCycleDays: number
 }
 
@@ -155,6 +156,7 @@ export default function CustomersAdminPage() {
     keyFrozen?: boolean
     withdrawalsEnabled?: boolean
     messengerEnabled?: boolean
+    gatewayEnabled?: boolean
     status?: "Ativa" | "Bloqueada"
   }) => {
     if (!selectedAccount || !sessionUserId) return
@@ -476,6 +478,22 @@ export default function CustomersAdminPage() {
                     checked={selectedAccount.messengerEnabled}
                     onChange={(e) =>
                       void handleAccountPatch({ messengerEnabled: e.target.checked })
+                    }
+                    className="h-4 w-4"
+                  />
+                </div>
+                <div className="flex items-center justify-between rounded-lg border p-3">
+                  <div>
+                    <div className="font-medium">Gateway liberado para esta conta</div>
+                    <div className="text-sm text-muted-foreground">
+                      Quando ativado junto com o Modo Gateway global, este usuario passa a ver a pagina Gateway.
+                    </div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={selectedAccount.gatewayEnabled}
+                    onChange={(e) =>
+                      void handleAccountPatch({ gatewayEnabled: e.target.checked })
                     }
                     className="h-4 w-4"
                   />

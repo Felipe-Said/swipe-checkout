@@ -196,6 +196,9 @@ export default function GatewayPage() {
         </Card>
       ) : null}
 
+      {!enabled ? null : (
+        <>
+
       {warnings.length > 0 ? (
         <Card className="border-amber-500/20 bg-amber-500/5">
           <CardHeader>
@@ -390,6 +393,8 @@ export default function GatewayPage() {
             </CardContent>
           </Card>
         </div>
+      )}
+        </>
       )}
     </div>
   )

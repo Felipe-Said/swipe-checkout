@@ -139,7 +139,8 @@ export function MainSidebar({
           },
         ]
       : []),
-    ...(session.gatewayModeEnabled
+    ...((session.role === "admin" && session.gatewayModeEnabled) ||
+    (session.role === "user" && session.gatewayModeEnabled && session.gatewayEnabled)
       ? [
           {
             title: session.role === "admin" ? t("nav.gateway_mode") : t("nav.gateway"),
