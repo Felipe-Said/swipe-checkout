@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { ChevronDown, Info, ShieldCheck, ShoppingBag } from "lucide-react"
+import { ChevronDown, Info, LocateFixed, ShieldCheck, ShoppingBag } from "lucide-react"
 import { WhopCheckoutEmbed, useCheckoutEmbedControls } from "@whop/checkout/react"
 
 import { cn } from "@/lib/utils"
@@ -197,9 +197,38 @@ const DANIEL_CHECKOUT_CSS = `
   line-height: 1.25;
 }
 
+[data-swipe-slot="daniel-shell"] .section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+[data-swipe-slot="daniel-shell"] .section-header .section-title {
+  margin-bottom: 0;
+}
+
+[data-swipe-slot="daniel-shell"] .location-fill-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font-size: 0.84rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+[data-swipe-slot="daniel-shell"] .location-fill-button:disabled {
+  opacity: 0.6;
+}
+
 [data-swipe-slot="daniel-shell"] .field-wrap {
   position: relative;
   width: 100%;
+  min-width: 0;
 }
 
 [data-swipe-slot="daniel-shell"] .field-wrap + .field-wrap,
@@ -219,6 +248,7 @@ const DANIEL_CHECKOUT_CSS = `
 [data-swipe-slot="daniel-shell"] .field,
 [data-swipe-slot="daniel-shell"] .select-field {
   width: 100%;
+  min-width: 0;
   min-height: 3.3rem;
   border: 1px solid var(--daniel-border, rgba(0, 0, 0, 0.14));
   border-radius: 0.875rem;
@@ -924,6 +954,8 @@ export function ShopifyCheckout({
     zip: "",
   })
   const [selectedShippingId, setSelectedShippingId] = React.useState<string | null>(null)
+  const [isResolvingLocation, setIsResolvingLocation] = React.useState(false)
+  const [locationFillError, setLocationFillError] = React.useState<string | null>(null)
   const isMobile = device === "mobile"
   const isOnePage = config.layoutStyle === "one-page"
   const isDanielStyle = config.layoutStyle === "daniel"
@@ -1006,6 +1038,70 @@ export function ShopifyCheckout({
   const formattedTotalPrice = formatPrice(totalPrice, resolvedLocale, effectiveCurrency)
   const hasCustomLayout = shouldUseCustomLayoutMode(config.customCss ?? "")
   const injectedCustomCss = React.useMemo(() => buildInjectedCheckoutCss(config.customCss ?? ""), [config.customCss])
+  const handleUseCurrentLocation = React.useCallback(async () => {
+    if (typeof window === "undefined" || typeof navigator === "undefined" || !navigator.geolocation) {
+      setLocationFillError(resolveDanielLocationError(resolvedLocale, "unsupported"))
+      return
+    }
+
+    setIsResolvingLocation(true)
+    setLocationFillError(null)
+
+    try {
+      const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          enableHighAccuracy: true,
+          timeout: 12000,
+          maximumAge: 300000,
+        })
+      })
+
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=jsonv2&addressdetails=1&lat=${position.coords.latitude}&lon=${position.coords.longitude}`,
+        {
+          headers: {
+            Accept: "application/json",
+          },
+        }
+      )
+
+      if (!response.ok) {
+        throw new Error(`reverse_geocode_${response.status}`)
+      }
+
+      const payload = (await response.json()) as {
+        address?: Record<string, string | undefined>
+      }
+
+      const address = payload.address ?? {}
+      const stateValue = resolveDanielStateValue(address)
+
+      setDeliveryData((prev) => ({
+        ...prev,
+        address: buildDanielAddressLine(address) || prev.address,
+        city:
+          address.city ||
+          address.town ||
+          address.village ||
+          address.municipality ||
+          prev.city,
+        state: stateValue || prev.state,
+        zip: address.postcode || prev.zip,
+      }))
+    } catch (error) {
+      const code =
+        typeof error === "object" &&
+        error &&
+        "code" in error &&
+        typeof (error as { code?: unknown }).code === "number"
+          ? (error as { code: number }).code
+          : undefined
+
+      setLocationFillError(resolveDanielLocationError(resolvedLocale, code))
+    } finally {
+      setIsResolvingLocation(false)
+    }
+  }, [resolvedLocale])
 
   React.useEffect(() => {
     if (availableShippingMethods.length === 0) {
@@ -1236,9 +1332,30 @@ export function ShopifyCheckout({
               <div className="divider" />
 
               <section className="section" data-swipe-slot="daniel-delivery">
-                <h2 className="section-title" style={{ color: config.checkoutTextColor }}>
-                  {copy.delivery}
-                </h2>
+                <div className="section-header">
+                  <h2 className="section-title" style={{ color: config.checkoutTextColor }}>
+                    {copy.delivery}
+                  </h2>
+                  <button
+                    type="button"
+                    className="location-fill-button"
+                    onClick={() => void handleUseCurrentLocation()}
+                    disabled={isResolvingLocation}
+                    style={{ color: config.checkoutAccentColor }}
+                  >
+                    <LocateFixed className="h-4 w-4" />
+                    <span>
+                      {isResolvingLocation
+                        ? resolveDanielLocationLoadingLabel(resolvedLocale)
+                        : resolveDanielLocationActionLabel(resolvedLocale)}
+                    </span>
+                  </button>
+                </div>
+                {locationFillError ? (
+                  <p className="section-note" style={{ marginTop: 0, marginBottom: "0.9rem" }}>
+                    {locationFillError}
+                  </p>
+                ) : null}
                 <div className="field-wrap">
                   <label className="floating-label" htmlFor="daniel-country">
                     {resolveDanielCountryRegionLabel(resolvedLocale)}
@@ -2060,6 +2177,100 @@ function resolveDanielFreeLabel(locale: SupportedLocale) {
     default:
       return "FREE"
   }
+}
+
+function resolveDanielLocationActionLabel(locale: SupportedLocale) {
+  switch (locale) {
+    case "pt-BR":
+      return "Usar localizacao atual"
+    case "es-ES":
+      return "Usar ubicacion actual"
+    case "fr-FR":
+      return "Utiliser la position actuelle"
+    case "de-DE":
+      return "Aktuellen Standort verwenden"
+    default:
+      return "Use current location"
+  }
+}
+
+function resolveDanielLocationLoadingLabel(locale: SupportedLocale) {
+  switch (locale) {
+    case "pt-BR":
+      return "Localizando..."
+    case "es-ES":
+      return "Ubicando..."
+    case "fr-FR":
+      return "Localisation..."
+    case "de-DE":
+      return "Standort wird ermittelt..."
+    default:
+      return "Locating..."
+  }
+}
+
+function resolveDanielLocationError(locale: SupportedLocale, code?: number | string) {
+  if (code === 1) {
+    switch (locale) {
+      case "pt-BR":
+        return "Permita o acesso a localizacao para preencher os dados de entrega."
+      case "es-ES":
+        return "Permite el acceso a la ubicacion para completar la entrega."
+      case "fr-FR":
+        return "Autorisez la localisation pour remplir la livraison."
+      case "de-DE":
+        return "Erlaube den Standortzugriff fur die Lieferdaten."
+      default:
+        return "Allow location access to fill the delivery details."
+    }
+  }
+
+  switch (locale) {
+    case "pt-BR":
+      return "Nao foi possivel preencher a entrega com a sua localizacao agora."
+    case "es-ES":
+      return "No fue posible completar la entrega con tu ubicacion ahora."
+    case "fr-FR":
+      return "Impossible de remplir la livraison avec votre position pour le moment."
+    case "de-DE":
+      return "Die Lieferdaten konnten gerade nicht uber deinen Standort ausgefullt werden."
+    default:
+      return "We could not fill the delivery details from your location right now."
+  }
+}
+
+function buildDanielAddressLine(address: Record<string, string | undefined>) {
+  const streetParts = [
+    address.house_number,
+    address.road || address.pedestrian || address.cycleway || address.footway,
+  ].filter(Boolean)
+
+  if (streetParts.length > 0) {
+    return streetParts.join(" ")
+  }
+
+  return (
+    address.suburb ||
+    address.neighbourhood ||
+    address.hamlet ||
+    address.quarter ||
+    ""
+  )
+}
+
+function resolveDanielStateValue(address: Record<string, string | undefined>) {
+  const stateCode = (address.state_code || "").trim().toUpperCase()
+  if (stateCode && US_STATES.some((state) => state.value === stateCode)) {
+    return stateCode
+  }
+
+  const stateName = (address.state || "").trim().toLowerCase()
+  if (!stateName) {
+    return ""
+  }
+
+  const match = US_STATES.find((state) => state.label.toLowerCase() === stateName)
+  return match?.value ?? ""
 }
 
 function ContactSection({
