@@ -97,6 +97,7 @@ type EditorConfig = {
   productName: string
   productVariantLabel: string
   productPrice: number
+  customCss: string
   buttonText: string
   layoutStyle: "classic" | "one-page"
   showCheckoutSteps: boolean
@@ -200,6 +201,7 @@ const initialConfig: EditorConfig = {
   productName: "Produto principal",
   productVariantLabel: "Variante padrao",
   productPrice: 0,
+  customCss: "",
   buttonText: "Finalizar Compra",
   layoutStyle: "classic",
   showCheckoutSteps: true,
@@ -643,6 +645,40 @@ export function EditorShell() {
       ...prev,
       [target]: "",
     }))
+  }
+
+  const handleCustomCssUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    const isValidType =
+      file.type === "text/css" ||
+      file.name.toLowerCase().endsWith(".css") ||
+      file.type === ""
+
+    if (!isValidType) {
+      event.target.value = ""
+      toast.error("Envie um arquivo CSS valido.")
+      return
+    }
+
+    const reader = new FileReader()
+    reader.onload = () => {
+      const result = reader.result
+      if (typeof result === "string") {
+        updateConfig((prev) => ({
+          ...prev,
+          customCss: result,
+        }))
+        event.target.value = ""
+        toast.success("CSS carregado no checkout.")
+      }
+    }
+    reader.onerror = () => {
+      event.target.value = ""
+      toast.error("Nao foi possivel ler o arquivo CSS.")
+    }
+    reader.readAsText(file)
   }
 
   const handleThankYouBackgroundUpload = (
@@ -1225,6 +1261,36 @@ export function EditorShell() {
                     />
                     <p className="text-xs text-muted-foreground">
                       Usado no checkout quando nao houver produto real da Shopify.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-4 rounded-lg border p-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="custom-css-upload">Arquivo CSS</Label>
+                    <Input
+                      id="custom-css-upload"
+                      type="file"
+                      accept=".css,text/css"
+                      onChange={handleCustomCssUpload}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Envie um arquivo CSS para personalizar o checkout publicado e o preview.
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="custom-css-editor">CSS customizado</Label>
+                    <Textarea
+                      id="custom-css-editor"
+                      value={config.customCss}
+                      onChange={(e) => handleUpdate("customCss", e.target.value)}
+                      placeholder={`[data-swipe-checkout-root] {\n  --meu-gap: 20px;\n}\n\n[data-swipe-device='mobile'] .meu-bloco {\n  padding: 16px;\n}\n\n@media (min-width: 1024px) {\n  [data-swipe-checkout-root] .meu-bloco {\n    max-width: 520px;\n  }\n}`}
+                      className="min-h-[240px] font-mono text-xs"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Use os seletores `data-swipe-checkout-root`, `data-swipe-device=&quot;desktop&quot;` e `data-swipe-device=&quot;mobile&quot;`
+                      para manter o CSS responsivo no preview e na pagina publicada.
                     </p>
                   </div>
                 </div>

@@ -87,6 +87,7 @@ interface CheckoutConfig {
   productName: string
   productVariantLabel: string
   productPrice: number
+  customCss: string
   buttonText: string
   layoutStyle: "classic" | "one-page"
   showCheckoutSteps: boolean
@@ -649,8 +650,13 @@ export function ShopifyCheckout({
   return (
     <div
       className={cn("min-h-full", config.fontFamily)}
+      data-swipe-checkout-root=""
+      data-swipe-device={device}
+      data-swipe-layout-style={config.layoutStyle}
+      data-swipe-page="checkout"
       style={{ backgroundColor: config.checkoutBackgroundColor, color: config.checkoutTextColor }}
     >
+      {config.customCss ? <style dangerouslySetInnerHTML={{ __html: config.customCss }} /> : null}
       {isMobile && !isOnePage ? (
         <div className="border-b p-4" style={{ backgroundColor: config.checkoutSurfaceColor, borderColor: config.checkoutMutedColor }}>
           <div className="flex items-center justify-between">
@@ -992,6 +998,10 @@ function ThankYouPage({
   return (
     <div
       className={cn("flex min-h-full items-center justify-center px-4 py-8 sm:px-6 sm:py-10", config.fontFamily)}
+      data-swipe-checkout-root=""
+      data-swipe-device={device}
+      data-swipe-layout-style={config.layoutStyle}
+      data-swipe-page="thank-you"
       style={{
         backgroundColor: config.checkoutBackgroundColor,
         color: config.checkoutTextColor,
@@ -1000,6 +1010,7 @@ function ThankYouPage({
         backgroundPosition: "center",
       }}
     >
+      {config.customCss ? <style dangerouslySetInnerHTML={{ __html: config.customCss }} /> : null}
       <div
         className="w-full max-w-[520px] rounded-[28px] border p-5 text-center shadow-sm sm:p-8"
         style={{
