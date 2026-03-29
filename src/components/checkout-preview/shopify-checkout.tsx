@@ -78,8 +78,327 @@ type CheckoutBehaviorTracking = {
   stage: "checkout" | "thank-you"
 }
 
+type ContactFormData = {
+  fullName: string
+  phone: string
+  email: string
+}
+
+type DeliveryFormData = {
+  firstName: string
+  lastName: string
+  address: string
+  apartment: string
+  city: string
+  state: string
+  zip: string
+}
+
 const CHECKOUT_CSS_SCOPE_SELECTOR = "[data-swipe-checkout-root]"
 const CUSTOM_LAYOUT_SELECTOR = `${CHECKOUT_CSS_SCOPE_SELECTOR}[data-swipe-custom-layout='true']`
+const DANIEL_CHECKOUT_CSS = `
+[data-swipe-slot="daniel-shell"] {
+  width: 100%;
+  max-width: 34rem;
+  margin: 0 auto;
+}
+
+[data-swipe-slot="daniel-shell"] .sf-checkout {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  width: 100%;
+}
+
+[data-swipe-slot="daniel-shell"] .sf-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0 0 1rem;
+}
+
+[data-swipe-slot="daniel-shell"] .sf-brand {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+[data-swipe-slot="daniel-shell"] .sf-brand img {
+  display: block;
+  max-height: 3rem;
+  width: auto;
+  max-width: 100%;
+}
+
+[data-swipe-slot="daniel-shell"] .sf-brand-text {
+  font-size: 1.05rem;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+[data-swipe-slot="daniel-shell"] .sf-cart {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  flex-shrink: 0;
+}
+
+[data-swipe-slot="daniel-shell"] .divider {
+  width: 100%;
+  height: 1px;
+  background: var(--daniel-divider, rgba(0, 0, 0, 0.08));
+}
+
+[data-swipe-slot="daniel-shell"] .summary {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 0;
+  background: transparent;
+  border: 0;
+  text-align: left;
+}
+
+[data-swipe-slot="daniel-shell"] .summary-left {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+[data-swipe-slot="daniel-shell"] .summary-left > span:first-child {
+  font-size: 0.95rem;
+  font-weight: 500;
+}
+
+[data-swipe-slot="daniel-shell"] .price {
+  font-size: 1rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+[data-swipe-slot="daniel-shell"] .summary-dropdown {
+  padding: 1rem 0 1.25rem;
+}
+
+[data-swipe-slot="daniel-shell"] .section {
+  padding: 1.35rem 0;
+}
+
+[data-swipe-slot="daniel-shell"] .section-title {
+  margin: 0 0 1rem;
+  font-size: 1.1rem;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+[data-swipe-slot="daniel-shell"] .field-wrap {
+  position: relative;
+  width: 100%;
+}
+
+[data-swipe-slot="daniel-shell"] .field-wrap + .field-wrap,
+[data-swipe-slot="daniel-shell"] .field-wrap + .row-2,
+[data-swipe-slot="daniel-shell"] .row-2 + .field-wrap,
+[data-swipe-slot="daniel-shell"] .section-title + .field-wrap,
+[data-swipe-slot="daniel-shell"] .section-title + .row-2 {
+  margin-top: 0.75rem;
+}
+
+[data-swipe-slot="daniel-shell"] .row-2 {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 0.75rem;
+}
+
+[data-swipe-slot="daniel-shell"] .field,
+[data-swipe-slot="daniel-shell"] .select-field {
+  width: 100%;
+  min-height: 3.3rem;
+  border: 1px solid var(--daniel-border, rgba(0, 0, 0, 0.14));
+  border-radius: 0.875rem;
+  background: var(--daniel-field-bg, #ffffff);
+  color: var(--daniel-text, #111111);
+  font-size: 0.95rem;
+  line-height: 1.4;
+  padding: 0.95rem 1rem;
+  outline: none;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+[data-swipe-slot="daniel-shell"] .select-field.has-floating {
+  appearance: none;
+  padding-top: 1.55rem;
+  padding-bottom: 0.5rem;
+}
+
+[data-swipe-slot="daniel-shell"] .field::placeholder {
+  color: var(--daniel-muted, rgba(0, 0, 0, 0.48));
+}
+
+[data-swipe-slot="daniel-shell"] .field:focus,
+[data-swipe-slot="daniel-shell"] .select-field:focus {
+  border-color: var(--daniel-accent, #005bd1);
+  box-shadow: 0 0 0 1px var(--daniel-accent, #005bd1);
+}
+
+[data-swipe-slot="daniel-shell"] .floating-label {
+  position: absolute;
+  top: 0.55rem;
+  left: 1rem;
+  font-size: 0.72rem;
+  font-weight: 500;
+  line-height: 1;
+  color: var(--daniel-muted, rgba(0, 0, 0, 0.48));
+  pointer-events: none;
+}
+
+[data-swipe-slot="daniel-shell"] .address-input {
+  padding-right: 2.85rem;
+}
+
+[data-swipe-slot="daniel-shell"] .address-icon {
+  position: absolute;
+  top: 50%;
+  right: 1rem;
+  width: 1rem;
+  height: 1rem;
+  transform: translateY(-50%);
+  color: var(--daniel-muted, rgba(0, 0, 0, 0.48));
+  pointer-events: none;
+}
+
+[data-swipe-slot="daniel-shell"] .shipping-option {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem;
+  border: 1px solid var(--daniel-border, rgba(0, 0, 0, 0.14));
+  border-radius: 1rem;
+  background: var(--daniel-field-bg, #ffffff);
+  text-align: left;
+  transition: border-color 0.18s ease, background-color 0.18s ease;
+}
+
+[data-swipe-slot="daniel-shell"] .shipping-option.active {
+  border-color: var(--daniel-accent, #005bd1);
+  background: var(--daniel-accent-soft, rgba(0, 91, 209, 0.08));
+}
+
+[data-swipe-slot="daniel-shell"] .shipping-option-left {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+[data-swipe-slot="daniel-shell"] .shipping-radio {
+  width: 0.95rem;
+  height: 0.95rem;
+  border-radius: 9999px;
+  border: 2px solid var(--daniel-accent, #005bd1);
+  background: var(--daniel-field-bg, #ffffff);
+  box-shadow: inset 0 0 0 3px var(--daniel-field-bg, #ffffff);
+  flex-shrink: 0;
+}
+
+[data-swipe-slot="daniel-shell"] .shipping-option.active .shipping-radio {
+  background: var(--daniel-accent, #005bd1);
+}
+
+[data-swipe-slot="daniel-shell"] .shipping-name {
+  font-size: 0.95rem;
+  font-weight: 500;
+  line-height: 1.35;
+}
+
+[data-swipe-slot="daniel-shell"] .shipping-price {
+  font-size: 0.92rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+[data-swipe-slot="daniel-shell"] .section-note {
+  margin-top: 0.75rem;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  color: var(--daniel-muted, rgba(0, 0, 0, 0.48));
+}
+
+[data-swipe-slot="daniel-shell"] .payment-frame {
+  overflow: hidden;
+  border: 1px solid var(--daniel-border, rgba(0, 0, 0, 0.14));
+  border-radius: 1rem;
+  background: #ffffff;
+}
+
+@media (max-width: 640px) {
+  [data-swipe-slot="daniel-shell"] .row-2 {
+    grid-template-columns: 1fr;
+  }
+}
+`
+
+const US_STATES = [
+  { value: "AL", label: "Alabama" },
+  { value: "AK", label: "Alaska" },
+  { value: "AZ", label: "Arizona" },
+  { value: "AR", label: "Arkansas" },
+  { value: "CA", label: "California" },
+  { value: "CO", label: "Colorado" },
+  { value: "CT", label: "Connecticut" },
+  { value: "DE", label: "Delaware" },
+  { value: "FL", label: "Florida" },
+  { value: "GA", label: "Georgia" },
+  { value: "HI", label: "Hawaii" },
+  { value: "ID", label: "Idaho" },
+  { value: "IL", label: "Illinois" },
+  { value: "IN", label: "Indiana" },
+  { value: "IA", label: "Iowa" },
+  { value: "KS", label: "Kansas" },
+  { value: "KY", label: "Kentucky" },
+  { value: "LA", label: "Louisiana" },
+  { value: "ME", label: "Maine" },
+  { value: "MD", label: "Maryland" },
+  { value: "MA", label: "Massachusetts" },
+  { value: "MI", label: "Michigan" },
+  { value: "MN", label: "Minnesota" },
+  { value: "MS", label: "Mississippi" },
+  { value: "MO", label: "Missouri" },
+  { value: "MT", label: "Montana" },
+  { value: "NE", label: "Nebraska" },
+  { value: "NV", label: "Nevada" },
+  { value: "NH", label: "New Hampshire" },
+  { value: "NJ", label: "New Jersey" },
+  { value: "NM", label: "New Mexico" },
+  { value: "NY", label: "New York" },
+  { value: "NC", label: "North Carolina" },
+  { value: "ND", label: "North Dakota" },
+  { value: "OH", label: "Ohio" },
+  { value: "OK", label: "Oklahoma" },
+  { value: "OR", label: "Oregon" },
+  { value: "PA", label: "Pennsylvania" },
+  { value: "RI", label: "Rhode Island" },
+  { value: "SC", label: "South Carolina" },
+  { value: "SD", label: "South Dakota" },
+  { value: "TN", label: "Tennessee" },
+  { value: "TX", label: "Texas" },
+  { value: "UT", label: "Utah" },
+  { value: "VT", label: "Vermont" },
+  { value: "VA", label: "Virginia" },
+  { value: "WA", label: "Washington" },
+  { value: "WV", label: "West Virginia" },
+  { value: "WI", label: "Wisconsin" },
+  { value: "WY", label: "Wyoming" },
+  { value: "DC", label: "District of Columbia" },
+]
 
 function findMatchingBrace(source: string, openIndex: number) {
   let depth = 0
@@ -590,15 +909,16 @@ export function ShopifyCheckout({
   const [isSummaryOpen, setIsSummaryOpen] = React.useState(false)
   const [resolvedLocale, setResolvedLocale] = React.useState<SupportedLocale>(config.locale)
   const [resolvedCurrency, setResolvedCurrency] = React.useState<SupportedCurrency>(config.currency)
-  const [contactData, setContactData] = React.useState({
+  const [contactData, setContactData] = React.useState<ContactFormData>({
     fullName: "",
     phone: "",
     email: "",
   })
-  const [deliveryData, setDeliveryData] = React.useState({
+  const [deliveryData, setDeliveryData] = React.useState<DeliveryFormData>({
     firstName: "",
     lastName: "",
     address: "",
+    apartment: "",
     city: "",
     state: "",
     zip: "",
@@ -660,7 +980,13 @@ export function ShopifyCheckout({
       method.active && config.selectedShippingMethodIds.includes(method.id)
   )
   const hasRealWhopPayment = Boolean(config.whop?.checkoutConfigurationId || config.whop?.planId)
-  const deliveryCompleted = Object.values(deliveryData).every((value) => value.trim().length > 0)
+  const deliveryCompleted =
+    deliveryData.firstName.trim().length > 0 &&
+    deliveryData.lastName.trim().length > 0 &&
+    deliveryData.address.trim().length > 0 &&
+    deliveryData.city.trim().length > 0 &&
+    deliveryData.state.trim().length > 0 &&
+    deliveryData.zip.trim().length > 0
   const selectedShipping =
     availableShippingMethods.find((method) => method.id === selectedShippingId) ?? null
   const effectiveCurrency = storePreview?.currency ?? resolvedCurrency
@@ -680,6 +1006,20 @@ export function ShopifyCheckout({
   const formattedTotalPrice = formatPrice(totalPrice, resolvedLocale, effectiveCurrency)
   const hasCustomLayout = shouldUseCustomLayoutMode(config.customCss ?? "")
   const injectedCustomCss = React.useMemo(() => buildInjectedCheckoutCss(config.customCss ?? ""), [config.customCss])
+
+  React.useEffect(() => {
+    if (availableShippingMethods.length === 0) {
+      if (selectedShippingId !== null) {
+        setSelectedShippingId(null)
+      }
+      return
+    }
+
+    const hasSelectedMethod = availableShippingMethods.some((method) => method.id === selectedShippingId)
+    if (!hasSelectedMethod) {
+      setSelectedShippingId(availableShippingMethods[0]?.id ?? null)
+    }
+  }, [availableShippingMethods, selectedShippingId])
 
   React.useEffect(() => {
     if (!behaviorEnabled || !behaviorTracking) return
@@ -798,147 +1138,322 @@ export function ShopifyCheckout({
 
       <div data-swipe-slot="checkout-shell" className={cn("min-h-full", isDanielStyle ? "mx-auto w-full max-w-[760px] px-4 py-6 sm:px-6 lg:px-8 lg:py-10" : isOnePage ? "mx-auto w-full max-w-[1120px] px-4 py-6 sm:px-6 lg:px-8 lg:py-10" : isMobile ? "px-6 py-7" : "flex min-h-full")}>
         {isDanielStyle ? (
-          <div data-swipe-slot="daniel-shell" className="mx-auto w-full max-w-[680px] space-y-5">
-            <div
-              data-swipe-slot="daniel-card"
-              className="overflow-hidden rounded-[28px] border shadow-[0_20px_60px_rgba(15,23,42,0.08)]"
-              style={{
-                backgroundColor: config.checkoutSurfaceColor,
-                borderColor: config.checkoutMutedColor,
-              }}
-            >
-              <div data-swipe-slot="daniel-header" className="space-y-5 px-5 py-6 sm:px-8 sm:py-8">
-                <CheckoutBrand config={config} />
-                <CheckoutTopBlock config={config} copy={copy} accentColor={config.checkoutAccentColor} isMobile={isMobile} />
-                <div
-                  data-swipe-slot="daniel-summary"
-                  className="rounded-[24px] border p-4 sm:p-5"
-                  style={{
-                    backgroundColor: withAlpha(config.checkoutBackgroundColor, 0.55),
-                    borderColor: config.checkoutMutedColor,
-                  }}
-                >
-                  <div className="space-y-4">
-                    <div className="flex items-start gap-4">
-                      <div className="min-w-0 flex-1">
-                        <p className="text-xs uppercase tracking-[0.24em]" style={{ color: config.checkoutMutedColor }}>
-                          {copy.orderSummary}
-                        </p>
-                        <div className="mt-3">
-                          <OrderItem
-                            config={config}
-                            name={productName}
-                            price={formattedPrice}
-                            variantLabel={variantLabel}
-                            imageSrc={productImageSrc}
-                          />
-                        </div>
-                      </div>
+          <div
+            data-swipe-slot="daniel-shell"
+            style={
+              {
+                "--daniel-accent": config.checkoutAccentColor,
+                "--daniel-accent-soft": withAlpha(config.checkoutAccentColor, 0.08),
+                "--daniel-border": config.checkoutMutedColor,
+                "--daniel-divider": withAlpha(config.checkoutMutedColor, 0.3),
+                "--daniel-text": config.checkoutTextColor,
+                "--daniel-muted": config.checkoutMutedColor,
+                "--daniel-field-bg": config.checkoutSurfaceColor,
+              } as React.CSSProperties
+            }
+          >
+            <style>{scopeCheckoutCss(DANIEL_CHECKOUT_CSS)}</style>
+            <div className="sf-checkout">
+              <div className="sf-header" data-swipe-slot="daniel-header">
+                <DanielBrandLockup config={config} />
+                <div className="sf-cart" aria-hidden="true" style={{ color: config.checkoutAccentColor }}>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" stroke="currentColor" fill="none" viewBox="0 0 14 14">
+                    <path d="m2.007 10.156.387-4.983a1 1 0 0 1 .997-.923h7.218a1 1 0 0 1 .997.923l.387 4.983c.11 1.403-1.16 2.594-2.764 2.594H4.771c-1.605 0-2.873-1.19-2.764-2.594" />
+                    <path d="M5 3.5c0-1.243.895-2.25 2-2.25S9 2.257 9 3.5V5c0 1.243-.895 2.25-2 2.25S5 6.243 5 5z" />
+                  </svg>
+                </div>
+              </div>
+
+              <div className="divider" />
+
+              <button
+                type="button"
+                className="summary"
+                data-swipe-slot="daniel-summary-toggle"
+                onClick={() => setIsSummaryOpen((current) => !current)}
+                style={{ color: config.checkoutTextColor }}
+              >
+                <div className="summary-left">
+                  <span>{copy.orderSummary}</span>
+                  <ChevronDown
+                    className={cn("h-4 w-4 transition-transform", isSummaryOpen && "rotate-180")}
+                    style={{ color: config.checkoutAccentColor }}
+                  />
+                </div>
+                <div className="price">{formattedTotalPrice}</div>
+              </button>
+
+              {isSummaryOpen ? (
+                <>
+                  <div className="summary-dropdown" id="dropdown" data-swipe-slot="daniel-summary-dropdown">
+                    <div className="space-y-4">
+                      <OrderItem
+                        config={config}
+                        name={productName}
+                        price={formattedPrice}
+                        variantLabel={variantLabel}
+                        imageSrc={productImageSrc}
+                      />
+                      <SummaryRows
+                        copy={copy}
+                        config={config}
+                        subtotalPrice={formattedPrice}
+                        shippingPrice={shippingPrice}
+                        totalPrice={formattedTotalPrice}
+                        locale={resolvedLocale}
+                        currency={effectiveCurrency}
+                      />
                     </div>
-                    <SummaryRows
-                      copy={copy}
-                      config={config}
-                      subtotalPrice={formattedPrice}
-                      shippingPrice={shippingPrice}
-                      totalPrice={formattedTotalPrice}
-                      locale={resolvedLocale}
-                      currency={effectiveCurrency}
+                  </div>
+                  <div className="divider" />
+                </>
+              ) : (
+                <div className="divider" />
+              )}
+
+              <section className="section" data-swipe-slot="daniel-contact">
+                <h2 className="section-title" style={{ color: config.checkoutTextColor }}>
+                  {copy.contact}
+                </h2>
+                <div className="field-wrap">
+                  <input
+                    id="daniel-email"
+                    className="field"
+                    type="email"
+                    placeholder={copy.email}
+                    autoComplete="email"
+                    value={contactData.email}
+                    onChange={(event) =>
+                      setContactData((prev) => ({
+                        ...prev,
+                        email: event.target.value,
+                      }))
+                    }
+                  />
+                </div>
+              </section>
+
+              <div className="divider" />
+
+              <section className="section" data-swipe-slot="daniel-delivery">
+                <h2 className="section-title" style={{ color: config.checkoutTextColor }}>
+                  {copy.delivery}
+                </h2>
+                <div className="field-wrap">
+                  <label className="floating-label" htmlFor="daniel-country">
+                    {resolveDanielCountryRegionLabel(resolvedLocale)}
+                  </label>
+                  <select
+                    id="daniel-country"
+                    className="select-field has-floating"
+                    value={resolveDanielCountryValue(resolvedLocale)}
+                    disabled
+                    aria-label={resolveDanielCountryRegionLabel(resolvedLocale)}
+                  >
+                    <option>{resolveDanielCountryName(resolvedLocale)}</option>
+                  </select>
+                </div>
+                <div className="row-2">
+                  <div className="field-wrap">
+                    <input
+                      id="daniel-first-name"
+                      className="field"
+                      type="text"
+                      placeholder={resolveDanielFirstNamePlaceholder(resolvedLocale)}
+                      autoComplete="given-name"
+                      value={deliveryData.firstName}
+                      onChange={(event) =>
+                        setDeliveryData((prev) => ({
+                          ...prev,
+                          firstName: event.target.value,
+                        }))
+                      }
+                    />
+                  </div>
+                  <div className="field-wrap">
+                    <input
+                      id="daniel-last-name"
+                      className="field"
+                      type="text"
+                      placeholder={copy.lastName}
+                      autoComplete="family-name"
+                      value={deliveryData.lastName}
+                      onChange={(event) =>
+                        setDeliveryData((prev) => ({
+                          ...prev,
+                          lastName: event.target.value,
+                        }))
+                      }
                     />
                   </div>
                 </div>
-              </div>
-
-              <div data-swipe-slot="daniel-sections" className="space-y-4 border-t px-5 py-5 sm:px-8 sm:py-8" style={{ borderColor: config.checkoutMutedColor }}>
-                <DanielSectionCard slot="daniel-contact-card" config={config} title={copy.contact}>
-                  <ContactSection
-                    config={config}
-                    compact
-                    copy={copy}
-                    contactData={contactData}
-                    onChange={setContactData}
-                    hideTitle
-                  />
-                </DanielSectionCard>
-
-                <DanielSectionCard slot="daniel-delivery-card" config={config} title={copy.delivery}>
-                  <DeliverySection
-                    config={config}
-                    compact
-                    copy={copy}
-                    deliveryData={deliveryData}
-                    onChange={setDeliveryData}
-                    hideTitle
-                  />
-                </DanielSectionCard>
-
-                <DanielSectionCard slot="daniel-shipping-card" config={config} title={copy.shippingOptionsTitle}>
-                  <ShippingSection
-                    config={config}
-                    copy={copy}
-                    deliveryCompleted={deliveryCompleted}
-                    methods={availableShippingMethods}
-                    selectedShippingId={selectedShippingId}
-                    onSelect={setSelectedShippingId}
-                    locale={resolvedLocale}
-                    currency={effectiveCurrency}
-                    hideTitle
-                  />
-                </DanielSectionCard>
-
-                <DanielSectionCard slot="daniel-payment-card" config={config} title={copy.payment}>
-                  <PaymentSection
-                    config={config}
-                    copy={copy}
-                    locale={resolvedLocale}
-                    contactData={contactData}
-                    deliveryData={deliveryData}
-                    hideTitle
-                    onPaymentViewed={
-                      behaviorEnabled && behaviorTracking
-                        ? () =>
-                            trackCheckoutBehaviorEvent({
-                              checkoutId: behaviorTracking.checkoutId,
-                              eventType: "payment_viewed",
-                              metadata: {
-                                device,
-                                layoutStyle: config.layoutStyle,
-                              },
-                            })
-                        : undefined
-                    }
-                    onPaymentStarted={
-                      behaviorEnabled && behaviorTracking
-                        ? () =>
-                            trackCheckoutBehaviorEvent({
-                              checkoutId: behaviorTracking.checkoutId,
-                              eventType: "payment_started",
-                              metadata: {
-                                device,
-                                layoutStyle: config.layoutStyle,
-                              },
-                            })
-                        : undefined
+                <div className="field-wrap">
+                  <input
+                    id="daniel-address"
+                    className="field address-input"
+                    type="text"
+                    placeholder={copy.address}
+                    autoComplete="address-line1"
+                    value={deliveryData.address}
+                    onChange={(event) =>
+                      setDeliveryData((prev) => ({
+                        ...prev,
+                        address: event.target.value,
+                      }))
                     }
                   />
-                </DanielSectionCard>
-
-                {config.showCouponField ? (
-                  <div data-swipe-slot="daniel-coupon">
-                    <CouponBar config={config} copy={copy} />
-                  </div>
-                ) : null}
-
-                {!hasRealWhopPayment ? (
-                  <div data-swipe-slot="daniel-buy-button" className="pt-2">
-                    <BuyButton config={config} label={config.buttonText} />
-                  </div>
-                ) : null}
-
-                <div data-swipe-slot="daniel-policies" className="space-y-4">
-                  <PolicyLinks config={config} compact copy={copy} />
-                  <CheckoutFooter compact config={config} copy={copy} />
+                  <svg className="address-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="11" cy="11" r="7" />
+                    <path d="M20 20L17 17" />
+                  </svg>
                 </div>
-              </div>
+                <div className="field-wrap">
+                  <input
+                    id="daniel-apartment"
+                    className="field"
+                    type="text"
+                    placeholder={resolveDanielApartmentPlaceholder(resolvedLocale)}
+                    autoComplete="address-line2"
+                    value={deliveryData.apartment}
+                    onChange={(event) =>
+                      setDeliveryData((prev) => ({
+                        ...prev,
+                        apartment: event.target.value,
+                      }))
+                    }
+                  />
+                </div>
+                <div className="field-wrap">
+                  <input
+                    id="daniel-city"
+                    className="field"
+                    type="text"
+                    placeholder={copy.city}
+                    autoComplete="address-level2"
+                    value={deliveryData.city}
+                    onChange={(event) =>
+                      setDeliveryData((prev) => ({
+                        ...prev,
+                        city: event.target.value,
+                      }))
+                    }
+                  />
+                </div>
+                <div className="field-wrap">
+                  <label className="floating-label" htmlFor="daniel-state">
+                    {copy.state}
+                  </label>
+                  <select
+                    id="daniel-state"
+                    className="select-field has-floating"
+                    autoComplete="address-level1"
+                    value={deliveryData.state}
+                    onChange={(event) =>
+                      setDeliveryData((prev) => ({
+                        ...prev,
+                        state: event.target.value,
+                      }))
+                    }
+                  >
+                    <option value="">{resolveDanielSelectStateLabel(resolvedLocale)}</option>
+                    {US_STATES.map((state) => (
+                      <option key={state.value} value={state.value}>
+                        {state.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="field-wrap">
+                  <input
+                    id="daniel-zip"
+                    className="field"
+                    type="text"
+                    placeholder={copy.zip}
+                    autoComplete="postal-code"
+                    value={deliveryData.zip}
+                    onChange={(event) =>
+                      setDeliveryData((prev) => ({
+                        ...prev,
+                        zip: event.target.value,
+                      }))
+                    }
+                  />
+                </div>
+              </section>
+
+              <div className="divider" />
+
+              <section className="section" data-swipe-slot="daniel-shipping">
+                <h2 className="section-title" style={{ color: config.checkoutTextColor }}>
+                  {resolveDanielShippingMethodTitle(resolvedLocale)}
+                </h2>
+                {availableShippingMethods.length > 0 ? (
+                  <div className="space-y-3">
+                    {availableShippingMethods.map((method, index) => {
+                      const isActive = selectedShippingId ? selectedShippingId === method.id : index === 0
+                      return (
+                        <button
+                          key={method.id}
+                          type="button"
+                          className={cn("shipping-option", isActive && "active")}
+                          onClick={() => setSelectedShippingId(method.id)}
+                          style={{ color: config.checkoutTextColor }}
+                        >
+                          <div className="shipping-option-left">
+                            <div className="shipping-radio" aria-hidden="true" />
+                            <div className="shipping-name">{method.name}</div>
+                          </div>
+                          <div className="shipping-price">
+                            {method.price <= 0 ? resolveDanielFreeLabel(resolvedLocale) : formatPrice(method.price, resolvedLocale, effectiveCurrency)}
+                          </div>
+                        </button>
+                      )
+                    })}
+                  </div>
+                ) : (
+                  <p className="section-note">{copy.shippingFillDelivery}</p>
+                )}
+              </section>
+
+              <div className="divider" />
+
+              <section className="section" data-swipe-slot="daniel-payment">
+                <PaymentSection
+                  config={config}
+                  copy={copy}
+                  locale={resolvedLocale}
+                  contactData={contactData}
+                  deliveryData={deliveryData}
+                  hideTitle
+                  variant="daniel"
+                  onPaymentViewed={
+                    behaviorEnabled && behaviorTracking
+                      ? () =>
+                          trackCheckoutBehaviorEvent({
+                            checkoutId: behaviorTracking.checkoutId,
+                            eventType: "payment_viewed",
+                            metadata: {
+                              device,
+                              layoutStyle: config.layoutStyle,
+                            },
+                          })
+                      : undefined
+                  }
+                  onPaymentStarted={
+                    behaviorEnabled && behaviorTracking
+                      ? () =>
+                          trackCheckoutBehaviorEvent({
+                            checkoutId: behaviorTracking.checkoutId,
+                            eventType: "payment_started",
+                            metadata: {
+                              device,
+                              layoutStyle: config.layoutStyle,
+                            },
+                          })
+                      : undefined
+                  }
+                />
+              </section>
             </div>
           </div>
         ) : isOnePage ? (
@@ -1405,34 +1920,146 @@ function CheckoutProgress({ copy, accentColor }: { copy: Copy; accentColor: stri
   )
 }
 
-function DanielSectionCard({
-  slot,
-  config,
-  title,
-  children,
-}: {
-  slot: string
-  config: CheckoutConfig
-  title: string
-  children: React.ReactNode
-}) {
-  return (
-    <section
-      data-swipe-slot={slot}
-      className="rounded-[24px] border p-4 sm:p-5"
-      style={{
-        borderColor: config.checkoutMutedColor,
-        backgroundColor: withAlpha(config.checkoutBackgroundColor, 0.48),
-      }}
-    >
-      <div className="mb-4 flex items-center justify-between gap-3">
-        <h3 className="text-sm font-semibold uppercase tracking-[0.18em]" style={{ color: config.checkoutTextColor }}>
-          {title}
-        </h3>
+function DanielBrandLockup({ config }: { config: CheckoutConfig }) {
+  if (config.showLogo && config.logoDisplayMode === "image" && config.logoSrc) {
+    return (
+      <div className="sf-brand">
+        <img
+          src={config.logoSrc}
+          alt={config.companyName}
+          style={{ maxWidth: `${Math.max(96, config.logoWidth)}px` }}
+        />
       </div>
-      {children}
-    </section>
+    )
+  }
+
+  return (
+    <div className="sf-brand">
+      <span className="sf-brand-text" style={{ color: config.checkoutTextColor }}>
+        {config.companyName}
+      </span>
+    </div>
   )
+}
+
+function resolveDanielCountryRegionLabel(locale: SupportedLocale) {
+  switch (locale) {
+    case "pt-BR":
+      return "Pais/Regiao"
+    case "es-ES":
+      return "Pais/Region"
+    case "fr-FR":
+      return "Pays/Region"
+    case "de-DE":
+      return "Land/Region"
+    default:
+      return "Country/Region"
+  }
+}
+
+function resolveDanielCountryName(locale: SupportedLocale) {
+  switch (locale) {
+    case "pt-BR":
+      return "Brasil"
+    case "es-ES":
+      return "Espana"
+    case "fr-FR":
+      return "France"
+    case "de-DE":
+      return "Deutschland"
+    default:
+      return "United States"
+  }
+}
+
+function resolveDanielCountryValue(locale: SupportedLocale) {
+  switch (locale) {
+    case "pt-BR":
+      return "BR"
+    case "es-ES":
+      return "ES"
+    case "fr-FR":
+      return "FR"
+    case "de-DE":
+      return "DE"
+    default:
+      return "US"
+  }
+}
+
+function resolveDanielFirstNamePlaceholder(locale: SupportedLocale) {
+  switch (locale) {
+    case "en-US":
+      return "First name (optional)"
+    case "es-ES":
+      return "Nombre (opcional)"
+    case "fr-FR":
+      return "Prenom (optionnel)"
+    case "de-DE":
+      return "Vorname (optional)"
+    default:
+      return "Nome (opcional)"
+  }
+}
+
+function resolveDanielApartmentPlaceholder(locale: SupportedLocale) {
+  switch (locale) {
+    case "en-US":
+      return "Apartment, suite, etc. (optional)"
+    case "es-ES":
+      return "Apartamento, suite, etc. (opcional)"
+    case "fr-FR":
+      return "Appartement, suite, etc. (optionnel)"
+    case "de-DE":
+      return "Wohnung, Suite usw. (optional)"
+    default:
+      return "Apartamento, suite, etc. (opcional)"
+  }
+}
+
+function resolveDanielSelectStateLabel(locale: SupportedLocale) {
+  switch (locale) {
+    case "pt-BR":
+      return "Selecione o estado"
+    case "es-ES":
+      return "Selecciona el estado"
+    case "fr-FR":
+      return "Selectionnez la region"
+    case "de-DE":
+      return "Bundesland auswahlen"
+    default:
+      return "Select state"
+  }
+}
+
+function resolveDanielShippingMethodTitle(locale: SupportedLocale) {
+  switch (locale) {
+    case "pt-BR":
+      return "Metodo de entrega"
+    case "es-ES":
+      return "Metodo de envio"
+    case "fr-FR":
+      return "Mode de livraison"
+    case "de-DE":
+      return "Versandart"
+    default:
+      return "Shipping method"
+  }
+}
+
+function resolveDanielFreeLabel(locale: SupportedLocale) {
+  switch (locale) {
+    case "pt-BR":
+      return "GRATIS"
+    case "es-ES":
+      return "GRATIS"
+    case "fr-FR":
+      return "GRATUIT"
+    case "de-DE":
+      return "KOSTENLOS"
+    default:
+      return "FREE"
+  }
 }
 
 function ContactSection({
@@ -1510,24 +2137,8 @@ function DeliverySection({
   config: CheckoutConfig
   compact: boolean
   copy: Copy
-  deliveryData: {
-    firstName: string
-    lastName: string
-    address: string
-    city: string
-    state: string
-    zip: string
-  }
-  onChange: React.Dispatch<
-    React.SetStateAction<{
-      firstName: string
-      lastName: string
-      address: string
-      city: string
-      state: string
-      zip: string
-    }>
-  >
+  deliveryData: DeliveryFormData
+  onChange: React.Dispatch<React.SetStateAction<DeliveryFormData>>
   hideTitle?: boolean
 }) {
   return (
@@ -1631,26 +2242,17 @@ function PaymentSection({
   onPaymentViewed,
   onPaymentStarted,
   hideTitle = false,
+  variant = "default",
 }: {
   config: CheckoutConfig
   copy: Copy
   locale: SupportedLocale
-  contactData: {
-    fullName: string
-    phone: string
-    email: string
-  }
-  deliveryData: {
-    firstName: string
-    lastName: string
-    address: string
-    city: string
-    state: string
-    zip: string
-  }
+  contactData: ContactFormData
+  deliveryData: DeliveryFormData
   onPaymentViewed?: () => void | Promise<void>
   onPaymentStarted?: () => void | Promise<void>
   hideTitle?: boolean
+  variant?: "default" | "daniel"
 }) {
   const hasRealWhopCheckout = Boolean(config.whop?.purchaseUrl)
   const hasSelectedWhopAccount = Boolean(config.selectedWhopAccountId)
@@ -1676,12 +2278,22 @@ function PaymentSection({
         name: inferredFullName || undefined,
         country: resolveWhopCountry(locale),
         line1: deliveryData.address.trim() || undefined,
+        line2: deliveryData.apartment.trim() || undefined,
         city: deliveryData.city.trim() || undefined,
         state: deliveryData.state.trim() || undefined,
         postalCode: deliveryData.zip.trim() || undefined,
       },
     }),
-    [contactData.email, deliveryData.address, deliveryData.city, deliveryData.state, deliveryData.zip, inferredFullName, locale]
+    [
+      contactData.email,
+      deliveryData.address,
+      deliveryData.apartment,
+      deliveryData.city,
+      deliveryData.state,
+      deliveryData.zip,
+      inferredFullName,
+      locale,
+    ]
   )
   const embedReturnUrl = config.whop?.purchaseUrl ?? undefined
   const embedThemeOptions = React.useMemo(
@@ -1729,10 +2341,14 @@ function PaymentSection({
   return (
     <section data-swipe-slot="payment" ref={paymentSectionRef} className={cn("space-y-4", hideTitle ? "" : "pt-4")}>
       {!hideTitle ? <h2 className="text-lg font-medium" style={{ color: config.checkoutTextColor }}>{copy.payment}</h2> : null}
-      <p className="text-sm" style={{ color: config.checkoutMutedColor }}>{copy.paymentSafe}</p>
+      {variant !== "daniel" ? (
+        <p className="text-sm" style={{ color: config.checkoutMutedColor }}>{copy.paymentSafe}</p>
+      ) : null}
       {hasEmbeddedSession ? (
         <div
-          className="overflow-hidden rounded-md border bg-white"
+          className={cn(
+            variant === "daniel" ? "payment-frame" : "overflow-hidden rounded-md border bg-white"
+          )}
           style={{ borderColor: config.checkoutMutedColor }}
         >
           {config.whop?.checkoutConfigurationId ? (
@@ -1744,7 +2360,7 @@ function PaymentSection({
               themeOptions={embedThemeOptions}
               styles={embedStyles}
               hidePrice={config.whopHidePrice}
-              hideSubmitButton
+              hideSubmitButton={variant !== "daniel"}
               hideTermsAndConditions={config.whopHideTermsAndConditions}
               skipRedirect
               hideEmail={shouldHideEmbedEmail}
@@ -1762,7 +2378,7 @@ function PaymentSection({
               themeOptions={embedThemeOptions}
               styles={embedStyles}
               hidePrice={config.whopHidePrice}
-              hideSubmitButton
+              hideSubmitButton={variant !== "daniel"}
               hideTermsAndConditions={config.whopHideTermsAndConditions}
               skipRedirect
               hideEmail={shouldHideEmbedEmail}
@@ -1772,13 +2388,15 @@ function PaymentSection({
               returnUrl={embedReturnUrl}
             />
           )}
-          <div className="border-t px-4 pb-4 pt-3" style={{ borderColor: config.checkoutMutedColor }}>
-            <BuyButton
-              config={config}
-              label={config.buttonText}
-              onClick={handleEmbeddedCheckoutSubmit}
-            />
-          </div>
+          {variant !== "daniel" ? (
+            <div className="border-t px-4 pb-4 pt-3" style={{ borderColor: config.checkoutMutedColor }}>
+              <BuyButton
+                config={config}
+                label={config.buttonText}
+                onClick={handleEmbeddedCheckoutSubmit}
+              />
+            </div>
+          ) : null}
         </div>
       ) : (
         <div className="rounded-md border p-8 text-center" style={{ borderColor: config.checkoutMutedColor, backgroundColor: config.checkoutSurfaceColor, color: config.checkoutMutedColor }}>
