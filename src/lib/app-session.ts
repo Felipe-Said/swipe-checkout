@@ -9,6 +9,7 @@ export type AppSession = {
   keyFrozen: boolean
   withdrawalsEnabled: boolean
   messengerEnabled: boolean
+  gatewayModeEnabled: boolean
 }
 
 const APP_SESSION_STORAGE_KEY = "swipe-app-session"
@@ -33,6 +34,7 @@ export function readAppSession(): AppSession | null {
       ...session,
       withdrawalsEnabled: session.withdrawalsEnabled !== false,
       messengerEnabled: session.messengerEnabled !== false,
+      gatewayModeEnabled: session.gatewayModeEnabled === true,
     }
   } catch {
     return null
@@ -78,6 +80,12 @@ export async function getCurrentAppSession(): Promise<AppSession | null> {
       .maybeSingle(),
   ])
 
+  const { data: gatewaySettings } = await supabase
+    .from("platform_gateway_settings")
+    .select("enabled")
+    .eq("id", "default")
+    .maybeSingle()
+
   const resolvedSession: AppSession = {
     userId: user.id,
     name: profile?.name || user.user_metadata?.name || user.email?.split("@")[0] || "Usuario",
@@ -87,6 +95,7 @@ export async function getCurrentAppSession(): Promise<AppSession | null> {
     keyFrozen: Boolean(managedAccount?.key_frozen),
     withdrawalsEnabled: managedAccount?.withdrawals_enabled !== false,
     messengerEnabled: managedAccount?.messenger_enabled !== false,
+    gatewayModeEnabled: gatewaySettings?.enabled === true,
   }
 
   writeAppSession(resolvedSession)

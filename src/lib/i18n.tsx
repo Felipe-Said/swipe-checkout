@@ -44,6 +44,8 @@ export const translations: Translations = {
   "nav.withdrawals": { "pt-BR": "Saques", "en-US": "Withdrawals", "es-ES": "Retiros" },
   "nav.settings": { "pt-BR": "Configurações", "en-US": "Settings", "es-ES": "Configuraciones" },
   "nav.whop": { "pt-BR": "Whop", "en-US": "Whop", "es-ES": "Whop" },
+  "nav.gateway_mode": { "pt-BR": "Modo Gateway", "en-US": "Gateway Mode", "es-ES": "Modo Gateway" },
+  "nav.gateway": { "pt-BR": "Gateway", "en-US": "Gateway", "es-ES": "Gateway" },
   "nav.all_checkouts": { "pt-BR": "Todos os Checkouts", "en-US": "All Checkouts", "es-ES": "Todos los Checkouts" },
   "nav.create_new": { "pt-BR": "Criar Novo", "en-US": "Create New", "es-ES": "Crear Nuevo" },
   "nav.messenger": { "pt-BR": "Messenger", "en-US": "Messenger", "es-ES": "Messenger" },

@@ -12,6 +12,7 @@ import {
   Store,
   Landmark,
   KeyRound,
+  Wallet,
   MousePointerClick,
   ChevronRight,
   Truck,
@@ -135,6 +136,15 @@ export function MainSidebar({
             title: t("nav.whop"),
             url: "/app/whop",
             icon: KeyRound,
+          },
+        ]
+      : []),
+    ...(session.gatewayModeEnabled
+      ? [
+          {
+            title: session.role === "admin" ? t("nav.gateway_mode") : t("nav.gateway"),
+            url: "/app/gateway",
+            icon: Wallet,
           },
         ]
       : []),

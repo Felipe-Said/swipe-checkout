@@ -1,10 +1,13 @@
 "use server"
 
+import Whop from "@whop/sdk"
+
 import { getSupabaseAdmin } from "@/lib/supabase"
 import type {
   BankAccountDetails,
   SupportedWithdrawalCurrency,
 } from "@/lib/withdrawals-data"
+import { loadGatewayRuntimeForAccount } from "@/app/actions/gateway"
 
 type SessionRole = "admin" | "user"
 
@@ -27,6 +30,10 @@ type WithdrawalItem = {
   requestedAt: string
   paidAt: string | null
   status: "pending" | "paid"
+  payoutProvider?: string | null
+  gatewayMode?: boolean
+  gatewayFeeAmount?: number
+  gatewayNetAmount?: number
 }
 
 type WithdrawalPageData = {
@@ -50,6 +57,17 @@ function normalizeCurrency(value: string | null | undefined): SupportedWithdrawa
 function normalizeWithdrawalStatus(value: string | null | undefined): "pending" | "paid" {
   const normalized = (value ?? "").toLowerCase()
   return normalized === "paid" || normalized === "pago" ? "paid" : "pending"
+}
+
+function normalizeWhopCurrency(
+  currency: SupportedWithdrawalCurrency
+): "brl" | "usd" | "eur" | "gbp" {
+  return currency.toLowerCase() as "brl" | "usd" | "eur" | "gbp"
+}
+
+function mapWhopWithdrawalStatusToLocalStatus(value: string | null | undefined): "pending" | "paid" {
+  const normalized = (value ?? "").toLowerCase()
+  return normalized === "completed" ? "paid" : "pending"
 }
 
 function emptyAvailableMap() {
@@ -248,11 +266,11 @@ export async function loadWithdrawalsForSession(input: {
       role === "admin"
         ? supabaseAdmin
             .from("withdrawals")
-            .select("id, account_id, currency, amount, status, created_at, paid_at")
+            .select("id, account_id, currency, amount, status, created_at, paid_at, payout_provider, gateway_mode, gateway_fee_amount, gateway_net_amount")
             .order("created_at", { ascending: false })
         : supabaseAdmin
             .from("withdrawals")
-            .select("id, account_id, currency, amount, status, created_at, paid_at")
+            .select("id, account_id, currency, amount, status, created_at, paid_at, payout_provider, gateway_mode, gateway_fee_amount, gateway_net_amount")
             .eq("account_id", currentAccount?.id ?? "")
             .order("created_at", { ascending: false })
 
@@ -302,6 +320,10 @@ export async function loadWithdrawalsForSession(input: {
       requestedAt: withdrawal.created_at,
       paidAt: withdrawal.paid_at,
       status: normalizeWithdrawalStatus(withdrawal.status),
+      payoutProvider: withdrawal.payout_provider ?? null,
+      gatewayMode: withdrawal.gateway_mode === true,
+      gatewayFeeAmount: Number(withdrawal.gateway_fee_amount ?? 0),
+      gatewayNetAmount: Number(withdrawal.gateway_net_amount ?? 0),
     }))
 
     const bankAccounts = (bankAccountsResult.data ?? []).reduce<
@@ -482,13 +504,17 @@ export async function createWithdrawalForSession(input: {
 
     const { data: accountConfig } = await supabaseAdmin
       .from("managed_accounts")
-      .select("withdrawals_enabled, billing_cycle_days")
+      .select("withdrawals_enabled, billing_cycle_days, whop_key, whop_company_id, gateway_payout_method_id, gateway_auto_payout_enabled")
       .eq("id", account.id)
       .maybeSingle()
 
     if (accountConfig?.withdrawals_enabled === false) {
       return { error: "Saques desativados para esta conta." }
     }
+
+    const gatewayRuntime = await loadGatewayRuntimeForAccount({
+      accountId: account.id,
+    })
 
     const { data: bankAccount } = await supabaseAdmin
       .from("bank_accounts")
@@ -508,7 +534,7 @@ export async function createWithdrawalForSession(input: {
         bankAccount?.bank_name
     )
 
-    if (!bankAccount || !hasBankDestination) {
+    if (!gatewayRuntime && (!bankAccount || !hasBankDestination)) {
       return { error: "Cadastre os dados bancarios desta moeda antes de solicitar o saque." }
     }
 
@@ -527,19 +553,108 @@ export async function createWithdrawalForSession(input: {
       return { error: "O valor solicitado ultrapassa o saldo disponivel para saque." }
     }
 
+    if (gatewayRuntime) {
+      const grossAmount = Number(input.amount.toFixed(2))
+      const feeAmount = Number(((grossAmount * gatewayRuntime.feeRate) / 100).toFixed(2))
+      const netAmount = Number((grossAmount - feeAmount).toFixed(2))
+
+      if (!(netAmount > 0)) {
+        return { error: "O valor liquido do saque ficou invalido com a taxa configurada." }
+      }
+
+      let whopTransferId: string | null = null
+      if (feeAmount > 0) {
+        try {
+          const platformClient = new Whop({ apiKey: gatewayRuntime.platformApiKey })
+          const transfer = await platformClient.transfers.create({
+            amount: feeAmount,
+            currency: normalizeWhopCurrency(input.currency),
+            origin_id: gatewayRuntime.accountWhopCompanyId,
+            destination_id: gatewayRuntime.platformCompanyId,
+            notes: "Swipe gateway fee",
+            metadata: {
+              swipe_account_id: account.id,
+              swipe_user_id: input.userId,
+              swipe_currency: input.currency,
+              swipe_gross_amount: grossAmount,
+              swipe_fee_amount: feeAmount,
+            },
+          })
+          whopTransferId = transfer.id
+        } catch (error) {
+          return {
+            error:
+              error instanceof Error
+                ? `Nao foi possivel transferir a taxa para a conta gateway: ${error.message}`
+                : "Nao foi possivel transferir a taxa para a conta gateway.",
+          }
+        }
+      }
+
+      let withdrawalResponse: Awaited<ReturnType<Whop["withdrawals"]["create"]>>
+      try {
+        const accountClient = new Whop({ apiKey: gatewayRuntime.accountWhopKey })
+        withdrawalResponse = await accountClient.withdrawals.create({
+          amount: netAmount,
+          company_id: gatewayRuntime.accountWhopCompanyId,
+          currency: normalizeWhopCurrency(input.currency),
+          payout_method_id: gatewayRuntime.payoutMethodId,
+          platform_covers_fees: gatewayRuntime.platformCoversFees,
+        })
+      } catch (error) {
+        return {
+          error:
+            error instanceof Error
+              ? `Nao foi possivel solicitar o payout automatico na Whop: ${error.message}`
+              : "Nao foi possivel solicitar o payout automatico na Whop.",
+        }
+      }
+
+      const { error: insertGatewayError } = await supabaseAdmin.from("withdrawals").insert({
+        account_id: account.id,
+        amount: grossAmount,
+        currency: input.currency,
+        status: mapWhopWithdrawalStatusToLocalStatus(withdrawalResponse.status),
+        pix_key: bankAccount?.pix_key ?? null,
+        payout_provider: "whop",
+        gateway_mode: true,
+        gateway_gross_amount: grossAmount,
+        gateway_fee_amount: feeAmount,
+        gateway_net_amount: netAmount,
+        whop_withdrawal_id: withdrawalResponse.id,
+        whop_transfer_id: whopTransferId,
+        whop_payout_method_id: gatewayRuntime.payoutMethodId,
+        paid_at:
+          mapWhopWithdrawalStatusToLocalStatus(withdrawalResponse.status) === "paid"
+            ? new Date().toISOString()
+            : null,
+      })
+
+      if (insertGatewayError) {
+        return { error: insertGatewayError.message }
+      }
+
+      return { success: true, mode: "gateway" as const }
+    }
+
     const { error } = await supabaseAdmin.from("withdrawals").insert({
       account_id: account.id,
       amount: input.amount,
       currency: input.currency,
       status: "pending",
       pix_key: bankAccount?.pix_key ?? null,
+      payout_provider: "manual",
+      gateway_mode: false,
+      gateway_gross_amount: input.amount,
+      gateway_fee_amount: 0,
+      gateway_net_amount: input.amount,
     })
 
     if (error) {
       return { error: error.message }
     }
 
-    return { success: true }
+    return { success: true, mode: "manual" as const }
   } catch (error) {
     return {
       error: error instanceof Error ? error.message : "Nao foi possivel solicitar o saque.",

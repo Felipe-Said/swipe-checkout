@@ -103,6 +103,7 @@ function LoginContent() {
       keyFrozen: profileResult.session.keyFrozen,
       withdrawalsEnabled: profileResult.session.withdrawalsEnabled,
       messengerEnabled: profileResult.session.messengerEnabled,
+      gatewayModeEnabled: profileResult.session.gatewayModeEnabled === true,
     })
 
     await recordLoginEvent({

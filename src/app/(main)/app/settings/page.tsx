@@ -11,6 +11,10 @@ import { SettingsCurrentSessionCard } from "@/components/settings/settings-curre
 import { SettingsLoginHistoryCard } from "@/components/settings/settings-login-history-card"
 import { SettingsPreferencesCard } from "@/components/settings/settings-preferences-card"
 import { useI18n } from "@/lib/i18n"
+import { Switch } from "@/components/ui/switch"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Label } from "@/components/ui/label"
+import { saveGatewayModeEnabled, loadGatewayPageForSession } from "@/app/actions/gateway"
 
 type LoginHistoryItem = {
   id: string
@@ -32,6 +36,8 @@ export default function SettingsPage() {
   const [isChangingPassword, setIsChangingPassword] = React.useState(false)
   const [profileFeedback, setProfileFeedback] = React.useState("")
   const [profileFeedbackTone, setProfileFeedbackTone] = React.useState<"default" | "error">("default")
+  const [gatewayModeEnabled, setGatewayModeEnabled] = React.useState(false)
+  const [isSavingGatewayMode, setIsSavingGatewayMode] = React.useState(false)
 
   React.useEffect(() => {
     async function load() {
@@ -56,6 +62,7 @@ export default function SettingsPage() {
       })
       setProfileName(appSession.name || "")
       setProfileEmail(appSession.email || "")
+      setGatewayModeEnabled(appSession.gatewayModeEnabled === true)
 
       const result = await loadSettingsForSession({
         userId: appSession.userId,
@@ -79,6 +86,17 @@ export default function SettingsPage() {
           current: index === 0,
         })),
       )
+
+      if (appSession.role === "admin") {
+        const gatewayResult = await loadGatewayPageForSession({
+          userId: appSession.userId,
+          accountId: appSession.accountId,
+        })
+
+        if (!("error" in gatewayResult)) {
+          setGatewayModeEnabled(gatewayResult.enabled)
+        }
+      }
     }
 
     void load()
@@ -182,6 +200,33 @@ export default function SettingsPage() {
     setIsChangingPassword(false)
   }
 
+  const handleGatewayModeToggle = async (nextChecked: boolean) => {
+    if (!session?.appSession || session.appSession.role !== "admin" || isSavingGatewayMode) {
+      return
+    }
+
+    setIsSavingGatewayMode(true)
+    setGatewayModeEnabled(nextChecked)
+
+    const result = await saveGatewayModeEnabled({
+      userId: session.appSession.userId,
+      enabled: nextChecked,
+    })
+
+    if (result.error) {
+      setGatewayModeEnabled((current) => !current)
+      setIsSavingGatewayMode(false)
+      return
+    }
+
+    writeAppSession({
+      ...session.appSession,
+      gatewayModeEnabled: nextChecked,
+    })
+
+    window.location.reload()
+  }
+
   if (!session) {
     return null
   }
@@ -241,6 +286,32 @@ export default function SettingsPage() {
           />
 
           <SettingsPreferencesCard />
+
+          {isAdmin ? (
+            <Card className="border-primary/10 bg-card/40 shadow-xl backdrop-blur-sm">
+              <CardHeader className="border-b border-primary/10 bg-primary/5">
+                <CardTitle>Modo Gateway</CardTitle>
+                <CardDescription>
+                  Quando ativo, a plataforma libera o novo fluxo de Gateway e passa a permitir payout automatico via Whop.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="flex flex-col gap-4 p-8">
+                <div className="flex items-center justify-between gap-6 rounded-2xl border border-primary/10 bg-background/70 p-4">
+                  <div className="space-y-1">
+                    <Label className="text-sm font-bold">Habilitar Modo Gateway</Label>
+                    <p className="text-xs text-muted-foreground">
+                      Este toggle libera o campo no menu lateral e ativa a pagina de configuracao do gateway.
+                    </p>
+                  </div>
+                  <Switch
+                    checked={gatewayModeEnabled}
+                    disabled={isSavingGatewayMode}
+                    onCheckedChange={handleGatewayModeToggle}
+                  />
+                </div>
+              </CardContent>
+            </Card>
+          ) : null}
 
           <SettingsSecurityCard
             onUpdatePassword={handleUpdatePassword}

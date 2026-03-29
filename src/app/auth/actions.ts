@@ -30,6 +30,7 @@ async function ensureManagedAccount(userId: string, name: string, role: "admin" 
       billing_cycle_days: 2,
       withdrawals_enabled: true,
       messenger_enabled: true,
+      gateway_auto_payout_enabled: false,
       payment_mode: "manual",
       settlement_started_at: new Date().toISOString(),
     })
@@ -139,6 +140,12 @@ export async function resolveLoginProfile(userId: string) {
     .eq("id", ensuredAccount.accountId)
     .maybeSingle()
 
+  const { data: gatewaySettings } = await supabaseAdmin
+    .from("platform_gateway_settings")
+    .select("enabled")
+    .eq("id", "default")
+    .maybeSingle()
+
   return {
     success: true,
     session: {
@@ -150,6 +157,7 @@ export async function resolveLoginProfile(userId: string) {
       keyFrozen: Boolean(managedAccount?.key_frozen),
       withdrawalsEnabled: managedAccount?.withdrawals_enabled !== false,
       messengerEnabled: managedAccount?.messenger_enabled !== false,
+      gatewayModeEnabled: gatewaySettings?.enabled === true,
       status: profile.status,
     },
   }
