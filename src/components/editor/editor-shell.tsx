@@ -99,7 +99,7 @@ type EditorConfig = {
   productPrice: number
   customCss: string
   buttonText: string
-  layoutStyle: "classic" | "one-page"
+  layoutStyle: "classic" | "one-page" | "daniel"
   showCheckoutSteps: boolean
   bannerFullBleed: boolean
   bannerDesktopSrc: string
@@ -311,6 +311,7 @@ const deviceOptions = [
 const layoutOptions = [
   { value: "classic" as const, label: "Classico" },
   { value: "one-page" as const, label: "One page" },
+  { value: "daniel" as const, label: "Daniel" },
 ]
 
 const localeOptions: Array<{ value: SupportedLocale; label: string }> = [
@@ -1772,7 +1773,7 @@ export function EditorShell() {
             <div className="flex items-center gap-1">
               <LayoutTemplate className="h-3 w-3" />
               <span>
-                Baseado em: Shopify Checkout Extensibility {config.layoutStyle === "one-page" ? "• One page" : ""}
+                Baseado em: Shopify Checkout Extensibility {config.layoutStyle === "one-page" ? "• One page" : config.layoutStyle === "daniel" ? "• Daniel" : ""}
               </span>
             </div>
             <Separator orientation="vertical" className="h-3" />

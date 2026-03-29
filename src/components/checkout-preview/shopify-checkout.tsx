@@ -196,7 +196,7 @@ interface CheckoutConfig {
   productPrice: number
   customCss: string
   buttonText: string
-  layoutStyle: "classic" | "one-page"
+  layoutStyle: "classic" | "one-page" | "daniel"
   showCheckoutSteps: boolean
   bannerFullBleed: boolean
   bannerDesktopSrc: string
@@ -606,6 +606,7 @@ export function ShopifyCheckout({
   const [selectedShippingId, setSelectedShippingId] = React.useState<string | null>(null)
   const isMobile = device === "mobile"
   const isOnePage = config.layoutStyle === "one-page"
+  const isDanielStyle = config.layoutStyle === "daniel"
   const behaviorEnabled = Boolean(behaviorTracking?.enabled && behaviorTracking.checkoutId)
 
   React.useEffect(() => {
@@ -773,7 +774,7 @@ export function ShopifyCheckout({
           }}
         />
       ) : null}
-      {isMobile && !isOnePage ? (
+      {isMobile && !isOnePage && !isDanielStyle ? (
         <div data-swipe-slot="mobile-summary" className="border-b p-4" style={{ backgroundColor: config.checkoutSurfaceColor, borderColor: config.checkoutMutedColor }}>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 text-sm">
@@ -795,8 +796,152 @@ export function ShopifyCheckout({
         </div>
       ) : null}
 
-      <div data-swipe-slot="checkout-shell" className={cn("min-h-full", isOnePage ? "mx-auto w-full max-w-[1120px] px-4 py-6 sm:px-6 lg:px-8 lg:py-10" : isMobile ? "px-6 py-7" : "flex min-h-full")}>
-        {isOnePage ? (
+      <div data-swipe-slot="checkout-shell" className={cn("min-h-full", isDanielStyle ? "mx-auto w-full max-w-[760px] px-4 py-6 sm:px-6 lg:px-8 lg:py-10" : isOnePage ? "mx-auto w-full max-w-[1120px] px-4 py-6 sm:px-6 lg:px-8 lg:py-10" : isMobile ? "px-6 py-7" : "flex min-h-full")}>
+        {isDanielStyle ? (
+          <div data-swipe-slot="daniel-shell" className="mx-auto w-full max-w-[680px] space-y-5">
+            <div
+              data-swipe-slot="daniel-card"
+              className="overflow-hidden rounded-[28px] border shadow-[0_20px_60px_rgba(15,23,42,0.08)]"
+              style={{
+                backgroundColor: config.checkoutSurfaceColor,
+                borderColor: config.checkoutMutedColor,
+              }}
+            >
+              <div data-swipe-slot="daniel-header" className="space-y-5 px-5 py-6 sm:px-8 sm:py-8">
+                <CheckoutBrand config={config} />
+                <CheckoutTopBlock config={config} copy={copy} accentColor={config.checkoutAccentColor} isMobile={isMobile} />
+                <div
+                  data-swipe-slot="daniel-summary"
+                  className="rounded-[24px] border p-4 sm:p-5"
+                  style={{
+                    backgroundColor: withAlpha(config.checkoutBackgroundColor, 0.55),
+                    borderColor: config.checkoutMutedColor,
+                  }}
+                >
+                  <div className="space-y-4">
+                    <div className="flex items-start gap-4">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs uppercase tracking-[0.24em]" style={{ color: config.checkoutMutedColor }}>
+                          {copy.orderSummary}
+                        </p>
+                        <div className="mt-3">
+                          <OrderItem
+                            config={config}
+                            name={productName}
+                            price={formattedPrice}
+                            variantLabel={variantLabel}
+                            imageSrc={productImageSrc}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                    <SummaryRows
+                      copy={copy}
+                      config={config}
+                      subtotalPrice={formattedPrice}
+                      shippingPrice={shippingPrice}
+                      totalPrice={formattedTotalPrice}
+                      locale={resolvedLocale}
+                      currency={effectiveCurrency}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div data-swipe-slot="daniel-sections" className="space-y-4 border-t px-5 py-5 sm:px-8 sm:py-8" style={{ borderColor: config.checkoutMutedColor }}>
+                <DanielSectionCard slot="daniel-contact-card" config={config} title={copy.contact}>
+                  <ContactSection
+                    config={config}
+                    compact
+                    copy={copy}
+                    contactData={contactData}
+                    onChange={setContactData}
+                    hideTitle
+                  />
+                </DanielSectionCard>
+
+                <DanielSectionCard slot="daniel-delivery-card" config={config} title={copy.delivery}>
+                  <DeliverySection
+                    config={config}
+                    compact
+                    copy={copy}
+                    deliveryData={deliveryData}
+                    onChange={setDeliveryData}
+                    hideTitle
+                  />
+                </DanielSectionCard>
+
+                <DanielSectionCard slot="daniel-shipping-card" config={config} title={copy.shippingOptionsTitle}>
+                  <ShippingSection
+                    config={config}
+                    copy={copy}
+                    deliveryCompleted={deliveryCompleted}
+                    methods={availableShippingMethods}
+                    selectedShippingId={selectedShippingId}
+                    onSelect={setSelectedShippingId}
+                    locale={resolvedLocale}
+                    currency={effectiveCurrency}
+                    hideTitle
+                  />
+                </DanielSectionCard>
+
+                <DanielSectionCard slot="daniel-payment-card" config={config} title={copy.payment}>
+                  <PaymentSection
+                    config={config}
+                    copy={copy}
+                    locale={resolvedLocale}
+                    contactData={contactData}
+                    deliveryData={deliveryData}
+                    hideTitle
+                    onPaymentViewed={
+                      behaviorEnabled && behaviorTracking
+                        ? () =>
+                            trackCheckoutBehaviorEvent({
+                              checkoutId: behaviorTracking.checkoutId,
+                              eventType: "payment_viewed",
+                              metadata: {
+                                device,
+                                layoutStyle: config.layoutStyle,
+                              },
+                            })
+                        : undefined
+                    }
+                    onPaymentStarted={
+                      behaviorEnabled && behaviorTracking
+                        ? () =>
+                            trackCheckoutBehaviorEvent({
+                              checkoutId: behaviorTracking.checkoutId,
+                              eventType: "payment_started",
+                              metadata: {
+                                device,
+                                layoutStyle: config.layoutStyle,
+                              },
+                            })
+                        : undefined
+                    }
+                  />
+                </DanielSectionCard>
+
+                {config.showCouponField ? (
+                  <div data-swipe-slot="daniel-coupon">
+                    <CouponBar config={config} copy={copy} />
+                  </div>
+                ) : null}
+
+                {!hasRealWhopPayment ? (
+                  <div data-swipe-slot="daniel-buy-button" className="pt-2">
+                    <BuyButton config={config} label={config.buttonText} />
+                  </div>
+                ) : null}
+
+                <div data-swipe-slot="daniel-policies" className="space-y-4">
+                  <PolicyLinks config={config} compact copy={copy} />
+                  <CheckoutFooter compact config={config} copy={copy} />
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : isOnePage ? (
           <div data-swipe-slot="checkout-layout" className={cn("grid gap-8", isMobile ? "grid-cols-1" : "grid-cols-[minmax(0,1.2fr)_380px]")}>
             <div data-swipe-slot="checkout-main" className="space-y-8">
               <CheckoutBrand config={config} />
@@ -1260,12 +1405,43 @@ function CheckoutProgress({ copy, accentColor }: { copy: Copy; accentColor: stri
   )
 }
 
+function DanielSectionCard({
+  slot,
+  config,
+  title,
+  children,
+}: {
+  slot: string
+  config: CheckoutConfig
+  title: string
+  children: React.ReactNode
+}) {
+  return (
+    <section
+      data-swipe-slot={slot}
+      className="rounded-[24px] border p-4 sm:p-5"
+      style={{
+        borderColor: config.checkoutMutedColor,
+        backgroundColor: withAlpha(config.checkoutBackgroundColor, 0.48),
+      }}
+    >
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <h3 className="text-sm font-semibold uppercase tracking-[0.18em]" style={{ color: config.checkoutTextColor }}>
+          {title}
+        </h3>
+      </div>
+      {children}
+    </section>
+  )
+}
+
 function ContactSection({
   config,
   compact,
   copy,
   contactData,
   onChange,
+  hideTitle = false,
 }: {
   config: CheckoutConfig
   compact: boolean
@@ -1282,12 +1458,15 @@ function ContactSection({
       email: string
     }>
   >
+  hideTitle?: boolean
 }) {
   return (
     <section data-swipe-slot="contact" className="space-y-4">
-      <div className={cn("gap-2", compact ? "space-y-2" : "flex items-center justify-between")}>
-        <h2 className="text-lg font-medium" style={{ color: config.checkoutTextColor }}>{copy.contact}</h2>
-      </div>
+      {!hideTitle ? (
+        <div className={cn("gap-2", compact ? "space-y-2" : "flex items-center justify-between")}>
+          <h2 className="text-lg font-medium" style={{ color: config.checkoutTextColor }}>{copy.contact}</h2>
+        </div>
+      ) : null}
       <Input
         placeholder={copy.fullName}
         className="h-11"
@@ -1326,6 +1505,7 @@ function DeliverySection({
   copy,
   deliveryData,
   onChange,
+  hideTitle = false,
 }: {
   config: CheckoutConfig
   compact: boolean
@@ -1348,10 +1528,13 @@ function DeliverySection({
       zip: string
     }>
   >
+  hideTitle?: boolean
 }) {
   return (
-    <section data-swipe-slot="delivery" className="space-y-4 pt-4">
-      <h2 className="text-lg font-medium" style={{ color: config.checkoutTextColor }}>{copy.delivery}</h2>
+    <section data-swipe-slot="delivery" className={cn("space-y-4", hideTitle ? "" : "pt-4")}>
+      {!hideTitle ? (
+        <h2 className="text-lg font-medium" style={{ color: config.checkoutTextColor }}>{copy.delivery}</h2>
+      ) : null}
       <div className={cn("gap-4", compact ? "grid grid-cols-1" : "grid grid-cols-2")}>
         <Input placeholder={copy.firstName} className="h-11" style={{ borderColor: config.checkoutMutedColor }} autoComplete="given-name" value={deliveryData.firstName} onChange={(e) => onChange((prev) => ({ ...prev, firstName: e.target.value }))} />
         <Input placeholder={copy.lastName} className="h-11" style={{ borderColor: config.checkoutMutedColor }} autoComplete="family-name" value={deliveryData.lastName} onChange={(e) => onChange((prev) => ({ ...prev, lastName: e.target.value }))} />
@@ -1375,6 +1558,7 @@ function ShippingSection({
   onSelect,
   locale,
   currency,
+  hideTitle = false,
 }: {
   config: CheckoutConfig
   copy: Copy
@@ -1384,12 +1568,15 @@ function ShippingSection({
   onSelect: (value: string) => void
   locale: SupportedLocale
   currency: SupportedCurrency
+  hideTitle?: boolean
 }) {
   return (
-    <section data-swipe-slot="shipping" className="space-y-4 pt-4">
-      <h2 className="text-lg font-medium" style={{ color: config.checkoutTextColor }}>
-        {copy.shippingOptionsTitle}
-      </h2>
+    <section data-swipe-slot="shipping" className={cn("space-y-4", hideTitle ? "" : "pt-4")}>
+      {!hideTitle ? (
+        <h2 className="text-lg font-medium" style={{ color: config.checkoutTextColor }}>
+          {copy.shippingOptionsTitle}
+        </h2>
+      ) : null}
       {!deliveryCompleted ? (
         <div className="rounded-md border p-4 text-sm" style={{ borderColor: config.checkoutMutedColor, color: config.checkoutMutedColor, backgroundColor: config.checkoutSurfaceColor }}>
           {copy.shippingFillDelivery}
@@ -1443,6 +1630,7 @@ function PaymentSection({
   deliveryData,
   onPaymentViewed,
   onPaymentStarted,
+  hideTitle = false,
 }: {
   config: CheckoutConfig
   copy: Copy
@@ -1462,6 +1650,7 @@ function PaymentSection({
   }
   onPaymentViewed?: () => void | Promise<void>
   onPaymentStarted?: () => void | Promise<void>
+  hideTitle?: boolean
 }) {
   const hasRealWhopCheckout = Boolean(config.whop?.purchaseUrl)
   const hasSelectedWhopAccount = Boolean(config.selectedWhopAccountId)
@@ -1538,8 +1727,8 @@ function PaymentSection({
   }, [onPaymentViewed])
 
   return (
-    <section data-swipe-slot="payment" ref={paymentSectionRef} className="space-y-4 pt-4">
-      <h2 className="text-lg font-medium" style={{ color: config.checkoutTextColor }}>{copy.payment}</h2>
+    <section data-swipe-slot="payment" ref={paymentSectionRef} className={cn("space-y-4", hideTitle ? "" : "pt-4")}>
+      {!hideTitle ? <h2 className="text-lg font-medium" style={{ color: config.checkoutTextColor }}>{copy.payment}</h2> : null}
       <p className="text-sm" style={{ color: config.checkoutMutedColor }}>{copy.paymentSafe}</p>
       {hasEmbeddedSession ? (
         <div
