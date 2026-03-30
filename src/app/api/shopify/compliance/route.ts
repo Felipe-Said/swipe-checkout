@@ -7,17 +7,17 @@ function getShopifyAppSecret() {
   return (
     process.env.SHOPIFY_API_SECRET ||
     process.env.SHOPIFY_API_SECRET_KEY ||
-    process.env.SHOPIFY_CLIENT_SECRET ||
+    process.env.SHOPIFY_APP_SECRET ||
     ""
   ).trim()
 }
 
-function verifyShopifyWebhookHmac(rawBody: string, providedHmac: string, secret: string) {
+function verifyShopifyWebhookHmac(rawBody: Buffer, providedHmac: string, secret: string) {
   if (!providedHmac || !secret) {
     return false
   }
 
-  const digest = createHmac("sha256", secret).update(rawBody, "utf8").digest("base64")
+  const digest = createHmac("sha256", secret).update(rawBody).digest("base64")
 
   const provided = Buffer.from(providedHmac, "utf8")
   const expected = Buffer.from(digest, "utf8")
@@ -38,7 +38,7 @@ export async function POST(request: Request) {
     )
   }
 
-  const rawBody = await request.text()
+  const rawBody = Buffer.from(await request.arrayBuffer())
   const providedHmac = request.headers.get("x-shopify-hmac-sha256") || ""
 
   if (!verifyShopifyWebhookHmac(rawBody, providedHmac, secret)) {
