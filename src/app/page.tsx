@@ -1,43 +1,14 @@
-"use client"
+import { headers } from "next/headers"
 
-import * as React from "react"
-import { useRouter } from "next/navigation"
+import { LandingPageClient } from "@/components/landing/landing-page-client"
+import { resolvePublicLocale } from "@/lib/public-locale"
 
-import { LandingFortex } from "@/components/landing/landing-fortex"
-import { getCurrentAppSession } from "@/lib/app-session"
+export default async function LandingPage() {
+  const requestHeaders = await headers()
+  const locale = resolvePublicLocale({
+    country: requestHeaders.get("x-vercel-ip-country"),
+    language: requestHeaders.get("accept-language"),
+  })
 
-export default function LandingPage() {
-  const router = useRouter()
-  const [ready, setReady] = React.useState(false)
-
-  React.useEffect(() => {
-    let cancelled = false
-
-    async function loadSession() {
-      const session = await getCurrentAppSession()
-
-      if (cancelled) {
-        return
-      }
-
-      if (session) {
-        router.replace("/app")
-        return
-      }
-
-      setReady(true)
-    }
-
-    loadSession()
-
-    return () => {
-      cancelled = true
-    }
-  }, [router])
-
-  if (!ready) {
-    return null
-  }
-
-  return <LandingFortex />
+  return <LandingPageClient locale={locale} />
 }
