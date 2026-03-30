@@ -1,12 +1,16 @@
 # Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
 
-client_id = "cd8f371c8e414bfdd51688672351ab7c"
+client_id = "b0e7f852e0788293c136c4fd0a2a77b5"
 name = "Swipe Checkout Global"
 application_url = "https://swipe-checkout.vercel.app/"
 embedded = true
 
 [webhooks]
 api_version = "2026-01"
+
+[[webhooks.subscriptions]]
+compliance_topics = [ "customers/data_request", "customers/redact", "shop/redact" ]
+uri = "/api/shopify/compliance"
 
 [access_scopes]
 # Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
