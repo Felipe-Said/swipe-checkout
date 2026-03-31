@@ -8,6 +8,7 @@ import { resolveLoginProfile } from "@/app/auth/actions"
 import { recordLoginEvent } from "@/app/actions/settings"
 import { useSearchParams } from "next/navigation"
 import { clearAppSession, writeAppSession } from "@/lib/app-session"
+import { buildEmbeddedPath } from "@/lib/shopify-embedded"
 import { supabase } from "@/lib/supabase"
 import { Button } from "@/components/ui/button"
 import {
@@ -40,6 +41,11 @@ function LoginContent() {
   const [error, setError] = React.useState("")
   
   const message = searchParams.get("message")
+  const withEmbeddedContext = React.useCallback(
+    (pathname: string, extraParams?: Record<string, string>) =>
+      buildEmbeddedPath(pathname, searchParams, extraParams),
+    [searchParams]
+  )
 
   const detectDeviceLabel = () => {
     if (typeof window === "undefined") {
@@ -120,7 +126,7 @@ function LoginContent() {
           : null,
     })
 
-    router.replace("/app")
+    router.replace(withEmbeddedContext("/app"))
   }
 
   return (
@@ -204,7 +210,7 @@ function LoginContent() {
 
               <div className="text-sm text-center text-muted-foreground mt-2">
                 Novo por aqui?{" "}
-                <Link href="/signup" className="text-primary font-bold hover:underline">
+                <Link href={withEmbeddedContext("/signup")} className="text-primary font-bold hover:underline">
                    Criar conta agora
                 </Link>
               </div>

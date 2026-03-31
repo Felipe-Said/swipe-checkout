@@ -1,8 +1,11 @@
 import type { Metadata } from "next";
+import * as React from "react";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
+import { ShopifyEmbeddedProbe } from "@/components/shopify/shopify-embedded-probe";
+import { getShopifyEmbeddedApiKey } from "@/lib/shopify-embedded";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -29,8 +32,18 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const shopifyApiKey = getShopifyEmbeddedApiKey();
+
   return (
     <html lang="pt-BR" suppressHydrationWarning>
+      <head>
+        {shopifyApiKey ? (
+          <>
+            <meta name="shopify-api-key" content={shopifyApiKey} />
+            <script src="https://cdn.shopify.com/shopifycloud/app-bridge.js" />
+          </>
+        ) : null}
+      </head>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <ThemeProvider
           attribute="class"
@@ -38,6 +51,9 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
+          <React.Suspense fallback={null}>
+            <ShopifyEmbeddedProbe />
+          </React.Suspense>
           {children}
           <Toaster position="top-right" />
         </ThemeProvider>

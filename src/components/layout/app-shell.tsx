@@ -9,6 +9,7 @@ import {
   type AppSession,
   writeAppSession,
 } from "@/lib/app-session"
+import { buildEmbeddedPath } from "@/lib/shopify-embedded"
 import { supabase } from "@/lib/supabase"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { MainSidebar } from "./main-sidebar"
@@ -20,6 +21,18 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [session, setSession] = React.useState<AppSession | null>(null)
   const [ready, setReady] = React.useState(false)
 
+  const withEmbeddedContext = React.useCallback(
+    (targetPath: string) => {
+      const params =
+        typeof window === "undefined"
+          ? null
+          : new URLSearchParams(window.location.search)
+
+      return buildEmbeddedPath(targetPath, params)
+    },
+    []
+  )
+
   const shouldRedirectRestrictedRoute = React.useCallback(
     (nextSession: AppSession) => {
       if (nextSession.role === "admin") {
@@ -27,32 +40,34 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       }
 
       if (pathname === "/app/customers") {
-        return nextSession.messengerEnabled ? "/app/messenger" : "/app"
+        return nextSession.messengerEnabled
+          ? withEmbeddedContext("/app/messenger")
+          : withEmbeddedContext("/app")
       }
 
       if (!nextSession.messengerEnabled && pathname === "/app/messenger") {
-        return "/app"
+        return withEmbeddedContext("/app")
       }
 
       if (!nextSession.withdrawalsEnabled && pathname === "/app/withdrawals") {
-        return "/app"
+        return withEmbeddedContext("/app")
       }
 
       if (nextSession.keyFrozen && pathname === "/app/whop") {
-        return "/app"
+        return withEmbeddedContext("/app")
       }
 
       if (!nextSession.gatewayModeEnabled && pathname === "/app/gateway") {
-        return "/app"
+        return withEmbeddedContext("/app")
       }
 
       if (!nextSession.gatewayEnabled && pathname === "/app/gateway") {
-        return "/app"
+        return withEmbeddedContext("/app")
       }
 
       return null
     },
-    [pathname]
+    [pathname, withEmbeddedContext]
   )
 
   React.useEffect(() => {
@@ -104,7 +119,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       const nextSession = await getCurrentAppSession()
       if (!nextSession) {
-        router.replace("/login")
+        router.replace(withEmbeddedContext("/login"))
         return
       }
 
@@ -125,7 +140,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     return () => {
       cancelled = true
     }
-  }, [pathname, router, shouldRedirectRestrictedRoute])
+  }, [pathname, router, shouldRedirectRestrictedRoute, withEmbeddedContext])
 
   if (!ready || !session) {
     return null

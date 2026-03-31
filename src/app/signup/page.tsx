@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation"
 import { Loader2 } from "lucide-react"
 import { signup } from "@/app/auth/actions"
 import { toast } from "sonner"
+import { buildEmbeddedPath } from "@/lib/shopify-embedded"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -22,6 +23,17 @@ import { Label } from "@/components/ui/label"
 export default function SignupPage() {
   const router = useRouter()
   const [isLoading, setIsLoading] = React.useState(false)
+  const withEmbeddedContext = React.useCallback(
+    (pathname: string, extraParams?: Record<string, string>) => {
+      const params =
+        typeof window === "undefined"
+          ? null
+          : new URLSearchParams(window.location.search)
+
+      return buildEmbeddedPath(pathname, params, extraParams)
+    },
+    []
+  )
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -35,7 +47,7 @@ export default function SignupPage() {
       setIsLoading(false)
     } else {
       toast.success("Conta criada! Aguarde a aprovacao administrativa.")
-      router.push("/login?message=pending")
+      router.push(withEmbeddedContext("/login", { message: "pending" }))
     }
   }
 
@@ -141,7 +153,7 @@ export default function SignupPage() {
               <div className="w-full text-center text-sm text-muted-foreground">
                 Ja tem uma conta?{" "}
                 <Link
-                  href="/login"
+                  href={withEmbeddedContext("/login")}
                   className="font-bold text-primary hover:underline underline-offset-4"
                 >
                   Fazer Login
