@@ -95,7 +95,11 @@ function LoginContent() {
       profileResult.session.role !== "admin"
     ) {
       await supabase.auth.signOut()
-      setError("Sua conta esta aguardando aprovacao administrativa.")
+      setError(
+        profileResult.session.status === "blocked"
+          ? "Sua conta foi bloqueada pelo admin. O acesso sera liberado apenas apos o desbloqueio."
+          : "Sua conta esta aguardando aprovacao administrativa."
+      )
       setIsLoading(false)
       return
     }
@@ -193,6 +197,13 @@ function LoginContent() {
                   <div className="flex items-center gap-2 rounded-lg bg-primary/5 p-3 text-sm text-primary border border-primary/20">
                     <AlertCircle className="h-4 w-4" />
                     Sua senha foi redefinida com sucesso. Entre com a nova credencial.
+                  </div>
+                )}
+
+                {message === "blocked" && !error && (
+                  <div className="flex items-center gap-2 rounded-lg border border-destructive/20 bg-destructive/5 p-3 text-sm text-destructive">
+                    <AlertCircle className="h-4 w-4" />
+                    Sua conta foi bloqueada pelo admin. O acesso sera liberado apenas apos o desbloqueio.
                   </div>
                 )}
 

@@ -12,6 +12,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { getCurrentAppSession } from "@/lib/app-session"
+import { supabase } from "@/lib/supabase"
 
 type SupportChatMessage = {
   id: string
@@ -52,6 +53,70 @@ export default function MessengerPage() {
 
     void loadSession()
   }, [])
+
+  React.useEffect(() => {
+    if (!accountId) {
+      return
+    }
+
+    const messagesChannel = supabase
+      .channel(`support-messages-${accountId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "support_messages",
+          filter: `account_id=eq.${accountId}`,
+        },
+        async () => {
+          const session = await getCurrentAppSession()
+          if (!session?.userId || !session.accountId) {
+            return
+          }
+
+          const result = await loadSupportMessagesForSession({
+            userId: session.userId,
+            accountId: session.accountId,
+          })
+
+          if (!result.error) {
+            setMessages((result.messages ?? []) as SupportChatMessage[])
+          }
+        }
+      )
+      .subscribe()
+
+    const accountChannel = supabase
+      .channel(`messenger-account-${accountId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "managed_accounts",
+          filter: `id=eq.${accountId}`,
+        },
+        async (payload) => {
+          const nextMessengerEnabled =
+            payload.new && typeof payload.new === "object"
+              ? (payload.new as { messenger_enabled?: unknown }).messenger_enabled !== false
+              : true
+
+          setMessengerEnabled(nextMessengerEnabled)
+
+          if (!nextMessengerEnabled) {
+            window.location.replace("/app")
+          }
+        }
+      )
+      .subscribe()
+
+    return () => {
+      void supabase.removeChannel(messagesChannel)
+      void supabase.removeChannel(accountChannel)
+    }
+  }, [accountId])
 
   if (!messengerEnabled) {
     return null

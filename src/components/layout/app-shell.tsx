@@ -4,6 +4,7 @@ import * as React from "react"
 import { usePathname, useRouter } from "next/navigation"
 import { resolveLoginProfile } from "@/app/auth/actions"
 import {
+  clearAppSession,
   getCurrentAppSession,
   readAppSession,
   type AppSession,
@@ -32,6 +33,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     },
     []
   )
+
+  const forceBlockedLogout = React.useCallback(async () => {
+    clearAppSession()
+    await supabase.auth.signOut()
+    router.replace(withEmbeddedContext("/login?message=blocked"))
+  }, [router, withEmbeddedContext])
 
   const shouldRedirectRestrictedRoute = React.useCallback(
     (nextSession: AppSession) => {
@@ -87,6 +94,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       if (user) {
         const resolvedProfile = await resolveLoginProfile(user.id)
         if (resolvedProfile?.session && !cancelled) {
+          if (
+            resolvedProfile.session.status === "blocked" &&
+            resolvedProfile.session.role !== "admin"
+          ) {
+            await forceBlockedLogout()
+            return
+          }
+
           const syncedSession: AppSession = {
             userId: resolvedProfile.session.userId,
             name: resolvedProfile.session.name,
@@ -140,7 +155,40 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     return () => {
       cancelled = true
     }
-  }, [pathname, router, shouldRedirectRestrictedRoute, withEmbeddedContext])
+  }, [forceBlockedLogout, pathname, router, shouldRedirectRestrictedRoute, withEmbeddedContext])
+
+  React.useEffect(() => {
+    if (!session?.userId || session.role === "admin") {
+      return
+    }
+
+    const profileChannel = supabase
+      .channel(`profile-block-${session.userId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "profiles",
+          filter: `id=eq.${session.userId}`,
+        },
+        async (payload) => {
+          const nextStatus =
+            payload.new && typeof payload.new === "object"
+              ? String((payload.new as { status?: unknown }).status ?? "")
+              : ""
+
+          if (nextStatus === "blocked") {
+            await forceBlockedLogout()
+          }
+        }
+      )
+      .subscribe()
+
+    return () => {
+      void supabase.removeChannel(profileChannel)
+    }
+  }, [forceBlockedLogout, session?.role, session?.userId])
 
   if (!ready || !session) {
     return null

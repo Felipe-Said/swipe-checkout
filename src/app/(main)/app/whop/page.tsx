@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { useSearchParams } from "next/navigation"
 
 import {
   loadWhopAccountForSession,
@@ -52,6 +53,7 @@ function getWhopWebhookEndpoint() {
 }
 
 export default function WhopPage() {
+  const searchParams = useSearchParams()
   const [sessionRole, setSessionRole] = React.useState<"admin" | "user">("user")
   const [accounts, setAccounts] = React.useState<ManagedAccount[]>([])
   const [selectedAccountId, setSelectedAccountId] = React.useState("")
@@ -106,8 +108,12 @@ export default function WhopPage() {
 
       if (!cancelled) {
         setAccounts(loadedAccounts)
+        const requestedAccountId = searchParams.get("accountId") || ""
         const preferredAccountId =
-          (session?.accountId &&
+          (requestedAccountId &&
+          loadedAccounts.some((account) => account.id === requestedAccountId)
+            ? requestedAccountId
+            : session?.accountId &&
           loadedAccounts.some((account) => account.id === session.accountId)
             ? session.accountId
             : loadedAccounts[0]?.id) ?? ""
@@ -121,7 +127,7 @@ export default function WhopPage() {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [searchParams])
 
   const reloadAccounts = React.useCallback(async () => {
     const session = await getCurrentAppSession()

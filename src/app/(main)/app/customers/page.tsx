@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import Link from "next/link"
 import { Ban, Check, ImagePlus, KeyRound, MessageSquare, Percent, ShieldCheck, Users } from "lucide-react"
 
 import {
@@ -18,6 +19,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { getCurrentAppSession } from "@/lib/app-session"
 import { calculateFeeValue } from "@/lib/account-metrics"
+import { supabase } from "@/lib/supabase"
 import {
   getBankFieldDefinitions,
   withdrawalCurrencyOptions,
@@ -146,6 +148,58 @@ export default function CustomersAdminPage() {
       cancelled = true
     }
   }, [loadData])
+
+  React.useEffect(() => {
+    if (!sessionUserId) {
+      return
+    }
+
+    const messagesChannel = supabase
+      .channel("admin-support-messages")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "support_messages",
+        },
+        async () => {
+          await loadData(sessionUserId)
+        }
+      )
+      .subscribe()
+
+    const accountsChannel = supabase
+      .channel("admin-managed-accounts")
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "managed_accounts",
+        },
+        async () => {
+          await loadData(sessionUserId)
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "profiles",
+        },
+        async () => {
+          await loadData(sessionUserId)
+        }
+      )
+      .subscribe()
+
+    return () => {
+      void supabase.removeChannel(messagesChannel)
+      void supabase.removeChannel(accountsChannel)
+    }
+  }, [loadData, sessionUserId])
 
   const selectedAccount =
     accounts.find((account) => account.id === selectedAccountId) ?? accounts[0]
@@ -424,6 +478,12 @@ export default function CustomersAdminPage() {
                     onChange={(e) => void handleAccountPatch({ whopKey: e.target.value })}
                   />
                 </div>
+                <Button asChild variant="outline">
+                  <Link href={`/app/whop?accountId=${selectedAccount.id}&advanced=1`}>
+                    <KeyRound className="mr-2 h-4 w-4" />
+                    Abrir modo avancado da Whop
+                  </Link>
+                </Button>
                 <div className="rounded-lg border p-3">
                   <div className="font-medium">Ciclo de cobranca</div>
                   <div className="text-sm text-muted-foreground">
