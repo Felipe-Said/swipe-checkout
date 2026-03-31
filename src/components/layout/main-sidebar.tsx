@@ -44,7 +44,7 @@ export function MainSidebar({
   const shouldShowMessenger = session.role === "admin" || session.messengerEnabled
   const shouldShowWithdrawals = session.role === "admin" || session.withdrawalsEnabled
   const activeItemClassName =
-    "bg-white/14 text-white ring-1 ring-white/30 hover:bg-white/18 hover:text-white"
+    "bg-white text-[var(--color-sidebar)] ring-1 ring-white/80 hover:bg-white hover:text-[var(--color-sidebar)]"
 
   const isRouteActive = React.useCallback(
     (url: string) => {
