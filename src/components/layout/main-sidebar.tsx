@@ -19,7 +19,14 @@ import {
 } from "lucide-react"
 import type { AppSession } from "@/lib/app-session"
 import { useI18n } from "@/lib/i18n"
+import { supabase } from "@/lib/supabase"
 
+import {
+  clearMessengerUnreadCount,
+  incrementMessengerUnreadCount,
+  readMessengerUnreadCount,
+  subscribeToMessengerUnreadCount,
+} from "@/lib/messenger-notifications"
 import {
   Sidebar,
   SidebarContent,
@@ -43,8 +50,67 @@ export function MainSidebar({
   const shouldShowWhopForUser = session.role === "user" ? !session.keyFrozen : false
   const shouldShowMessenger = session.role === "admin" || session.messengerEnabled
   const shouldShowWithdrawals = session.role === "admin" || session.withdrawalsEnabled
+  const [messengerUnreadCount, setMessengerUnreadCount] = React.useState(0)
   const activeItemClassName =
     "!bg-white !text-[var(--color-sidebar)] ring-1 ring-white/80 hover:!bg-white hover:!text-[var(--color-sidebar)] [&>svg]:!text-[var(--color-sidebar)]"
+
+  React.useEffect(() => {
+    setMessengerUnreadCount(readMessengerUnreadCount(session))
+
+    return subscribeToMessengerUnreadCount(session, setMessengerUnreadCount)
+  }, [session])
+
+  React.useEffect(() => {
+    const isChatRouteActive =
+      (session.role === "admin" && pathname === "/app/customers") ||
+      (session.role === "user" && pathname === "/app/messenger")
+
+    if (isChatRouteActive) {
+      clearMessengerUnreadCount(session)
+      setMessengerUnreadCount(0)
+    }
+  }, [pathname, session])
+
+  React.useEffect(() => {
+    if (!shouldShowMessenger) {
+      return
+    }
+
+    const realtimeConfig = {
+      event: "INSERT" as const,
+      schema: "public",
+      table: "support_messages",
+      ...(session.role !== "admin" && session.accountId
+        ? { filter: `account_id=eq.${session.accountId}` }
+        : {}),
+    }
+
+    const channel = supabase
+      .channel(`sidebar-messenger-${session.role}-${session.userId}`)
+      .on("postgres_changes", realtimeConfig, (payload) => {
+          const row =
+            payload.new && typeof payload.new === "object"
+              ? (payload.new as { from_role?: string })
+              : null
+
+          if (!row) {
+            return
+          }
+
+          const isIncoming =
+            session.role === "admin" ? row.from_role === "user" : row.from_role === "admin"
+
+          if (isIncoming) {
+            const nextCount = incrementMessengerUnreadCount(session)
+            setMessengerUnreadCount(nextCount)
+          }
+        })
+      .subscribe()
+
+    return () => {
+      void supabase.removeChannel(channel)
+    }
+  }, [session, shouldShowMessenger])
 
   const isRouteActive = React.useCallback(
     (url: string) => {
@@ -170,6 +236,10 @@ export function MainSidebar({
                 const isItemActive = item.items
                   ? item.items.some((subItem) => isRouteActive(subItem.url)) || isRouteActive(item.url)
                   : isRouteActive(item.url)
+                const shouldShowBadge =
+                  messengerUnreadCount > 0 &&
+                  ((session.role === "admin" && item.url === "/app/customers") ||
+                    (session.role === "user" && item.url === "/app/messenger"))
 
                 return (
                 <SidebarMenuItem key={item.title}>
@@ -216,6 +286,11 @@ export function MainSidebar({
                       <a href={item.url}>
                         {item.icon && <item.icon />}
                         <span>{item.title}</span>
+                        {shouldShowBadge ? (
+                          <span className="ml-auto inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-red-500 px-1.5 text-xs font-bold text-white">
+                            {messengerUnreadCount > 99 ? "99+" : messengerUnreadCount}
+                          </span>
+                        ) : null}
                       </a>
                     </SidebarMenuButton>
                   )}

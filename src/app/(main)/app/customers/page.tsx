@@ -1,7 +1,6 @@
 "use client"
 
 import * as React from "react"
-import Link from "next/link"
 import { Ban, Check, ImagePlus, KeyRound, MessageSquare, Percent, ShieldCheck, Users } from "lucide-react"
 
 import {
@@ -17,6 +16,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { WhopAdvancedSettings } from "@/components/whop/whop-advanced-settings"
 import { getCurrentAppSession } from "@/lib/app-session"
 import { calculateFeeValue } from "@/lib/account-metrics"
 import { supabase } from "@/lib/supabase"
@@ -39,6 +39,7 @@ type AdminCustomerAccount = {
   revenue: number
   feeRate: number
   whopKey: string
+  whopCompanyId: string
   keyFrozen: boolean
   withdrawalsEnabled: boolean
   messengerEnabled: boolean
@@ -99,6 +100,24 @@ export default function CustomersAdminPage() {
   const [bankAccounts, setBankAccounts] = React.useState<BankAccountsMap>({})
   const [loaded, setLoaded] = React.useState(false)
   const [sessionUserId, setSessionUserId] = React.useState("")
+  const companyIdSaveTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const upsertRealtimeMessage = React.useCallback((message: SupportChatMessage) => {
+    setMessages((current) => {
+      const next = current.filter((item) => item.id !== message.id)
+      next.push(message)
+      next.sort((left, right) => {
+        const leftTime = new Date(left.createdAt).getTime()
+        const rightTime = new Date(right.createdAt).getTime()
+        return leftTime - rightTime
+      })
+      return next
+    })
+  }, [])
+
+  const removeRealtimeMessage = React.useCallback((messageId: string) => {
+    setMessages((current) => current.filter((item) => item.id !== messageId))
+  }, [])
 
   const loadData = React.useCallback(async (userId: string) => {
     const result = await loadAdminCustomersData({ userId })
@@ -163,8 +182,33 @@ export default function CustomersAdminPage() {
           schema: "public",
           table: "support_messages",
         },
-        async () => {
-          await loadData(sessionUserId)
+        (payload) => {
+          if (payload.eventType === "DELETE") {
+            removeRealtimeMessage(String(payload.old.id))
+            return
+          }
+
+          if (payload.new && typeof payload.new === "object") {
+            const row = payload.new as {
+              id?: string
+              account_id?: string
+              from_role?: string
+              text?: string | null
+              image_src?: string | null
+              created_at?: string
+            }
+
+            if (row.id && row.account_id && row.created_at) {
+              upsertRealtimeMessage({
+                id: row.id,
+                accountId: row.account_id,
+                from: row.from_role === "admin" ? "admin" : "user",
+                text: row.text ?? "",
+                imageSrc: row.image_src ?? "",
+                createdAt: row.created_at,
+              })
+            }
+          }
         }
       )
       .subscribe()
@@ -199,7 +243,15 @@ export default function CustomersAdminPage() {
       void supabase.removeChannel(messagesChannel)
       void supabase.removeChannel(accountsChannel)
     }
-  }, [loadData, sessionUserId])
+  }, [loadData, removeRealtimeMessage, sessionUserId, upsertRealtimeMessage])
+
+  React.useEffect(() => {
+    return () => {
+      if (companyIdSaveTimeoutRef.current) {
+        clearTimeout(companyIdSaveTimeoutRef.current)
+      }
+    }
+  }, [])
 
   const selectedAccount =
     accounts.find((account) => account.id === selectedAccountId) ?? accounts[0]
@@ -207,6 +259,7 @@ export default function CustomersAdminPage() {
   const handleAccountPatch = async (patch: {
     feeRate?: number
     whopKey?: string
+    whopCompanyId?: string
     keyFrozen?: boolean
     withdrawalsEnabled?: boolean
     messengerEnabled?: boolean
@@ -222,6 +275,24 @@ export default function CustomersAdminPage() {
     })
 
     await loadData(sessionUserId)
+  }
+
+  const handleCompanyIdChange = (value: string) => {
+    if (!selectedAccount) return
+
+    setAccounts((current) =>
+      current.map((account) =>
+        account.id === selectedAccount.id ? { ...account, whopCompanyId: value } : account
+      )
+    )
+
+    if (companyIdSaveTimeoutRef.current) {
+      clearTimeout(companyIdSaveTimeoutRef.current)
+    }
+
+    companyIdSaveTimeoutRef.current = setTimeout(() => {
+      void handleAccountPatch({ whopCompanyId: value })
+    }, 450)
   }
 
   const handleChatImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -478,12 +549,13 @@ export default function CustomersAdminPage() {
                     onChange={(e) => void handleAccountPatch({ whopKey: e.target.value })}
                   />
                 </div>
-                <Button asChild variant="outline">
-                  <Link href={`/app/whop?accountId=${selectedAccount.id}&advanced=1`}>
-                    <KeyRound className="mr-2 h-4 w-4" />
-                    Abrir modo avancado da Whop
-                  </Link>
-                </Button>
+                <WhopAdvancedSettings
+                  companyId={selectedAccount.whopCompanyId}
+                  onCompanyIdChange={handleCompanyIdChange}
+                  webhookEndpoint={`${typeof window !== "undefined" ? window.location.origin : ""}/api/webhooks/whop`}
+                  successUrl={`${typeof window !== "undefined" ? window.location.origin : ""}/checkout/exemplo/thank-you`}
+                  cancelUrl={`${typeof window !== "undefined" ? window.location.origin : ""}/checkout/exemplo`}
+                />
                 <div className="rounded-lg border p-3">
                   <div className="font-medium">Ciclo de cobranca</div>
                   <div className="text-sm text-muted-foreground">

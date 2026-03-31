@@ -15,6 +15,7 @@ type AdminCustomerAccount = {
   revenue: number
   feeRate: number
   whopKey: string
+  whopCompanyId: string
   keyFrozen: boolean
   withdrawalsEnabled: boolean
   messengerEnabled: boolean
@@ -86,7 +87,7 @@ export async function loadAdminCustomersData(input: { userId: string }) {
     await Promise.all([
       supabaseAdmin
         .from("managed_accounts")
-        .select("id, profile_id, name, fee_rate, whop_key, billing_cycle_days, key_frozen, withdrawals_enabled, messenger_enabled, gateway_enabled")
+        .select("id, profile_id, name, fee_rate, whop_key, whop_company_id, billing_cycle_days, key_frozen, withdrawals_enabled, messenger_enabled, gateway_enabled")
         .order("created_at", { ascending: false }),
       supabaseAdmin
         .from("profiles")
@@ -149,6 +150,7 @@ export async function loadAdminCustomersData(input: { userId: string }) {
       revenue: metrics.revenue,
       feeRate: Number(account.fee_rate ?? 0),
       whopKey: account.whop_key ?? "",
+      whopCompanyId: account.whop_company_id ?? "",
       keyFrozen: Boolean(account.key_frozen),
       withdrawalsEnabled: account.withdrawals_enabled !== false,
       messengerEnabled: account.messenger_enabled !== false,
@@ -219,10 +221,11 @@ export async function loadAdminCustomersData(input: { userId: string }) {
 export async function adminUpdateCustomerAccount(input: {
   userId: string
   accountId: string
-  patch: {
-    feeRate?: number
-    whopKey?: string
-    keyFrozen?: boolean
+    patch: {
+      feeRate?: number
+      whopKey?: string
+      whopCompanyId?: string
+      keyFrozen?: boolean
     withdrawalsEnabled?: boolean
     messengerEnabled?: boolean
     gatewayEnabled?: boolean
@@ -246,6 +249,7 @@ export async function adminUpdateCustomerAccount(input: {
   const managedAccountPatch: Record<string, unknown> = {}
   if (input.patch.feeRate !== undefined) managedAccountPatch.fee_rate = input.patch.feeRate
   if (input.patch.whopKey !== undefined) managedAccountPatch.whop_key = input.patch.whopKey
+  if (input.patch.whopCompanyId !== undefined) managedAccountPatch.whop_company_id = input.patch.whopCompanyId
   if (input.patch.keyFrozen !== undefined) managedAccountPatch.key_frozen = input.patch.keyFrozen
   if (input.patch.withdrawalsEnabled !== undefined) managedAccountPatch.withdrawals_enabled = input.patch.withdrawalsEnabled
   if (input.patch.messengerEnabled !== undefined) managedAccountPatch.messenger_enabled = input.patch.messengerEnabled

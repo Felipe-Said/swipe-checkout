@@ -30,6 +30,23 @@ export default function MessengerPage() {
   const [imageDraft, setImageDraft] = React.useState("")
   const [messengerEnabled, setMessengerEnabled] = React.useState(true)
 
+  const upsertRealtimeMessage = React.useCallback((message: SupportChatMessage) => {
+    setMessages((current) => {
+      const next = current.filter((item) => item.id !== message.id)
+      next.push(message)
+      next.sort((left, right) => {
+        const leftTime = new Date(left.createdAt).getTime()
+        const rightTime = new Date(right.createdAt).getTime()
+        return leftTime - rightTime
+      })
+      return next
+    })
+  }, [])
+
+  const removeRealtimeMessage = React.useCallback((messageId: string) => {
+    setMessages((current) => current.filter((item) => item.id !== messageId))
+  }, [])
+
   React.useEffect(() => {
     async function loadSession() {
       const session = await getCurrentAppSession()
@@ -69,19 +86,32 @@ export default function MessengerPage() {
           table: "support_messages",
           filter: `account_id=eq.${accountId}`,
         },
-        async () => {
-          const session = await getCurrentAppSession()
-          if (!session?.userId || !session.accountId) {
+        (payload) => {
+          if (payload.eventType === "DELETE") {
+            removeRealtimeMessage(String(payload.old.id))
             return
           }
 
-          const result = await loadSupportMessagesForSession({
-            userId: session.userId,
-            accountId: session.accountId,
-          })
+          if (payload.new && typeof payload.new === "object") {
+            const row = payload.new as {
+              id?: string
+              account_id?: string
+              from_role?: string
+              text?: string | null
+              image_src?: string | null
+              created_at?: string
+            }
 
-          if (!result.error) {
-            setMessages((result.messages ?? []) as SupportChatMessage[])
+            if (row.id && row.account_id && row.created_at) {
+              upsertRealtimeMessage({
+                id: row.id,
+                accountId: row.account_id,
+                from: row.from_role === "admin" ? "admin" : "user",
+                text: row.text ?? "",
+                imageSrc: row.image_src ?? "",
+                createdAt: row.created_at,
+              })
+            }
           }
         }
       )
@@ -116,7 +146,7 @@ export default function MessengerPage() {
       void supabase.removeChannel(messagesChannel)
       void supabase.removeChannel(accountChannel)
     }
-  }, [accountId])
+  }, [accountId, removeRealtimeMessage, upsertRealtimeMessage])
 
   if (!messengerEnabled) {
     return null
