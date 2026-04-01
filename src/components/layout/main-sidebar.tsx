@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import dynamic from "next/dynamic"
 import { usePathname } from "next/navigation"
 import {
   LayoutDashboard,
@@ -41,6 +42,12 @@ import {
   SidebarGroup,
 } from "@/components/ui/sidebar"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
+
+const SidebarShaderBackground = dynamic(
+  () =>
+    import("./sidebar-shader-background").then((module) => module.SidebarShaderBackground),
+  { ssr: false }
+)
 
 export function MainSidebar({
   session,
@@ -225,7 +232,9 @@ export function MainSidebar({
 
   return (
     <Sidebar variant="inset" {...props}>
-        <div className="flex h-full min-h-0 flex-col">
+        <div className="relative flex h-full min-h-0 flex-col overflow-hidden rounded-[inherit] bg-[#481605]">
+          <SidebarShaderBackground />
+          <div className="relative z-10 flex h-full min-h-0 flex-col">
           <SidebarHeader>
             <div className="px-3 py-3">
               <img
@@ -305,6 +314,7 @@ export function MainSidebar({
             </SidebarMenu>
           </SidebarGroup>
         </SidebarContent>
+        </div>
       </div>
     </Sidebar>
   )
