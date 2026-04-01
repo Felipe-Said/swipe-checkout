@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import dynamic from "next/dynamic"
 import { usePathname, useRouter } from "next/navigation"
 import { resolveLoginProfile } from "@/app/auth/actions"
 import {
@@ -15,6 +16,12 @@ import { supabase } from "@/lib/supabase"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { MainSidebar } from "./main-sidebar"
 import { MainHeader } from "./main-header"
+
+const SidebarShaderBackground = dynamic(
+  () =>
+    import("./sidebar-shader-background").then((module) => module.SidebarShaderBackground),
+  { ssr: false }
+)
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter()
@@ -195,9 +202,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <SidebarProvider className="has-[[data-variant=inset]]:bg-transparent">
+    <SidebarProvider className="relative overflow-hidden has-[[data-variant=inset]]:bg-transparent">
+      <div className="pointer-events-none absolute inset-0">
+        <SidebarShaderBackground />
+      </div>
       <MainSidebar session={session} />
-      <SidebarInset className="flex flex-1 flex-col gap-4 p-4 pt-0">
+      <SidebarInset className="z-10 flex flex-1 flex-col gap-4 p-4 pt-0">
         <MainHeader session={session} />
         {children}
       </SidebarInset>
