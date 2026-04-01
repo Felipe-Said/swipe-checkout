@@ -1,7 +1,15 @@
 "use client"
 
 import * as React from "react"
-import { Boxes, PackagePlus, Pencil, Plus, Store, Trash2 } from "lucide-react"
+import {
+  Boxes,
+  Link2,
+  PackagePlus,
+  Pencil,
+  Plus,
+  Store,
+  Trash2,
+} from "lucide-react"
 import { toast } from "sonner"
 
 import {
@@ -9,7 +17,13 @@ import {
   loadProductsHubData,
   saveManualProductForSession,
 } from "@/app/actions/products"
-import type { CatalogProduct, CatalogProductCurrency, CatalogProductStatus } from "@/lib/catalog-products"
+import type {
+  CatalogProduct,
+  CatalogProductCurrency,
+  CatalogProductStatus,
+  CatalogProductVariant,
+} from "@/lib/catalog-products"
+import { SWIPE_MANUAL_STORE_ID } from "@/lib/catalog-products"
 import { getCurrentAppSession } from "@/lib/app-session"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -48,25 +62,43 @@ type StoreCatalogGroup = {
   error: string
 }
 
+type ProductFormVariant = {
+  id: string
+  name: string
+  price: string
+  imageSrc: string
+}
+
 type ProductFormState = {
   id?: string
   name: string
-  variantLabel: string
+  optionName: string
   description: string
-  price: string
   currency: CatalogProductCurrency
   imageSrc: string
   status: CatalogProductStatus
+  variants: ProductFormVariant[]
 }
 
-const initialFormState: ProductFormState = {
-  name: "",
-  variantLabel: "",
-  description: "",
-  price: "",
-  currency: "BRL",
-  imageSrc: "",
-  status: "active",
+function createVariantFormState(): ProductFormVariant {
+  return {
+    id: crypto.randomUUID(),
+    name: "",
+    price: "",
+    imageSrc: "",
+  }
+}
+
+function createEmptyFormState(): ProductFormState {
+  return {
+    name: "",
+    optionName: "Variante",
+    description: "",
+    currency: "BRL",
+    imageSrc: "",
+    status: "active",
+    variants: [createVariantFormState()],
+  }
 }
 
 export default function ProductsPage() {
@@ -74,12 +106,14 @@ export default function ProductsPage() {
   const [userId, setUserId] = React.useState("")
   const [manualProducts, setManualProducts] = React.useState<CatalogProduct[]>([])
   const [storeCatalogs, setStoreCatalogs] = React.useState<StoreCatalogGroup[]>([])
+  const [checkoutIdsByProductId, setCheckoutIdsByProductId] = React.useState<Record<string, string>>({})
   const [manualProductsError, setManualProductsError] = React.useState("")
   const [loaded, setLoaded] = React.useState(false)
   const [dialogOpen, setDialogOpen] = React.useState(false)
   const [isSaving, setIsSaving] = React.useState(false)
   const [editingProductId, setEditingProductId] = React.useState("")
-  const [form, setForm] = React.useState<ProductFormState>(initialFormState)
+  const [form, setForm] = React.useState<ProductFormState>(createEmptyFormState())
+  const [origin, setOrigin] = React.useState("")
 
   const loadData = React.useCallback(async (nextAccountId: string, nextUserId: string) => {
     const result = await loadProductsHubData({
@@ -89,8 +123,15 @@ export default function ProductsPage() {
 
     setManualProducts(result.manualProducts ?? [])
     setStoreCatalogs((result.storeCatalogs ?? []) as StoreCatalogGroup[])
+    setCheckoutIdsByProductId(result.checkoutIdsByProductId ?? {})
     setManualProductsError(result.manualProductsError ?? "")
     setLoaded(true)
+  }, [])
+
+  React.useEffect(() => {
+    if (typeof window !== "undefined") {
+      setOrigin(window.location.origin)
+    }
   }, [])
 
   React.useEffect(() => {
@@ -111,7 +152,7 @@ export default function ProductsPage() {
 
   const openCreateDialog = () => {
     setEditingProductId("")
-    setForm(initialFormState)
+    setForm(createEmptyFormState())
     setDialogOpen(true)
   }
 
@@ -120,18 +161,72 @@ export default function ProductsPage() {
     setForm({
       id: product.id,
       name: product.name,
-      variantLabel: product.variantLabel,
+      optionName: product.optionName || "Variante",
       description: product.description,
-      price: product.price.toString(),
       currency: product.currency,
       imageSrc: product.imageSrc,
       status: product.status,
+      variants:
+        product.variants.length > 0
+          ? product.variants.map((variant) => ({
+              id: variant.id,
+              name: variant.name,
+              price: variant.price.toString(),
+              imageSrc: variant.imageSrc,
+            }))
+          : [createVariantFormState()],
     })
     setDialogOpen(true)
   }
 
+  const updateVariant = (variantId: string, key: keyof ProductFormVariant, value: string) => {
+    setForm((current) => ({
+      ...current,
+      variants: current.variants.map((variant) =>
+        variant.id === variantId ? { ...variant, [key]: value } : variant
+      ),
+    }))
+  }
+
+  const addVariant = () => {
+    setForm((current) => ({
+      ...current,
+      variants: [...current.variants, createVariantFormState()],
+    }))
+  }
+
+  const removeVariant = (variantId: string) => {
+    setForm((current) => ({
+      ...current,
+      variants:
+        current.variants.length === 1
+          ? current.variants
+          : current.variants.filter((variant) => variant.id !== variantId),
+    }))
+  }
+
+  const handleImageUpload = (
+    event: React.ChangeEvent<HTMLInputElement>,
+    onLoaded: (base64: string) => void
+  ) => {
+    const file = event.target.files?.[0]
+    if (!file) {
+      return
+    }
+
+    const reader = new FileReader()
+    reader.onload = () => {
+      if (typeof reader.result === "string") {
+        onLoaded(reader.result)
+      }
+    }
+    reader.readAsDataURL(file)
+  }
+
   const handleSave = async () => {
-    if (!accountId || !userId) return
+    if (!accountId || !userId) {
+      return
+    }
 
     setIsSaving(true)
     const result = await saveManualProductForSession({
@@ -139,14 +234,22 @@ export default function ProductsPage() {
       accountId,
       userId,
       name: form.name,
-      variantLabel: form.variantLabel,
+      optionName: form.optionName,
       description: form.description,
-      price: Number(form.price || 0),
+      price: Number(form.variants[0]?.price || 0),
       currency: form.currency,
       imageSrc: form.imageSrc,
       status: form.status,
+      variants: form.variants.map(
+        (variant) =>
+          ({
+            id: variant.id,
+            name: variant.name,
+            price: Number(variant.price || 0),
+            imageSrc: variant.imageSrc,
+          }) satisfies CatalogProductVariant
+      ),
     })
-
     setIsSaving(false)
 
     if (result.error) {
@@ -155,14 +258,16 @@ export default function ProductsPage() {
     }
 
     setDialogOpen(false)
-    setForm(initialFormState)
     setEditingProductId("")
+    setForm(createEmptyFormState())
     await loadData(accountId, userId)
     toast.success(editingProductId ? "Produto atualizado." : "Produto criado.")
   }
 
   const handleDelete = async (productId: string) => {
-    if (!accountId || !userId) return
+    if (!accountId || !userId) {
+      return
+    }
 
     const result = await deleteManualProductForSession({
       id: productId,
@@ -200,7 +305,7 @@ export default function ProductsPage() {
               Criar produto
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[640px]">
+          <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[720px]">
             <DialogHeader>
               <DialogTitle>{editingProductId ? "Editar produto" : "Criar produto"}</DialogTitle>
               <DialogDescription>
@@ -208,7 +313,7 @@ export default function ProductsPage() {
               </DialogDescription>
             </DialogHeader>
 
-            <div className="grid gap-4 py-2">
+            <div className="grid gap-5 py-2">
               <div className="grid gap-2">
                 <Label htmlFor="product-name">Nome do produto</Label>
                 <Input
@@ -221,39 +326,14 @@ export default function ProductsPage() {
 
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="grid gap-2">
-                  <Label htmlFor="product-variant">Variante</Label>
+                  <Label htmlFor="product-option-name">Titulo das variantes</Label>
                   <Input
-                    id="product-variant"
-                    value={form.variantLabel}
+                    id="product-option-name"
+                    value={form.optionName}
                     onChange={(event) =>
-                      setForm((current) => ({ ...current, variantLabel: event.target.value }))
+                      setForm((current) => ({ ...current, optionName: event.target.value }))
                     }
-                    placeholder="Ex: Oferta unica"
-                  />
-                </div>
-
-                <div className="grid gap-2">
-                  <Label htmlFor="product-image">Imagem do produto</Label>
-                  <Input
-                    id="product-image"
-                    value={form.imageSrc}
-                    onChange={(event) => setForm((current) => ({ ...current, imageSrc: event.target.value }))}
-                    placeholder="https://..."
-                  />
-                </div>
-              </div>
-
-              <div className="grid gap-4 md:grid-cols-3">
-                <div className="grid gap-2">
-                  <Label htmlFor="product-price">Preco</Label>
-                  <Input
-                    id="product-price"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={form.price}
-                    onChange={(event) => setForm((current) => ({ ...current, price: event.target.value }))}
-                    placeholder="0.00"
+                    placeholder="Ex.: Tamanho, Cor, Plano"
                   />
                 </div>
 
@@ -276,6 +356,27 @@ export default function ProductsPage() {
                     </SelectContent>
                   </Select>
                 </div>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="grid gap-2">
+                  <Label htmlFor="product-image-upload">Imagem do produto</Label>
+                  <Input
+                    id="product-image-upload"
+                    type="file"
+                    accept="image/*"
+                    onChange={(event) =>
+                      handleImageUpload(event, (base64) =>
+                        setForm((current) => ({ ...current, imageSrc: base64 }))
+                      )
+                    }
+                  />
+                  <Input
+                    value={form.imageSrc}
+                    onChange={(event) => setForm((current) => ({ ...current, imageSrc: event.target.value }))}
+                    placeholder="Ou cole uma URL da imagem"
+                  />
+                </div>
 
                 <div className="grid gap-2">
                   <Label>Status</Label>
@@ -293,6 +394,102 @@ export default function ProductsPage() {
                       <SelectItem value="draft">Rascunho</SelectItem>
                     </SelectContent>
                   </Select>
+                </div>
+              </div>
+
+              {form.imageSrc ? (
+                <div className="rounded-xl border p-3">
+                  <img
+                    src={form.imageSrc}
+                    alt={form.name || "Produto"}
+                    className="h-40 w-full rounded-lg object-cover"
+                  />
+                </div>
+              ) : null}
+
+              <div className="grid gap-3 rounded-xl border p-4">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <Label>Variantes do produto</Label>
+                    <p className="text-xs text-muted-foreground">
+                      Cada variante pode ter preco, imagem e link de checkout proprios.
+                    </p>
+                  </div>
+                  <Button type="button" variant="outline" size="sm" onClick={addVariant}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Adicionar variante
+                  </Button>
+                </div>
+
+                <div className="space-y-4">
+                  {form.variants.map((variant, index) => (
+                    <div key={variant.id} className="grid gap-4 rounded-xl border p-4">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="text-sm font-medium">
+                          {form.optionName || "Variante"} {index + 1}
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removeVariant(variant.id)}
+                          disabled={form.variants.length === 1}
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          Remover
+                        </Button>
+                      </div>
+
+                      <div className="grid gap-4 md:grid-cols-2">
+                        <div className="grid gap-2">
+                          <Label>Nome da variante</Label>
+                          <Input
+                            value={variant.name}
+                            onChange={(event) => updateVariant(variant.id, "name", event.target.value)}
+                            placeholder="Ex.: 38, Preto, Premium"
+                          />
+                        </div>
+
+                        <div className="grid gap-2">
+                          <Label>Preco da variante</Label>
+                          <Input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={variant.price}
+                            onChange={(event) => updateVariant(variant.id, "price", event.target.value)}
+                            placeholder="0.00"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid gap-2">
+                        <Label>Imagem da variante</Label>
+                        <Input
+                          type="file"
+                          accept="image/*"
+                          onChange={(event) =>
+                            handleImageUpload(event, (base64) =>
+                              updateVariant(variant.id, "imageSrc", base64)
+                            )
+                          }
+                        />
+                        <Input
+                          value={variant.imageSrc}
+                          onChange={(event) => updateVariant(variant.id, "imageSrc", event.target.value)}
+                          placeholder="Ou cole uma URL da imagem"
+                        />
+                      </div>
+
+                      {variant.imageSrc ? (
+                        <img
+                          src={variant.imageSrc}
+                          alt={variant.name || `Variante ${index + 1}`}
+                          className="h-28 w-full rounded-lg border object-cover"
+                        />
+                      ) : null}
+                    </div>
+                  ))}
                 </div>
               </div>
 
@@ -342,53 +539,116 @@ export default function ProductsPage() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Produto</TableHead>
-                      <TableHead>Preco</TableHead>
+                      <TableHead>Preco base</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead className="w-[140px] text-right">Acoes</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {manualProducts.map((product) => (
-                      <TableRow key={product.id}>
-                        <TableCell>
-                          <div className="flex items-center gap-3">
-                            {product.imageSrc ? (
-                              <img
-                                src={product.imageSrc}
-                                alt={product.name}
-                                className="h-12 w-12 rounded-lg border object-cover"
-                              />
-                            ) : (
-                              <div className="flex h-12 w-12 items-center justify-center rounded-lg border bg-muted">
-                                <Boxes className="h-5 w-5 text-muted-foreground" />
-                              </div>
-                            )}
-                            <div className="space-y-1">
-                              <div className="font-medium">{product.name}</div>
-                              <div className="text-xs text-muted-foreground">
-                                {product.variantLabel || "Sem variante"}
+                    {manualProducts.flatMap((product) => {
+                      const checkoutId = checkoutIdsByProductId[product.id]
+                      const headerRow = (
+                        <TableRow key={product.id}>
+                          <TableCell>
+                            <div className="flex items-center gap-3">
+                              {product.imageSrc ? (
+                                <img
+                                  src={product.imageSrc}
+                                  alt={product.name}
+                                  className="h-12 w-12 rounded-lg border object-cover"
+                                />
+                              ) : (
+                                <div className="flex h-12 w-12 items-center justify-center rounded-lg border bg-muted">
+                                  <Boxes className="h-5 w-5 text-muted-foreground" />
+                                </div>
+                              )}
+                              <div className="space-y-1">
+                                <div className="font-medium">{product.name}</div>
+                                <div className="text-xs text-muted-foreground">
+                                  {product.optionName}: {product.variants.map((variant) => variant.name).join(", ")}
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        </TableCell>
-                        <TableCell>{formatPrice(product.price, product.currency)}</TableCell>
-                        <TableCell>
-                          <Badge variant={product.status === "active" ? "default" : "outline"}>
-                            {product.status === "active" ? "Ativo" : "Rascunho"}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex justify-end gap-2">
-                            <Button variant="outline" size="icon" onClick={() => openEditDialog(product)}>
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                            <Button variant="outline" size="icon" onClick={() => void handleDelete(product.id)}>
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                          </TableCell>
+                          <TableCell>{formatPrice(product.price, product.currency)}</TableCell>
+                          <TableCell>
+                            <Badge variant={product.status === "active" ? "default" : "outline"}>
+                              {product.status === "active" ? "Ativo" : "Rascunho"}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex justify-end gap-2">
+                              <Button variant="outline" size="icon" onClick={() => openEditDialog(product)}>
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                              <Button variant="outline" size="icon" onClick={() => void handleDelete(product.id)}>
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      )
+
+                      const variantRows = product.variants.map((variant) => {
+                        const checkoutLink =
+                          checkoutId && origin
+                            ? `${origin}/checkout/${checkoutId}?store=${SWIPE_MANUAL_STORE_ID}&product=${product.id}&variant=${variant.id}`
+                            : ""
+
+                        return (
+                          <TableRow key={`${product.id}-${variant.id}`}>
+                            <TableCell colSpan={4} className="bg-muted/20">
+                              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                                <div className="flex items-center gap-3">
+                                  {variant.imageSrc ? (
+                                    <img
+                                      src={variant.imageSrc}
+                                      alt={variant.name}
+                                      className="h-10 w-10 rounded-lg border object-cover"
+                                    />
+                                  ) : (
+                                    <div className="flex h-10 w-10 items-center justify-center rounded-lg border bg-background">
+                                      <Boxes className="h-4 w-4 text-muted-foreground" />
+                                    </div>
+                                  )}
+                                  <div>
+                                    <div className="text-sm font-medium">{variant.name}</div>
+                                    <div className="text-xs text-muted-foreground">
+                                      {formatPrice(variant.price, product.currency)}
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {checkoutLink ? (
+                                  <div className="flex min-w-0 items-center gap-2">
+                                    <Input readOnly value={checkoutLink} className="min-w-[260px]" />
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => {
+                                        void navigator.clipboard.writeText(checkoutLink)
+                                        toast.success("Link da variante copiado.")
+                                      }}
+                                    >
+                                      <Link2 className="mr-2 h-4 w-4" />
+                                      Copiar link
+                                    </Button>
+                                  </div>
+                                ) : (
+                                  <div className="text-xs text-muted-foreground">
+                                    Para gerar os links, selecione <span className="font-medium">Meu Swipe</span> em{" "}
+                                    <span className="font-medium">Loja do Checkout</span>, escolha este produto e salve um checkout.
+                                  </div>
+                                )}
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        )
+                      })
+
+                      return [headerRow, ...variantRows]
+                    })}
                   </TableBody>
                 </Table>
               </div>
@@ -446,9 +706,7 @@ export default function ProductsPage() {
                       )}
                       <div className="min-w-0 flex-1">
                         <div className="truncate font-medium">{product.title}</div>
-                        <div className="truncate text-xs text-muted-foreground">
-                          {product.variantLabel}
-                        </div>
+                        <div className="truncate text-xs text-muted-foreground">{product.variantLabel}</div>
                         <div className="mt-1 text-sm font-semibold">
                           {formatPrice(product.price, product.currency)}
                         </div>

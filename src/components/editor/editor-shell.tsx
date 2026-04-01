@@ -40,7 +40,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { ShopifyCheckout } from "../checkout-preview/shopify-checkout"
 import { getCurrentAppSession } from "@/lib/app-session"
-import { type CatalogProduct } from "@/lib/catalog-products"
+import { SWIPE_MANUAL_STORE_ID, type CatalogProduct } from "@/lib/catalog-products"
 import { getManagedAccounts, type ManagedAccount } from "@/lib/account-metrics"
 import { type ConnectedDomain } from "@/lib/domain-data"
 import { type ShippingMethod } from "@/lib/shipping-data"
@@ -175,6 +175,7 @@ type EditorConfig = {
   selectedShippingMethodIds: string[]
   selectedDomainId: string
   selectedProductId: string
+  selectedVariantId: string
   selectedStoreId: string
   selectedWhopAccountId: string
   whopTheme: WhopTheme
@@ -280,6 +281,7 @@ const initialConfig: EditorConfig = {
   selectedShippingMethodIds: [],
   selectedDomainId: "",
   selectedProductId: "",
+  selectedVariantId: "",
   selectedStoreId: "",
   selectedWhopAccountId: "",
   whopTheme: "light",
@@ -392,6 +394,22 @@ export function EditorShell() {
   const [checkoutName, setCheckoutName] = React.useState("Checkout Premium")
   const [isSaving, setIsSaving] = React.useState(false)
   const isDanielLayout = previewPage === "checkout" && config.layoutStyle === "daniel"
+  const isSwipeManualStore = config.selectedStoreId === SWIPE_MANUAL_STORE_ID
+  const selectedManualProduct = React.useMemo(
+    () => manualProducts.find((product) => product.id === config.selectedProductId) ?? null,
+    [config.selectedProductId, manualProducts]
+  )
+  const selectedManualVariant = React.useMemo(() => {
+    if (!selectedManualProduct) {
+      return null
+    }
+
+    return (
+      selectedManualProduct.variants.find((variant) => variant.id === config.selectedVariantId) ??
+      selectedManualProduct.variants[0] ??
+      null
+    )
+  }, [config.selectedVariantId, selectedManualProduct])
 
   const syncHistoryState = React.useCallback(() => {
     setHistoryState({
@@ -535,7 +553,12 @@ export function EditorShell() {
 
   React.useEffect(() => {
     async function loadStorePreview() {
-      if (!config.selectedStoreId || !sessionAccountId || !sessionUserId) {
+      if (
+        !config.selectedStoreId ||
+        config.selectedStoreId === SWIPE_MANUAL_STORE_ID ||
+        !sessionAccountId ||
+        !sessionUserId
+      ) {
         setStorePreview(null)
         return
       }
@@ -574,24 +597,50 @@ export function EditorShell() {
       return
     }
 
-    const selectedProduct = manualProducts.find((product) => product.id === config.selectedProductId)
-    if (!selectedProduct) {
+    if (!selectedManualProduct) {
+      return
+    }
+
+    const nextVariant =
+      selectedManualProduct.variants.find((variant) => variant.id === config.selectedVariantId) ??
+      selectedManualProduct.variants[0] ??
+      null
+    if (!nextVariant) {
       return
     }
 
     updateConfig(
       (prev) => ({
         ...prev,
-        selectedStoreId: "",
-        productName: selectedProduct.name,
-        productVariantLabel: selectedProduct.variantLabel || prev.productVariantLabel,
-        productPrice: selectedProduct.price,
+        selectedStoreId: SWIPE_MANUAL_STORE_ID,
+        selectedVariantId: nextVariant.id,
+        productName: selectedManualProduct.name,
+        productVariantLabel: nextVariant.name || prev.productVariantLabel,
+        productPrice: nextVariant.price,
         currencyMode: "manual",
-        currency: selectedProduct.currency,
+        currency: selectedManualProduct.currency,
       }),
       { trackHistory: false }
     )
-  }, [config.selectedProductId, manualProducts, updateConfig])
+  }, [config.selectedProductId, config.selectedVariantId, selectedManualProduct, updateConfig])
+
+  React.useEffect(() => {
+    if (!selectedManualProduct || !selectedManualVariant || !isSwipeManualStore) {
+      return
+    }
+
+    updateConfig(
+      (prev) => ({
+        ...prev,
+        productName: selectedManualProduct.name,
+        productVariantLabel: selectedManualVariant.name || prev.productVariantLabel,
+        productPrice: selectedManualVariant.price,
+        currencyMode: "manual",
+        currency: selectedManualProduct.currency,
+      }),
+      { trackHistory: false }
+    )
+  }, [isSwipeManualStore, selectedManualProduct, selectedManualVariant, updateConfig])
 
   const handleUpdate = (key: keyof EditorConfig, value: string | boolean | number) => {
     if (key === "thankYouDragEnabled") {
@@ -604,19 +653,33 @@ export function EditorShell() {
     }
 
     if (key === "selectedStoreId") {
+      const nextStoreId = String(value)
       updateConfig((prev) => ({
         ...prev,
-        selectedStoreId: String(value),
-        selectedProductId: "",
+        selectedStoreId: nextStoreId,
+        selectedProductId: nextStoreId === SWIPE_MANUAL_STORE_ID ? prev.selectedProductId : "",
+        selectedVariantId: nextStoreId === SWIPE_MANUAL_STORE_ID ? prev.selectedVariantId : "",
       }))
       return
     }
 
     if (key === "selectedProductId") {
+      const nextProductId = String(value)
+      const nextProduct = manualProducts.find((product) => product.id === nextProductId) ?? null
       updateConfig((prev) => ({
         ...prev,
-        selectedProductId: String(value),
-        selectedStoreId: "",
+        selectedProductId: nextProductId,
+        selectedVariantId: nextProduct?.variants[0]?.id ?? "",
+        selectedStoreId: nextProductId ? SWIPE_MANUAL_STORE_ID : "",
+      }))
+      return
+    }
+
+    if (key === "selectedVariantId") {
+      updateConfig((prev) => ({
+        ...prev,
+        selectedVariantId: String(value),
+        selectedStoreId: prev.selectedProductId ? SWIPE_MANUAL_STORE_ID : prev.selectedStoreId,
       }))
       return
     }
@@ -1317,6 +1380,26 @@ export function EditorShell() {
                     </p>
                   </div>
 
+                  {selectedManualProduct ? (
+                    <div className="space-y-2">
+                      <Label>Variante da Swipe</Label>
+                      <select
+                        value={config.selectedVariantId}
+                        onChange={(e) => handleUpdate("selectedVariantId", e.target.value)}
+                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                      >
+                        {selectedManualProduct.variants.map((variant) => (
+                          <option key={variant.id} value={variant.id}>
+                            {variant.name} ({selectedManualProduct.currency} {variant.price.toFixed(2)})
+                          </option>
+                        ))}
+                      </select>
+                      <p className="text-xs text-muted-foreground">
+                        Cada variante tem preco, imagem e link de checkout proprios.
+                      </p>
+                    </div>
+                  ) : null}
+
                   <div className="space-y-2">
                     <Label>Produto principal</Label>
                     <Input
@@ -1551,13 +1634,14 @@ export function EditorShell() {
 
                 <div className="space-y-2">
                   <Label>Loja do Checkout</Label>
-                  {stores.length > 0 ? (
+                  {stores.length > 0 || manualProducts.length > 0 ? (
                     <select
                       value={config.selectedStoreId}
                       onChange={(e) => handleUpdate("selectedStoreId", e.target.value)}
                       className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                     >
                       <option value="">Sem loja Shopify</option>
+                      <option value={SWIPE_MANUAL_STORE_ID}>Meu Swipe</option>
                       {stores.map((store) => (
                         <option key={store.id} value={store.id}>
                           {store.name} ({store.shopDomain})
@@ -1574,7 +1658,7 @@ export function EditorShell() {
                     </button>
                   )}
                   <p className="text-xs text-muted-foreground">
-                    Quando uma loja Shopify for selecionada, ela assume prioridade sobre o produto proprio neste checkout.
+                    Se `Meu Swipe` estiver selecionado, este checkout usa apenas os produtos criados dentro da plataforma Swipe. Uma loja Shopify real continua tendo prioridade apenas quando ela for a opcao selecionada.
                   </p>
                 </div>
 

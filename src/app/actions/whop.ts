@@ -4,6 +4,7 @@ import Whop from "@whop/sdk"
 
 import { getSupabaseAdmin } from "@/lib/supabase"
 import { type ManagedAccount } from "@/lib/account-metrics"
+import { SWIPE_MANUAL_STORE_ID } from "@/lib/catalog-products"
 import {
   loadShopifyStorePreviewForPublishing,
   loadShopifyVariantPreviewForPublishing,
@@ -17,6 +18,8 @@ type EditorCheckoutConfig = {
   currency?: "BRL" | "USD" | "EUR" | "GBP"
   selectedDomainId?: string
   selectedStoreId?: string
+  selectedProductId?: string
+  selectedVariantId?: string
   selectedWhopAccountId?: string
   whop?: {
     checkoutConfigurationId?: string | null
@@ -107,6 +110,10 @@ function normalizeWhopCurrency(currency: string | undefined) {
 
 function hasValidStorePreview(preview?: ShopifyStorePreview | null) {
   return Boolean(preview && Number.isFinite(preview.amount) && preview.amount > 0 && preview.productName)
+}
+
+function hasRealShopifyStoreId(storeId?: string | null) {
+  return Boolean(storeId && storeId !== SWIPE_MANUAL_STORE_ID)
 }
 
 function resolveConfiguredCheckoutAmount(config: EditorCheckoutConfig) {
@@ -528,15 +535,18 @@ export async function saveCheckoutFromEditor(input: {
         : { data: null }
 
       const storePreviewResult =
-        input.config.selectedStoreId
+        hasRealShopifyStoreId(input.config.selectedStoreId)
           ? await loadShopifyStorePreviewForPublishing({
-              storeId: input.config.selectedStoreId,
+              storeId: String(input.config.selectedStoreId),
               accountId: input.accountId,
             })
           : { preview: null as null | { amount: number; currency: string; productName: string } }
 
       const storePreview = storePreviewResult.preview
-      if (input.config.selectedStoreId && !hasValidStorePreview(storePreview as ShopifyStorePreview | null)) {
+      if (
+        hasRealShopifyStoreId(input.config.selectedStoreId) &&
+        !hasValidStorePreview(storePreview as ShopifyStorePreview | null)
+      ) {
         return {
           error: "Nao foi possivel resolver um produto real da Shopify para publicar este checkout.",
           checkoutId,
@@ -648,7 +658,10 @@ export async function createPublicWhopCheckoutSession(input: {
     return { whop: input.config.whop ?? null }
   }
 
-  if ((input.requireResolvedStorePreview || input.config.selectedStoreId) && !hasValidStorePreview(input.storePreview)) {
+  if (
+    (input.requireResolvedStorePreview || hasRealShopifyStoreId(input.config.selectedStoreId)) &&
+    !hasValidStorePreview(input.storePreview)
+  ) {
     return {
       error: "Nao foi possivel resolver o produto real da Shopify para este checkout.",
       whop: null,
@@ -690,9 +703,13 @@ export async function createPublicWhopCheckoutSession(input: {
       : resolveConfiguredCheckoutTitle(input.config, input.config.companyName?.trim() || "Checkout Swipe")
     const redirectUrl = buildThankYouRedirectUrl(input.checkoutId, selectedDomain?.host, {
       shop: input.shopDomain || null,
-      store: input.shopifyStoreId || input.config.selectedStoreId || null,
-      product: input.shopifyProductId || null,
-      variant: input.shopifyVariantId || null,
+      store:
+        input.shopifyStoreId ||
+        (hasRealShopifyStoreId(input.config.selectedStoreId)
+          ? input.config.selectedStoreId
+          : input.config.selectedStoreId || null),
+      product: input.shopifyProductId || input.config.selectedProductId || null,
+      variant: input.shopifyVariantId || input.config.selectedVariantId || null,
       product_name: input.productName || input.storePreview?.productName || checkoutTitle,
       variant_label:
         input.variantLabel || input.storePreview?.variantLabel || input.config.productVariantLabel || "Variante padrao",
@@ -724,9 +741,13 @@ export async function createPublicWhopCheckoutSession(input: {
         swipeCheckoutId: input.checkoutId,
         swipeAccountId: input.accountId,
         swipeCheckoutName: checkoutTitle,
-        swipeStoreId: input.shopifyStoreId || input.config.selectedStoreId || null,
-        swipeProductId: input.shopifyProductId || null,
-        swipeVariantId: input.shopifyVariantId || null,
+        swipeStoreId:
+          input.shopifyStoreId ||
+          (hasRealShopifyStoreId(input.config.selectedStoreId)
+            ? input.config.selectedStoreId
+            : input.config.selectedStoreId || null),
+        swipeProductId: input.shopifyProductId || input.config.selectedProductId || null,
+        swipeVariantId: input.shopifyVariantId || input.config.selectedVariantId || null,
         swipeShopDomain: input.shopDomain || null,
         swipeProductName:
           input.productName || input.storePreview?.productName || input.config.productName || checkoutTitle,

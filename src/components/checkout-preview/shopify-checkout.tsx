@@ -5,6 +5,7 @@ import { ChevronDown, Info, LocateFixed, ShieldCheck, ShoppingBag } from "lucide
 import { WhopCheckoutEmbed, useCheckoutEmbedControls } from "@whop/checkout/react"
 
 import { cn } from "@/lib/utils"
+import { SWIPE_MANUAL_STORE_ID } from "@/lib/catalog-products"
 import { trackCheckoutBehaviorEvent } from "@/lib/checkout-behavior"
 import { Button } from "@/components/ui/button"
 import { OrderConfirmationCard } from "@/components/ui/order-confirmation-card"
@@ -675,6 +676,8 @@ interface CheckoutConfig {
   upsellPrice: number
   selectedShippingMethodIds: string[]
   selectedStoreId?: string
+  selectedProductId?: string
+  selectedVariantId?: string
   selectedWhopAccountId?: string
   whopTheme: WhopTheme
   whopAccentColor: WhopAccentColor
@@ -1094,7 +1097,7 @@ export function ShopifyCheckout({
   const selectedShipping =
     availableShippingMethods.find((method) => method.id === selectedShippingId) ?? null
   const effectiveCurrency = storePreview?.currency ?? resolvedCurrency
-  const hasSelectedStore = Boolean(config.selectedStoreId)
+  const hasSelectedStore = Boolean(config.selectedStoreId && config.selectedStoreId !== SWIPE_MANUAL_STORE_ID)
   const productName =
     storePreview?.productName ||
     (hasSelectedStore ? UNRESOLVED_PRODUCT_NAME : resolveConfiguredProductName(config, copy))

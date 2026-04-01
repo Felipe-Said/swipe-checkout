@@ -15,8 +15,10 @@ import {
   loadShopifyVariantPreviewForPublicCheckout,
   loadShopifyVariantPreviewForPublishing,
 } from "@/app/actions/shopify"
+import { loadCatalogProductPreviewForPublishing } from "@/app/actions/products"
 import { loadShippingMethodsForCheckout } from "@/app/actions/shipping"
 import { createPublicWhopCheckoutSession } from "@/app/actions/whop"
+import { SWIPE_MANUAL_STORE_ID } from "@/lib/catalog-products"
 import type { CheckoutPixelConfig } from "@/lib/pixels-data"
 
 export default async function PublicCheckoutPage({
@@ -117,6 +119,14 @@ export default async function PublicCheckoutPage({
     checkout.config && typeof checkout.config === "object" && !Array.isArray(checkout.config)
       ? checkout.config
       : {}
+  const configuredStoreId =
+    typeof (config as any).selectedStoreId === "string" ? (config as any).selectedStoreId : ""
+  const configuredProductId =
+    typeof (config as any).selectedProductId === "string" ? (config as any).selectedProductId : ""
+  const configuredVariantId =
+    typeof (config as any).selectedVariantId === "string" ? (config as any).selectedVariantId : ""
+  const isSwipeManualMode =
+    storeIdFromRedirect === SWIPE_MANUAL_STORE_ID || configuredStoreId === SWIPE_MANUAL_STORE_ID
   const redirectedAmount = Number.parseFloat(amountFromRedirect ?? "")
   const redirectedCurrency =
     currencyFromRedirect === "USD" ||
@@ -138,12 +148,24 @@ export default async function PublicCheckoutPage({
           imageSrc: imageFromRedirect,
         }
       : null
-  const requiresShopifyResolution = Boolean(
-    storeIdFromRedirect || shopDomain || productId || variantId || config.selectedStoreId
-  )
+  const requiresShopifyResolution = !isSwipeManualMode
+    ? Boolean(
+        storeIdFromRedirect ||
+          shopDomain ||
+          productId ||
+          variantId ||
+          configuredStoreId
+      )
+    : false
 
   const storePreviewResult = redirectedStorePreview
     ? { preview: redirectedStorePreview }
+    : isSwipeManualMode
+      ? await loadCatalogProductPreviewForPublishing({
+          accountId: checkout.account_id,
+          productId: productId || configuredProductId,
+          variantId: variantId || configuredVariantId || null,
+        })
     :
     storeIdFromRedirect
       ? variantId
@@ -178,22 +200,22 @@ export default async function PublicCheckoutPage({
             shopDomain,
             accountId: checkout.account_id,
           })
-      : config.selectedStoreId
+      : configuredStoreId
         ? variantId
           ? await loadShopifyVariantPreviewForPublishing({
-              storeId: String(config.selectedStoreId),
+              storeId: configuredStoreId,
               accountId: checkout.account_id,
               variantId,
               productId,
             })
           : productId
           ? await loadShopifyProductPreviewForPublishing({
-              storeId: String(config.selectedStoreId),
+              storeId: configuredStoreId,
               accountId: checkout.account_id,
               productId,
             })
           : await loadShopifyStorePreviewForPublishing({
-              storeId: String(config.selectedStoreId),
+              storeId: configuredStoreId,
               accountId: checkout.account_id,
             })
         : { preview: null }
@@ -203,6 +225,7 @@ export default async function PublicCheckoutPage({
       checkoutId: checkout.id,
       accountId: checkout.account_id,
       storeIdFromRedirect,
+      isSwipeManualMode,
       shopDomain,
       productId,
       variantId,
@@ -215,18 +238,16 @@ export default async function PublicCheckoutPage({
     accountId: checkout.account_id,
     config: {
       ...(config as any),
-      selectedStoreId:
-        typeof (config as any).selectedStoreId === "string" && (config as any).selectedStoreId
-          ? (config as any).selectedStoreId
-          : storeIdFromRedirect,
+      selectedStoreId: configuredStoreId || storeIdFromRedirect,
+      selectedProductId: configuredProductId || productId,
+      selectedVariantId: configuredVariantId || variantId,
     } as any,
     storePreview: storePreviewResult.preview ?? null,
     requireResolvedStorePreview: requiresShopifyResolution,
     shopifyStoreId:
-      storeIdFromRedirect ||
-      (typeof (config as any).selectedStoreId === "string" ? (config as any).selectedStoreId : null),
-    shopifyProductId: productId,
-    shopifyVariantId: variantId,
+      !isSwipeManualMode ? storeIdFromRedirect || configuredStoreId || null : null,
+    shopifyProductId: !isSwipeManualMode ? productId || null : null,
+    shopifyVariantId: !isSwipeManualMode ? variantId || null : null,
     shopDomain: shopDomain ?? null,
     attribution,
     productName: productNameFromRedirect ?? null,
@@ -238,10 +259,9 @@ export default async function PublicCheckoutPage({
 
   const checkoutConfigWithLiveWhop = {
     ...(config as any),
-    selectedStoreId:
-      typeof (config as any).selectedStoreId === "string" && (config as any).selectedStoreId
-        ? (config as any).selectedStoreId
-        : storeIdFromRedirect,
+    selectedStoreId: configuredStoreId || storeIdFromRedirect,
+    selectedProductId: configuredProductId || productId,
+    selectedVariantId: configuredVariantId || variantId,
     whop: (config as any).selectedWhopAccountId
       ? whopSessionResult.whop ?? null
       : (config as any).whop,
