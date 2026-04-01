@@ -101,6 +101,17 @@ function createEmptyFormState(): ProductFormState {
   }
 }
 
+const MAX_IMAGE_DATA_BYTES = 260_000
+const MAX_PRODUCT_IMAGES_TOTAL_BYTES = 700_000
+
+function estimateDataUrlBytes(dataUrl: string) {
+  if (!dataUrl.startsWith("data:")) {
+    return 0
+  }
+  const [, payload = ""] = dataUrl.split(",", 2)
+  return Math.ceil((payload.length * 3) / 4)
+}
+
 async function readImageAsOptimizedDataUrl(file: File) {
   const fileDataUrl = await new Promise<string>((resolve, reject) => {
     const reader = new FileReader()
@@ -142,8 +153,19 @@ async function readImageAsOptimizedDataUrl(file: File) {
 
   context.drawImage(image, 0, 0, targetWidth, targetHeight)
 
-  const prefersPng = file.type === "image/png" && !fileDataUrl.startsWith("data:image/jpeg")
-  return canvas.toDataURL(prefersPng ? "image/png" : "image/jpeg", prefersPng ? 0.92 : 0.82)
+  const mimeType = "image/jpeg"
+  const qualitySteps = [0.82, 0.74, 0.66, 0.58, 0.5]
+  let bestDataUrl = canvas.toDataURL(mimeType, qualitySteps[0])
+
+  for (const quality of qualitySteps) {
+    const nextDataUrl = canvas.toDataURL(mimeType, quality)
+    bestDataUrl = nextDataUrl
+    if (estimateDataUrlBytes(nextDataUrl) <= MAX_IMAGE_DATA_BYTES) {
+      return nextDataUrl
+    }
+  }
+
+  return bestDataUrl
 }
 
 export default function ProductsPage() {
@@ -270,6 +292,15 @@ export default function ProductsPage() {
 
   const handleSave = async () => {
     if (!accountId || !userId) {
+      return
+    }
+
+    const totalImagePayloadBytes =
+      estimateDataUrlBytes(form.imageSrc) +
+      form.variants.reduce((total, variant) => total + estimateDataUrlBytes(variant.imageSrc), 0)
+
+    if (totalImagePayloadBytes > MAX_PRODUCT_IMAGES_TOTAL_BYTES) {
+      toast.error("As imagens desse produto ainda estao pesadas demais. Reduza a quantidade ou use arquivos menores.")
       return
     }
 
