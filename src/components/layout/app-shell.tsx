@@ -195,7 +195,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <SidebarProvider>
+    <SidebarProvider className="has-[[data-variant=inset]]:bg-transparent">
       <MainSidebar session={session} />
       <SidebarInset className="flex flex-1 flex-col gap-4 p-4 pt-0">
         <MainHeader session={session} />
