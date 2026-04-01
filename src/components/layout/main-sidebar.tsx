@@ -16,6 +16,7 @@ import {
   MousePointerClick,
   ChevronRight,
   Truck,
+  Package,
 } from "lucide-react"
 import type { AppSession } from "@/lib/app-session"
 import { useI18n } from "@/lib/i18n"
@@ -181,6 +182,11 @@ export function MainSidebar({
       title: t("nav.stores"),
       url: "/app/stores",
       icon: Store,
+    },
+    {
+      title: t("nav.products"),
+      url: "/app/products",
+      icon: Package,
     },
     ...(shouldShowWithdrawals
       ? [

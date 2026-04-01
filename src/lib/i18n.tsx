@@ -41,6 +41,7 @@ export const translations: Translations = {
   "nav.customers": { "pt-BR": "Clientes", "en-US": "Customers", "es-ES": "Clientes" },
   "nav.domains": { "pt-BR": "Domínios", "en-US": "Domains", "es-ES": "Dominios" },
   "nav.stores": { "pt-BR": "Lojas", "en-US": "Stores", "es-ES": "Tiendas" },
+  "nav.products": { "pt-BR": "Produtos", "en-US": "Products", "es-ES": "Productos" },
   "nav.withdrawals": { "pt-BR": "Saques", "en-US": "Withdrawals", "es-ES": "Retiros" },
   "nav.settings": { "pt-BR": "Configurações", "en-US": "Settings", "es-ES": "Configuraciones" },
   "nav.whop": { "pt-BR": "Whop", "en-US": "Whop", "es-ES": "Whop" },

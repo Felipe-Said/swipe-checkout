@@ -2,6 +2,7 @@
 
 import { getSupabaseAdmin } from "@/lib/supabase"
 import { normalizeShopDomain, type ConnectedShopifyStore } from "@/lib/shopify-store-data"
+import type { StoreCatalogProduct } from "@/lib/catalog-products"
 
 const SHOPIFY_STOREFRONT_API_VERSION = "2026-01"
 
@@ -31,6 +32,12 @@ type ShopifyAdminProductPreviewResult = {
   amount: number
   imageSrc?: string
 } | null
+
+type ShopifyStoreCatalogResult = {
+  storeName: string
+  currency: ShopifyStorePreviewCurrency
+  products: StoreCatalogProduct[]
+}
 
 function normalizeShopifyResourceId(value?: string | null) {
   if (!value) return ""
@@ -614,6 +621,133 @@ async function fetchShopifyStorePreview(input: { storeId: string; accountId: str
   }
 }
 
+async function fetchShopifyStoreCatalog(input: {
+  storeId: string
+  accountId: string
+  limit?: number
+}) {
+  const supabaseAdmin = getSupabaseAdmin()
+  const { data: store, error } = await supabaseAdmin
+    .from("shopify_stores")
+    .select("id, account_id, name, shop_domain, client_id, client_secret")
+    .eq("account_id", input.accountId)
+    .eq("id", input.storeId)
+    .maybeSingle()
+
+  if (error || !store) {
+    return {
+      error: "Loja Shopify nao encontrada.",
+      catalog: null as ShopifyStoreCatalogResult | null,
+    }
+  }
+
+  try {
+    const accessToken = await exchangeShopifyAdminToken(
+      store.shop_domain,
+      store.client_id,
+      store.client_secret
+    )
+
+    const data = await fetchShopifyAdminGraphQL<{
+      shop?: { name?: string | null; currencyCode?: string | null } | null
+      products?: {
+        nodes?: Array<{
+          legacyResourceId?: string | null
+          title?: string | null
+          featuredImage?: { url?: string | null } | null
+          variants?: {
+            nodes?: Array<{
+              legacyResourceId?: string | null
+              title?: string | null
+              price?: string | null
+              image?: { url?: string | null } | null
+            }>
+          } | null
+        }>
+      } | null
+    }>({
+      shopDomain: store.shop_domain,
+      accessToken,
+      query: `
+        query SwipeStoreCatalog($first: Int!) {
+          shop {
+            name
+            currencyCode
+          }
+          products(first: $first, query: "status:active") {
+            nodes {
+              legacyResourceId
+              title
+              featuredImage {
+                url
+              }
+              variants(first: 10) {
+                nodes {
+                  legacyResourceId
+                  title
+                  price
+                  image {
+                    url
+                  }
+                }
+              }
+            }
+          }
+        }
+      `,
+      variables: {
+        first: Math.min(Math.max(input.limit ?? 12, 1), 30),
+      },
+    })
+
+    const currency = normalizeStoreCurrency(data?.shop?.currencyCode)
+    const products = (Array.isArray(data?.products?.nodes) ? data!.products!.nodes! : [])
+      .map((product) => {
+        const variants = Array.isArray(product?.variants?.nodes) ? product.variants.nodes : []
+        const selectedVariant =
+          variants.find((variant) => parseShopifyMoneyAmount(variant?.price) >= 0) ?? null
+
+        if (!product?.legacyResourceId || !product?.title || !selectedVariant) {
+          return null
+        }
+
+        return {
+          id: String(product.legacyResourceId),
+          storeId: store.id,
+          storeName: store.name,
+          title: product.title,
+          variantLabel:
+            selectedVariant.title && selectedVariant.title !== "Default Title"
+              ? selectedVariant.title
+              : "Variante padrao",
+          price: parseShopifyMoneyAmount(selectedVariant.price),
+          currency,
+          imageSrc:
+            selectedVariant.image?.url ??
+            product.featuredImage?.url ??
+            "",
+        } satisfies StoreCatalogProduct
+      })
+      .filter((product): product is StoreCatalogProduct => Boolean(product))
+
+    return {
+      catalog: {
+        storeName: data?.shop?.name || store.name,
+        currency,
+        products,
+      },
+    }
+  } catch (error) {
+    return {
+      error:
+        error instanceof Error
+          ? error.message
+          : "Nao foi possivel carregar os produtos da Shopify.",
+      catalog: null as ShopifyStoreCatalogResult | null,
+    }
+  }
+}
+
 async function fetchPublishingStoreById(storeId: string) {
   const supabaseAdmin = getSupabaseAdmin()
   const { data: store, error } = await supabaseAdmin
@@ -842,6 +976,16 @@ export async function loadShopifyStorePreviewForSession(input: {
 }) {
   await assertAccountAccess(input.accountId, input.userId)
   return fetchShopifyStorePreview(input)
+}
+
+export async function loadShopifyStoreCatalogForSession(input: {
+  storeId: string
+  accountId: string
+  userId: string
+  limit?: number
+}) {
+  await assertAccountAccess(input.accountId, input.userId)
+  return fetchShopifyStoreCatalog(input)
 }
 
 export async function loadShopifyStorePreviewForPublishing(input: {

@@ -24,6 +24,7 @@ import {
   saveCheckoutFromEditor,
 } from "@/app/actions/whop"
 import { loadDomainsForSession } from "@/app/actions/domains"
+import { loadManualProductsForSession } from "@/app/actions/products"
 import { loadShippingMethodsForSession } from "@/app/actions/shipping"
 import {
   loadShopifyStoreOptionsForSession,
@@ -39,6 +40,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { ShopifyCheckout } from "../checkout-preview/shopify-checkout"
 import { getCurrentAppSession } from "@/lib/app-session"
+import { type CatalogProduct } from "@/lib/catalog-products"
 import { getManagedAccounts, type ManagedAccount } from "@/lib/account-metrics"
 import { type ConnectedDomain } from "@/lib/domain-data"
 import { type ShippingMethod } from "@/lib/shipping-data"
@@ -172,6 +174,7 @@ type EditorConfig = {
   upsellPrice: number
   selectedShippingMethodIds: string[]
   selectedDomainId: string
+  selectedProductId: string
   selectedStoreId: string
   selectedWhopAccountId: string
   whopTheme: WhopTheme
@@ -276,6 +279,7 @@ const initialConfig: EditorConfig = {
   upsellPrice: 97,
   selectedShippingMethodIds: [],
   selectedDomainId: "",
+  selectedProductId: "",
   selectedStoreId: "",
   selectedWhopAccountId: "",
   whopTheme: "light",
@@ -379,6 +383,7 @@ export function EditorShell() {
   const [historyState, setHistoryState] = React.useState({ canUndo: false, canRedo: false })
   const [shippingMethods, setShippingMethods] = React.useState<ShippingMethod[]>([])
   const [domains, setDomains] = React.useState<ConnectedDomain[]>([])
+  const [manualProducts, setManualProducts] = React.useState<CatalogProduct[]>([])
   const [stores, setStores] = React.useState<ConnectedShopifyStore[]>([])
   const [storePreview, setStorePreview] = React.useState<ShopifyStorePreview | null>(null)
   const [whopAccounts, setWhopAccounts] = React.useState<ManagedAccount[]>([])
@@ -463,7 +468,14 @@ export function EditorShell() {
             userId: session.userId,
           })
         : { stores: [] as ConnectedShopifyStore[] }
+      const availableManualProductsResult = session?.accountId && session?.userId
+        ? await loadManualProductsForSession({
+            accountId: session.accountId,
+            userId: session.userId,
+          })
+        : { products: [] as CatalogProduct[] }
       const availableStores = availableStoresResult.stores ?? []
+      const availableManualProducts = availableManualProductsResult.products ?? []
       const availableWhopAccounts =
         session?.role === "admin"
           ? [
@@ -478,6 +490,7 @@ export function EditorShell() {
             : []
 
       setDomains(availableDomains)
+      setManualProducts(availableManualProducts)
       setStores(availableStores)
       setWhopAccounts(availableWhopAccounts)
       if (availableDomains[0] && !config.selectedDomainId) {
@@ -485,7 +498,7 @@ export function EditorShell() {
           trackHistory: false,
         })
       }
-      if (availableStores[0] && !config.selectedStoreId) {
+      if (availableStores[0] && !config.selectedStoreId && !config.selectedProductId) {
         updateConfig((prev) => ({ ...prev, selectedStoreId: availableStores[0].id }), {
           trackHistory: false,
         })
@@ -556,12 +569,54 @@ export function EditorShell() {
     loadStorePreview()
   }, [config.selectedStoreId, sessionAccountId, sessionUserId, stores, updateConfig])
 
+  React.useEffect(() => {
+    if (!config.selectedProductId) {
+      return
+    }
+
+    const selectedProduct = manualProducts.find((product) => product.id === config.selectedProductId)
+    if (!selectedProduct) {
+      return
+    }
+
+    updateConfig(
+      (prev) => ({
+        ...prev,
+        selectedStoreId: "",
+        productName: selectedProduct.name,
+        productVariantLabel: selectedProduct.variantLabel || prev.productVariantLabel,
+        productPrice: selectedProduct.price,
+        currencyMode: "manual",
+        currency: selectedProduct.currency,
+      }),
+      { trackHistory: false }
+    )
+  }, [config.selectedProductId, manualProducts, updateConfig])
+
   const handleUpdate = (key: keyof EditorConfig, value: string | boolean | number) => {
     if (key === "thankYouDragEnabled") {
       updateConfig((prev) => ({
         ...prev,
         thankYouDragEnabled: Boolean(value),
         ...THANK_YOU_DEFAULT_POSITIONS,
+      }))
+      return
+    }
+
+    if (key === "selectedStoreId") {
+      updateConfig((prev) => ({
+        ...prev,
+        selectedStoreId: String(value),
+        selectedProductId: "",
+      }))
+      return
+    }
+
+    if (key === "selectedProductId") {
+      updateConfig((prev) => ({
+        ...prev,
+        selectedProductId: String(value),
+        selectedStoreId: "",
       }))
       return
     }
@@ -1234,6 +1289,35 @@ export function EditorShell() {
 
                 <div className="space-y-4 rounded-lg border p-4">
                   <div className="space-y-2">
+                    <Label>Produto da Swipe</Label>
+                    {manualProducts.length > 0 ? (
+                      <select
+                        value={config.selectedProductId}
+                        onChange={(e) => handleUpdate("selectedProductId", e.target.value)}
+                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                      >
+                        <option value="">Usar preenchimento manual</option>
+                        {manualProducts.map((product) => (
+                          <option key={product.id} value={product.id}>
+                            {product.name} ({product.currency} {product.price.toFixed(2)})
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => router.push("/app/products")}
+                        className="w-full rounded-md border border-dashed px-3 py-3 text-left text-sm text-muted-foreground hover:bg-muted"
+                      >
+                        Nenhum produto proprio ainda. Clique aqui para criar um produto da Swipe.
+                      </button>
+                    )}
+                    <p className="text-xs text-muted-foreground">
+                      Use este catalogo para vender em landing pages e campanhas fora da Shopify.
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
                     <Label>Produto principal</Label>
                     <Input
                       value={config.productName}
@@ -1473,6 +1557,7 @@ export function EditorShell() {
                       onChange={(e) => handleUpdate("selectedStoreId", e.target.value)}
                       className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                     >
+                      <option value="">Sem loja Shopify</option>
                       {stores.map((store) => (
                         <option key={store.id} value={store.id}>
                           {store.name} ({store.shopDomain})
@@ -1488,6 +1573,9 @@ export function EditorShell() {
                       Nenhuma loja configurada. Clique aqui para adicionar uma nova loja.
                     </button>
                   )}
+                  <p className="text-xs text-muted-foreground">
+                    Quando uma loja Shopify for selecionada, ela assume prioridade sobre o produto proprio neste checkout.
+                  </p>
                 </div>
 
                 <div className="space-y-2">
