@@ -1,12 +1,19 @@
 "use client"
 
+import { cn } from "@/lib/utils"
 import { ShaderGradient, ShaderGradientCanvas } from "@shadergradient/react"
 
-export function SidebarShaderBackground() {
+export function SidebarShaderBackground({
+  className,
+  canvasClassName,
+}: {
+  className?: string
+  canvasClassName?: string
+}) {
   return (
-    <div className="absolute inset-0 overflow-hidden rounded-[inherit]">
+    <div className={cn("absolute inset-0 overflow-hidden rounded-[inherit]", className)}>
       <ShaderGradientCanvas
-        className="h-full w-full"
+        className={cn("h-full w-full", canvasClassName)}
         pointerEvents="none"
         pixelDensity={1}
         fov={45}

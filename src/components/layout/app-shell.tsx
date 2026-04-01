@@ -204,7 +204,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <SidebarProvider className="relative overflow-hidden has-[[data-variant=inset]]:bg-transparent">
       <div className="pointer-events-none absolute inset-0">
-        <SidebarShaderBackground />
+        <SidebarShaderBackground
+          className="-inset-16 rounded-none"
+          canvasClassName="scale-[1.18]"
+        />
       </div>
       <MainSidebar session={session} />
       <SidebarInset className="z-10 flex flex-1 flex-col gap-4 p-4 pt-0">
