@@ -203,17 +203,56 @@ export async function loadProductsHubData(input: { accountId: string; userId: st
     })
   )
 
-  const checkoutIdsByProductId: Record<string, string> = {}
+  const domainIds = new Set<string>()
+  const checkoutTargetsByProductId: Record<string, { checkoutId: string; domainHost: string | null }> = {}
+
   for (const checkout of checkoutsResult.data ?? []) {
     const config =
       checkout.config && typeof checkout.config === "object" && !Array.isArray(checkout.config)
-        ? (checkout.config as { selectedProductId?: unknown })
+        ? (checkout.config as { selectedProductId?: unknown; selectedDomainId?: unknown })
         : null
     const selectedProductId =
       config && typeof config.selectedProductId === "string" ? config.selectedProductId : ""
+    const selectedDomainId =
+      config && typeof config.selectedDomainId === "string" ? config.selectedDomainId : ""
 
-    if (selectedProductId && !checkoutIdsByProductId[selectedProductId]) {
-      checkoutIdsByProductId[selectedProductId] = checkout.id
+    if (selectedDomainId) {
+      domainIds.add(selectedDomainId)
+    }
+
+    if (selectedProductId && !checkoutTargetsByProductId[selectedProductId]) {
+      checkoutTargetsByProductId[selectedProductId] = {
+        checkoutId: checkout.id,
+        domainHost: null,
+      }
+    }
+  }
+
+  let domainsById: Record<string, string> = {}
+  if (domainIds.size > 0) {
+    const { data: domains } = await getSupabaseAdmin()
+      .from("domains")
+      .select("id, host")
+      .in("id", Array.from(domainIds))
+
+    domainsById = Object.fromEntries((domains ?? []).map((domain) => [domain.id, domain.host]))
+  }
+
+  for (const checkout of checkoutsResult.data ?? []) {
+    const config =
+      checkout.config && typeof checkout.config === "object" && !Array.isArray(checkout.config)
+        ? (checkout.config as { selectedProductId?: unknown; selectedDomainId?: unknown })
+        : null
+    const selectedProductId =
+      config && typeof config.selectedProductId === "string" ? config.selectedProductId : ""
+    const selectedDomainId =
+      config && typeof config.selectedDomainId === "string" ? config.selectedDomainId : ""
+
+    if (selectedProductId && checkoutTargetsByProductId[selectedProductId]) {
+      checkoutTargetsByProductId[selectedProductId] = {
+        checkoutId: checkout.id,
+        domainHost: selectedDomainId ? domainsById[selectedDomainId] ?? null : null,
+      }
     }
   }
 
@@ -221,7 +260,7 @@ export async function loadProductsHubData(input: { accountId: string; userId: st
     manualProducts: manualProductsResult.products ?? [],
     manualProductsError: manualProductsResult.error ?? "",
     storeCatalogs: catalogs,
-    checkoutIdsByProductId,
+    checkoutTargetsByProductId,
   }
 }
 

@@ -593,6 +593,32 @@ export function EditorShell() {
   }, [config.selectedStoreId, sessionAccountId, sessionUserId, stores, updateConfig])
 
   React.useEffect(() => {
+    if (!isSwipeManualStore || config.selectedProductId || manualProducts.length === 0) {
+      return
+    }
+
+    const firstProduct = manualProducts[0]
+    const firstVariant = firstProduct?.variants[0]
+    if (!firstProduct || !firstVariant) {
+      return
+    }
+
+    updateConfig(
+      (prev) => ({
+        ...prev,
+        selectedProductId: firstProduct.id,
+        selectedVariantId: firstVariant.id,
+        productName: firstProduct.name,
+        productVariantLabel: firstVariant.name || prev.productVariantLabel,
+        productPrice: firstVariant.price,
+        currencyMode: "manual",
+        currency: firstProduct.currency,
+      }),
+      { trackHistory: false }
+    )
+  }, [config.selectedProductId, isSwipeManualStore, manualProducts, updateConfig])
+
+  React.useEffect(() => {
     if (!config.selectedProductId) {
       return
     }

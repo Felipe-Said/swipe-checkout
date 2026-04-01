@@ -173,7 +173,9 @@ export default function ProductsPage() {
   const [userId, setUserId] = React.useState("")
   const [manualProducts, setManualProducts] = React.useState<CatalogProduct[]>([])
   const [storeCatalogs, setStoreCatalogs] = React.useState<StoreCatalogGroup[]>([])
-  const [checkoutIdsByProductId, setCheckoutIdsByProductId] = React.useState<Record<string, string>>({})
+  const [checkoutTargetsByProductId, setCheckoutTargetsByProductId] = React.useState<
+    Record<string, { checkoutId: string; domainHost: string | null }>
+  >({})
   const [manualProductsError, setManualProductsError] = React.useState("")
   const [loaded, setLoaded] = React.useState(false)
   const [dialogOpen, setDialogOpen] = React.useState(false)
@@ -190,7 +192,7 @@ export default function ProductsPage() {
 
     setManualProducts(result.manualProducts ?? [])
     setStoreCatalogs((result.storeCatalogs ?? []) as StoreCatalogGroup[])
-    setCheckoutIdsByProductId(result.checkoutIdsByProductId ?? {})
+    setCheckoutTargetsByProductId(result.checkoutTargetsByProductId ?? {})
     setManualProductsError(result.manualProductsError ?? "")
     setLoaded(true)
   }, [])
@@ -631,7 +633,7 @@ export default function ProductsPage() {
                   </TableHeader>
                   <TableBody>
                     {manualProducts.flatMap((product) => {
-                      const checkoutId = checkoutIdsByProductId[product.id]
+                      const checkoutTarget = checkoutTargetsByProductId[product.id]
                       const headerRow = (
                         <TableRow key={product.id}>
                           <TableCell>
@@ -675,9 +677,13 @@ export default function ProductsPage() {
                       )
 
                       const variantRows = product.variants.map((variant) => {
+                        const checkoutBaseUrl =
+                          checkoutTarget?.domainHost
+                            ? `https://${checkoutTarget.domainHost.replace(/^https?:\/\//, "")}`
+                            : origin
                         const checkoutLink =
-                          checkoutId && origin
-                            ? `${origin}/checkout/${checkoutId}?store=${SWIPE_MANUAL_STORE_ID}&product=${product.id}&variant=${variant.id}`
+                          checkoutTarget?.checkoutId && checkoutBaseUrl
+                            ? `${checkoutBaseUrl}/checkout/${checkoutTarget.checkoutId}?store=${SWIPE_MANUAL_STORE_ID}&product=${product.id}&variant=${variant.id}`
                             : ""
 
                         return (
