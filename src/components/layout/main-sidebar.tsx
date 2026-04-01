@@ -236,7 +236,7 @@ export function MainSidebar({
       className="bg-transparent [&_[data-sidebar=sidebar]]:bg-transparent"
       {...props}
     >
-        <div className="relative flex h-full min-h-0 flex-col overflow-hidden rounded-[inherit] bg-[#481605]">
+        <div className="relative -m-2 flex h-[calc(100%+1rem)] min-h-0 w-[calc(100%+1rem)] flex-col overflow-hidden rounded-[inherit] bg-[#481605] p-2">
           <SidebarShaderBackground />
           <div className="relative z-10 flex h-full min-h-0 flex-col">
           <SidebarHeader>
