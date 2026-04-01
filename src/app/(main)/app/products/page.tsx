@@ -101,6 +101,51 @@ function createEmptyFormState(): ProductFormState {
   }
 }
 
+async function readImageAsOptimizedDataUrl(file: File) {
+  const fileDataUrl = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => {
+      if (typeof reader.result === "string") {
+        resolve(reader.result)
+        return
+      }
+      reject(new Error("Nao foi possivel ler a imagem."))
+    }
+    reader.onerror = () => reject(new Error("Nao foi possivel ler a imagem."))
+    reader.readAsDataURL(file)
+  })
+
+  if (typeof window === "undefined") {
+    return fileDataUrl
+  }
+
+  const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const nextImage = new window.Image()
+    nextImage.onload = () => resolve(nextImage)
+    nextImage.onerror = () => reject(new Error("Nao foi possivel processar a imagem."))
+    nextImage.src = fileDataUrl
+  })
+
+  const maxDimension = 1400
+  const scale = Math.min(1, maxDimension / Math.max(image.width, image.height))
+  const targetWidth = Math.max(1, Math.round(image.width * scale))
+  const targetHeight = Math.max(1, Math.round(image.height * scale))
+
+  const canvas = document.createElement("canvas")
+  canvas.width = targetWidth
+  canvas.height = targetHeight
+
+  const context = canvas.getContext("2d")
+  if (!context) {
+    return fileDataUrl
+  }
+
+  context.drawImage(image, 0, 0, targetWidth, targetHeight)
+
+  const prefersPng = file.type === "image/png" && !fileDataUrl.startsWith("data:image/jpeg")
+  return canvas.toDataURL(prefersPng ? "image/png" : "image/jpeg", prefersPng ? 0.92 : 0.82)
+}
+
 export default function ProductsPage() {
   const [accountId, setAccountId] = React.useState("")
   const [userId, setUserId] = React.useState("")
@@ -214,13 +259,13 @@ export default function ProductsPage() {
       return
     }
 
-    const reader = new FileReader()
-    reader.onload = () => {
-      if (typeof reader.result === "string") {
-        onLoaded(reader.result)
-      }
-    }
-    reader.readAsDataURL(file)
+    void readImageAsOptimizedDataUrl(file)
+      .then((dataUrl) => {
+        onLoaded(dataUrl)
+      })
+      .catch((error) => {
+        toast.error(error instanceof Error ? error.message : "Nao foi possivel carregar a imagem.")
+      })
   }
 
   const handleSave = async () => {
@@ -228,40 +273,49 @@ export default function ProductsPage() {
       return
     }
 
-    setIsSaving(true)
-    const result = await saveManualProductForSession({
-      id: editingProductId || undefined,
-      accountId,
-      userId,
-      name: form.name,
-      optionName: form.optionName,
-      description: form.description,
-      price: Number(form.variants[0]?.price || 0),
-      currency: form.currency,
-      imageSrc: form.imageSrc,
-      status: form.status,
-      variants: form.variants.map(
-        (variant) =>
-          ({
-            id: variant.id,
-            name: variant.name,
-            price: Number(variant.price || 0),
-            imageSrc: variant.imageSrc,
-          }) satisfies CatalogProductVariant
-      ),
-    })
-    setIsSaving(false)
+    try {
+      setIsSaving(true)
+      const result = await saveManualProductForSession({
+        id: editingProductId || undefined,
+        accountId,
+        userId,
+        name: form.name,
+        optionName: form.optionName,
+        description: form.description,
+        price: Number(form.variants[0]?.price || 0),
+        currency: form.currency,
+        imageSrc: form.imageSrc,
+        status: form.status,
+        variants: form.variants.map(
+          (variant) =>
+            ({
+              id: variant.id,
+              name: variant.name,
+              price: Number(variant.price || 0),
+              imageSrc: variant.imageSrc,
+            }) satisfies CatalogProductVariant
+        ),
+      })
 
-    if (result.error) {
-      toast.error(result.error)
-      return
+      if (result.error) {
+        toast.error(result.error)
+        return
+      }
+
+      setDialogOpen(false)
+      setEditingProductId("")
+      setForm(createEmptyFormState())
+      await loadData(accountId, userId)
+      toast.success(editingProductId ? "Produto atualizado." : "Produto criado.")
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Nao foi possivel salvar o produto agora."
+      )
+    } finally {
+      setIsSaving(false)
     }
-
-    setDialogOpen(false)
-    setEditingProductId("")
-    setForm(createEmptyFormState())
-    await loadData(accountId, userId)
-    toast.success(editingProductId ? "Produto atualizado." : "Produto criado.")
   }
 
   const handleDelete = async (productId: string) => {
