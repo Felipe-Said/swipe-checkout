@@ -29,6 +29,9 @@ type EditorCheckoutConfig = {
     companyId?: string | null
     publishedAt?: string
     amount?: number
+    publicSessionSignature?: string | null
+    redirectUrl?: string | null
+    sourceUrl?: string | null
   }
   [key: string]: unknown
 }
@@ -152,6 +155,51 @@ function buildThankYouRedirectUrl(
   return url.toString()
 }
 
+function buildPublicWhopSessionSignature(input: {
+  checkoutId: string
+  selectedWhopAccountId?: string
+  selectedDomainId?: string
+  selectedStoreId?: string
+  selectedProductId?: string
+  selectedVariantId?: string
+  shopifyStoreId?: string | null
+  shopifyProductId?: string | null
+  shopifyVariantId?: string | null
+  shopDomain?: string | null
+  productName?: string | null
+  variantLabel?: string | null
+  imageSrc?: string | null
+  amount?: number | null
+  currency?: string | null
+  attribution?: CheckoutAttribution | null
+}) {
+  return JSON.stringify({
+    checkoutId: input.checkoutId,
+    whopAccountId: input.selectedWhopAccountId ?? null,
+    domainId: input.selectedDomainId ?? null,
+    storeId: input.shopifyStoreId ?? input.selectedStoreId ?? null,
+    productId: input.shopifyProductId ?? input.selectedProductId ?? null,
+    variantId: input.shopifyVariantId ?? input.selectedVariantId ?? null,
+    shopDomain: input.shopDomain ?? null,
+    productName: input.productName ?? null,
+    variantLabel: input.variantLabel ?? null,
+    imageSrc: input.imageSrc ?? null,
+    amount: typeof input.amount === "number" && Number.isFinite(input.amount) ? input.amount : null,
+    currency: input.currency ?? null,
+    attribution: {
+      source: input.attribution?.source ?? null,
+      medium: input.attribution?.medium ?? null,
+      campaign: input.attribution?.campaign ?? null,
+      content: input.attribution?.content ?? null,
+      term: input.attribution?.term ?? null,
+      gclid: input.attribution?.gclid ?? null,
+      fbclid: input.attribution?.fbclid ?? null,
+      ttclid: input.attribution?.ttclid ?? null,
+      referrer: input.attribution?.referrer ?? null,
+    },
+  })
+}
+
 async function ensureWebhook(client: Whop, companyId?: string | null) {
   const webhookUrl = `${getAppBaseUrl()}/api/webhooks/whop`
 
@@ -172,7 +220,7 @@ async function ensureWebhook(client: Whop, companyId?: string | null) {
     resource_id: companyId || undefined,
     enabled: true,
     api_version: "v1",
-    events: ["payment.succeeded", "payment.pending", "payment.failed", "invoice.paid"],
+        events: ["payment.succeeded", "payment.pending", "payment.failed"],
   })
 
   return {
@@ -346,7 +394,7 @@ export async function validateWhopAccount(input: {
         whop_integration_status: "Pronto",
         whop_last_validation: new Date().toISOString(),
         whop_permissions_valid: true,
-        whop_checkout_ready: true,
+        whop_checkout_ready: false,
         whop_webhook_active: webhook.active,
         whop_environment: "Produção",
       })
@@ -648,6 +696,8 @@ export async function saveCheckoutFromEditor(input: {
         companyId: checkoutConfiguration.company_id ?? whopAccount.whop_company_id,
         publishedAt: new Date().toISOString(),
         amount: checkoutAmount,
+        redirectUrl,
+        sourceUrl,
       }
       currentConfig = {
         ...currentConfig,
@@ -668,6 +718,13 @@ export async function saveCheckoutFromEditor(input: {
       if (publishError) {
         return { error: publishError.message, checkoutId }
       }
+
+      await supabaseAdmin
+        .from("managed_accounts")
+        .update({
+          whop_checkout_ready: true,
+        })
+        .eq("id", input.config.selectedWhopAccountId)
     } catch (error) {
       return {
         error:
@@ -782,6 +839,36 @@ export async function createPublicWhopCheckoutSession(input: {
     const sourceUrl = selectedDomain?.host
       ? `https://${selectedDomain.host.replace(/^https?:\/\//, "")}`
       : `${getAppBaseUrl()}/checkout/${input.checkoutId}`
+    const sessionSignature = buildPublicWhopSessionSignature({
+      checkoutId: input.checkoutId,
+      selectedWhopAccountId: input.config.selectedWhopAccountId,
+      selectedDomainId: input.config.selectedDomainId,
+      selectedStoreId: input.config.selectedStoreId,
+      selectedProductId: input.config.selectedProductId,
+      selectedVariantId: input.config.selectedVariantId,
+      shopifyStoreId: input.shopifyStoreId,
+      shopifyProductId: input.shopifyProductId,
+      shopifyVariantId: input.shopifyVariantId,
+      shopDomain: input.shopDomain,
+      productName: input.productName || input.storePreview?.productName || checkoutTitle,
+      variantLabel:
+        input.variantLabel ||
+        input.storePreview?.variantLabel ||
+        input.config.productVariantLabel ||
+        "Variante padrao",
+      imageSrc: input.imageSrc || input.storePreview?.imageSrc || null,
+      amount: checkoutAmount,
+      currency: input.currency || input.storePreview?.currency || checkoutCurrency || null,
+      attribution: input.attribution,
+    })
+
+    if (
+      input.config.whop?.purchaseUrl &&
+      (input.config.whop?.checkoutConfigurationId || input.config.whop?.planId) &&
+      input.config.whop?.publicSessionSignature === sessionSignature
+    ) {
+      return { whop: input.config.whop }
+    }
 
     const client = new Whop({ apiKey: whopAccount.whop_key })
     const checkoutConfiguration = await client.checkoutConfigurations.create({
@@ -826,15 +913,38 @@ export async function createPublicWhopCheckoutSession(input: {
       },
     } as any)
 
-    return {
-      whop: {
+    const nextWhopConfig = {
         checkoutConfigurationId: checkoutConfiguration.id,
         planId: checkoutConfiguration.plan?.id ?? null,
         purchaseUrl: checkoutConfiguration.purchase_url,
         companyId: checkoutConfiguration.company_id ?? whopAccount.whop_company_id,
         publishedAt: new Date().toISOString(),
         amount: checkoutAmount,
-      },
+        publicSessionSignature: sessionSignature,
+        redirectUrl,
+        sourceUrl,
+      }
+
+    await supabaseAdmin
+      .from("checkouts")
+      .update({
+        config: {
+          ...input.config,
+          whop: nextWhopConfig,
+        },
+      })
+      .eq("id", input.checkoutId)
+      .eq("account_id", input.accountId)
+
+    await supabaseAdmin
+      .from("managed_accounts")
+      .update({
+        whop_checkout_ready: true,
+      })
+      .eq("id", input.config.selectedWhopAccountId)
+
+    return {
+      whop: nextWhopConfig,
     }
   } catch (error) {
     return {

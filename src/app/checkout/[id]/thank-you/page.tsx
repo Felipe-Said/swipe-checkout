@@ -121,18 +121,46 @@ export default async function PublicCheckoutThankYouPage({
     typeof resolvedSearchParams.order_id === "string"
       ? resolvedSearchParams.order_id
       : checkout.id.slice(0, 8).toUpperCase()
-  const paymentMethod =
-    typeof resolvedSearchParams.payment_method === "string"
+  const { data: verifiedOrder } = orderId
+    ? await supabaseAdmin
+        .from("orders")
+        .select("id, amount, currency, status, date, checkout_id")
+        .eq("id", orderId)
+        .eq("checkout_id", checkout.id)
+        .eq("status", "Pago")
+        .maybeSingle()
+    : { data: null }
+  const paymentVerified = Boolean(verifiedOrder)
+  const paymentMethod = paymentVerified
+    ? typeof resolvedSearchParams.payment_method === "string"
       ? resolvedSearchParams.payment_method
       : "Whop"
-  const paidAt =
-    typeof resolvedSearchParams.paid_at === "string"
-      ? resolvedSearchParams.paid_at
-      : new Date().toISOString()
+    : "Aguardando confirmacao"
+  const paidAt = paymentVerified
+    ? verifiedOrder?.date || new Date().toISOString()
+    : undefined
   const formattedDateTime = new Intl.DateTimeFormat("pt-BR", {
     dateStyle: "short",
     timeStyle: "short",
-  }).format(new Date(paidAt))
+  }).format(new Date(paidAt ?? new Date().toISOString()))
+  const verifiedAmount =
+    typeof verifiedOrder?.amount === "number"
+      ? verifiedOrder.amount
+      : typeof verifiedOrder?.amount === "string"
+        ? Number.parseFloat(verifiedOrder.amount)
+        : NaN
+  const resolvedAmount = paymentVerified && Number.isFinite(verifiedAmount) ? verifiedAmount : amount
+  const resolvedCurrency = paymentVerified
+    ? ((verifiedOrder?.currency === "USD" ||
+        verifiedOrder?.currency === "EUR" ||
+        verifiedOrder?.currency === "GBP"
+        ? verifiedOrder.currency
+        : "BRL") as "BRL" | "USD" | "EUR" | "GBP")
+    : ((currency === "USD" || currency === "EUR" || currency === "GBP" ? currency : "BRL") as
+        | "BRL"
+        | "USD"
+        | "EUR"
+        | "GBP")
   const thankYouLayoutStyle =
     checkout.config &&
     typeof checkout.config === "object" &&
@@ -155,43 +183,62 @@ export default async function PublicCheckoutThankYouPage({
             : "mx-auto max-w-[1200px] overflow-hidden rounded-[28px] border border-white/10 bg-white shadow-2xl"
         }
       >
-        <CheckoutPixelTracker
-          checkoutId={checkout.id}
-          config={pixelConfig}
-          stage="thank-you"
-          productName={productName}
-          variantLabel={variantLabel}
-          amount={amount}
-          currency={(currency === "USD" || currency === "EUR" || currency === "GBP" ? currency : "BRL") as "BRL" | "USD" | "EUR" | "GBP"}
-          productId={productId}
-          variantId={variantId}
-        />
-        <ShopifyCheckout
-          config={(checkout.config && typeof checkout.config === "object" ? checkout.config : {}) as any}
-          device={isMobileDevice ? "mobile" : "desktop"}
-          previewPage="thank-you"
-          shippingMethods={[]}
-          storePreview={{
-            storeName: String(((checkout.config as any)?.companyName || checkout.name || "Loja Shopify")),
-            currency: (currency === "USD" || currency === "EUR" || currency === "GBP" ? currency : "BRL") as "BRL" | "USD" | "EUR" | "GBP",
-            productName,
-            variantLabel,
-            amount,
-            imageSrc,
-            storeUrl: selectedStore?.shop_domain ? `https://${selectedStore.shop_domain}` : undefined,
-          }}
-          behaviorTracking={{
-            enabled: true,
-            checkoutId: checkout.id,
-            stage: "thank-you",
-          }}
-          thankYouMeta={{
-            orderId,
-            paymentMethod,
-            dateTime: formattedDateTime,
-            paidAt,
-          }}
-        />
+        {paymentVerified ? (
+          <>
+            <CheckoutPixelTracker
+              checkoutId={checkout.id}
+              config={pixelConfig}
+              stage="thank-you"
+              productName={productName}
+              variantLabel={variantLabel}
+              amount={resolvedAmount}
+              currency={resolvedCurrency}
+              productId={productId}
+              variantId={variantId}
+            />
+            <ShopifyCheckout
+              config={(checkout.config && typeof checkout.config === "object" ? checkout.config : {}) as any}
+              device={isMobileDevice ? "mobile" : "desktop"}
+              previewPage="thank-you"
+              shippingMethods={[]}
+              storePreview={{
+                storeName: String(((checkout.config as any)?.companyName || checkout.name || "Loja Shopify")),
+                currency: resolvedCurrency,
+                productName,
+                variantLabel,
+                amount: resolvedAmount,
+                imageSrc,
+                storeUrl: selectedStore?.shop_domain ? `https://${selectedStore.shop_domain}` : undefined,
+              }}
+              behaviorTracking={{
+                enabled: true,
+                checkoutId: checkout.id,
+                stage: "thank-you",
+              }}
+              thankYouMeta={{
+                orderId,
+                paymentMethod,
+                dateTime: formattedDateTime,
+                paidAt,
+              }}
+            />
+          </>
+        ) : (
+          <div className="mx-auto flex min-h-[70vh] max-w-[760px] items-center justify-center px-6 py-10">
+            <div className="w-full rounded-[24px] border border-black/10 bg-white p-8 text-center shadow-[0_20px_60px_rgba(15,23,42,0.08)]">
+              <p className="text-sm font-semibold uppercase tracking-[0.24em] text-[#fb4303]">
+                Pagamento em verificacao
+              </p>
+              <h1 className="mt-4 text-3xl font-semibold tracking-[-0.03em] text-[#111111]">
+                Estamos confirmando sua compra
+              </h1>
+              <p className="mt-4 text-sm leading-7 text-[#6b7280]">
+                O pagamento ainda nao foi confirmado no servidor. Assim que a Whop concluir a
+                aprovacao, esta pagina passara a mostrar a confirmacao real do pedido.
+              </p>
+            </div>
+          </div>
+        )}
       </div>
     </main>
   )

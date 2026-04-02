@@ -257,14 +257,38 @@ export default async function PublicCheckoutPage({
     currency: currencyFromRedirect ?? null,
   })
 
+  const hasSelectedWhopAccount = Boolean((config as any).selectedWhopAccountId)
+  const liveWhopConfig = hasSelectedWhopAccount ? whopSessionResult.whop ?? null : (config as any).whop
+
+  if (hasSelectedWhopAccount && (!liveWhopConfig?.purchaseUrl || whopSessionResult.error)) {
+    return (
+      <main className="min-h-screen bg-[#111111] px-4 py-8 md:px-8">
+        <div className="mx-auto flex min-h-[70vh] max-w-[720px] items-center justify-center">
+          <div className="w-full rounded-[28px] border border-white/10 bg-white p-8 shadow-2xl">
+            <div className="space-y-4 text-center">
+              <p className="text-sm font-semibold uppercase tracking-[0.24em] text-[#fb4303]">
+                Checkout temporariamente indisponivel
+              </p>
+              <h1 className="text-3xl font-semibold tracking-[-0.03em] text-[#111111]">
+                Nao foi possivel abrir o pagamento agora
+              </h1>
+              <p className="text-sm leading-7 text-[#6b7280]">
+                A sessao real da Whop nao foi carregada corretamente para este checkout publicado.
+                Tente novamente em alguns instantes.
+              </p>
+            </div>
+          </div>
+        </div>
+      </main>
+    )
+  }
+
   const checkoutConfigWithLiveWhop = {
     ...(config as any),
     selectedStoreId: configuredStoreId || storeIdFromRedirect,
     selectedProductId: configuredProductId || productId,
     selectedVariantId: configuredVariantId || variantId,
-    whop: (config as any).selectedWhopAccountId
-      ? whopSessionResult.whop ?? null
-      : (config as any).whop,
+    whop: liveWhopConfig,
   }
   const shippingMethodsResult = await loadShippingMethodsForCheckout({
     accountId: checkout.account_id,
