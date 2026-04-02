@@ -568,6 +568,12 @@ function scopeCheckoutCss(css: string) {
   return result
 }
 
+function sanitizeCssForStyleTag(css: string) {
+  return css
+    .replace(/<\/style/gi, "<\\/style")
+    .replace(/<!--/g, "<\\!--")
+}
+
 function buildInjectedCheckoutCss(css: string) {
   const scopedCss = scopeCheckoutCss(css)
   if (!scopedCss) return ""
@@ -578,7 +584,7 @@ ${CUSTOM_LAYOUT_SELECTOR} [data-swipe-slot] {
 }
 `
 
-  return `${customLayoutBaseCss}\n${scopedCss}`
+  return sanitizeCssForStyleTag(`${customLayoutBaseCss}\n${scopedCss}`)
 }
 
 function shouldUseCustomLayoutMode(css: string) {
@@ -1283,7 +1289,9 @@ export function ShopifyCheckout({
       {config.customCss?.trim() ? (
         <style
           dangerouslySetInnerHTML={{
-            __html: hasCustomLayout ? injectedCustomCss : scopeCheckoutCss(config.customCss),
+            __html: hasCustomLayout
+              ? injectedCustomCss
+              : sanitizeCssForStyleTag(scopeCheckoutCss(config.customCss)),
           }}
         />
       ) : null}
@@ -2355,7 +2363,9 @@ function ThankYouPage({
       {config.customCss?.trim() ? (
         <style
           dangerouslySetInnerHTML={{
-            __html: hasCustomLayout ? injectedCustomCss : scopeCheckoutCss(config.customCss),
+            __html: hasCustomLayout
+              ? injectedCustomCss
+              : sanitizeCssForStyleTag(scopeCheckoutCss(config.customCss)),
           }}
         />
       ) : null}

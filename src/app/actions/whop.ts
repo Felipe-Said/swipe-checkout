@@ -268,19 +268,33 @@ export async function loadWhopAccountForSession(input: { accountId?: string | nu
   const actor = await requireServerAppSession(input.userId)
   const supabaseAdmin = getSupabaseAdmin()
 
-  let accountQuery = supabaseAdmin
+  let resolvedAccountId = input.accountId?.trim() || ""
+  if (!resolvedAccountId) {
+    const { data: ownAccount } = await supabaseAdmin
+      .from("managed_accounts")
+      .select("id")
+      .eq("profile_id", actor.userId)
+      .maybeSingle()
+
+    resolvedAccountId = ownAccount?.id ?? ""
+  }
+
+  if (!resolvedAccountId) {
+    return { account: null }
+  }
+
+  const { account: authorizedAccount } = await assertWhopAccountAccess({
+    accountId: resolvedAccountId,
+    userId: actor.userId,
+  })
+
+  const { data: account, error: accountError } = await supabaseAdmin
     .from("managed_accounts")
     .select(
       "id, profile_id, name, whop_key, whop_company_id, whop_integration_status, whop_last_validation, whop_permissions_valid, whop_checkout_ready, whop_webhook_active, whop_environment, billing_cycle_days, payment_mode, settlement_started_at, fee_rate"
     )
-
-  if (input.accountId) {
-    accountQuery = accountQuery.eq("id", input.accountId)
-  } else {
-    accountQuery = accountQuery.eq("profile_id", actor.userId)
-  }
-
-  const { data: account, error: accountError } = await accountQuery.maybeSingle()
+    .eq("id", authorizedAccount.id)
+    .maybeSingle()
 
   if (accountError || !account) {
     return { account: null }

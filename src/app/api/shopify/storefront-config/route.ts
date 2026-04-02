@@ -6,6 +6,17 @@ type VercelProjectDomainResponse = {
   verified?: boolean
 }
 
+function buildCorsHeaders(request: Request) {
+  const origin = request.headers.get("origin")?.trim()
+
+  return origin
+    ? {
+        "Access-Control-Allow-Origin": origin,
+        Vary: "Origin",
+      }
+    : undefined
+}
+
 function getAppBaseUrl(request: Request) {
   const explicit =
     process.env.NEXT_PUBLIC_APP_URL ||
@@ -71,15 +82,14 @@ async function isVercelDomainVerified(host: string) {
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const shop = searchParams.get("shop")?.trim().toLowerCase()
+  const corsHeaders = buildCorsHeaders(request)
 
   if (!shop) {
     return NextResponse.json(
       { error: "Parametro shop ausente." },
       {
         status: 400,
-        headers: {
-          "Access-Control-Allow-Origin": "*",
-        },
+        headers: corsHeaders,
       }
     )
   }
@@ -148,13 +158,12 @@ export async function GET(request: Request) {
   return NextResponse.json(
     {
       checkoutUrl,
-      storeId: store?.id ?? "",
       skipCartRedirect: Boolean(store?.skip_cart_redirect),
     },
     {
       headers: {
-        "Access-Control-Allow-Origin": "*",
         "Cache-Control": "no-store",
+        ...(corsHeaders ?? {}),
       },
     }
   )

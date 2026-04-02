@@ -121,7 +121,17 @@ function LoginContent() {
     }
 
     writeAppSession(nextAppSession)
-    await persistAuthenticatedAppSession(nextAppSession)
+    const {
+      data: { session: supabaseSession },
+    } = await supabase.auth.getSession()
+
+    const accessToken = supabaseSession?.access_token || ""
+    const persistResult = await persistAuthenticatedAppSession({ accessToken })
+    if (persistResult?.error) {
+      setError(persistResult.error)
+      setIsLoading(false)
+      return
+    }
 
     await recordLoginEvent({
       userId: profileResult.session.userId,

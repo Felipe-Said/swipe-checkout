@@ -10,8 +10,6 @@ import {
 } from "@/app/auth/actions"
 import {
   clearAppSession,
-  getCurrentAppSession,
-  readAppSession,
   type AppSession,
   writeAppSession,
 } from "@/lib/app-session"
@@ -93,16 +91,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     let cancelled = false
 
     async function loadSession() {
-      const storedSession = readAppSession()
-      if (storedSession && !cancelled) {
-        await persistAuthenticatedAppSession(storedSession)
-        setSession(storedSession)
-        setReady(true)
-      }
-
       const {
-        data: { user },
-      } = await supabase.auth.getUser()
+        data: { session: supabaseSession },
+      } = await supabase.auth.getSession()
+      const user = supabaseSession?.user ?? null
 
       if (user) {
         const resolvedProfile = await resolveLoginProfile(user.id)
@@ -132,7 +124,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           }
 
           writeAppSession(syncedSession)
-          await persistAuthenticatedAppSession(syncedSession)
+          const persistResult = await persistAuthenticatedAppSession({
+            accessToken: supabaseSession?.access_token || "",
+          })
+
+          if (persistResult?.error) {
+            await forceBlockedLogout()
+            return
+          }
 
           const restrictedRedirect = shouldRedirectRestrictedRoute(syncedSession)
           if (restrictedRedirect) {
@@ -146,24 +145,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         }
       }
 
-      const nextSession = await getCurrentAppSession()
-      if (!nextSession) {
-        router.replace(withEmbeddedContext("/login"))
-        return
-      }
-
-      await persistAuthenticatedAppSession(nextSession)
-
-      const restrictedRedirect = shouldRedirectRestrictedRoute(nextSession)
-      if (restrictedRedirect) {
-        router.replace(restrictedRedirect)
-        return
-      }
-
-      if (!cancelled) {
-        setSession(nextSession)
-        setReady(true)
-      }
+      clearAppSession()
+      await clearAuthenticatedAppSession()
+      router.replace(withEmbeddedContext("/login"))
     }
 
     loadSession()

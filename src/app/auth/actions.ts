@@ -173,9 +173,47 @@ export async function logout() {
   redirect('/login')
 }
 
-export async function persistAuthenticatedAppSession(session: AppSession) {
-  await persistServerAppSession(session)
-  return { success: true }
+export async function persistAuthenticatedAppSession(input: { accessToken: string }) {
+  const accessToken = input.accessToken?.trim()
+  if (!accessToken) {
+    return { error: "Token de sessao ausente." }
+  }
+
+  const supabaseAdmin = getSupabaseAdmin()
+  const {
+    data: { user },
+    error,
+  } = await supabaseAdmin.auth.getUser(accessToken)
+
+  if (error || !user) {
+    await clearServerAppSession()
+    return { error: "Sessao invalida." }
+  }
+
+  const profileResult = await resolveLoginProfile(user.id)
+  if (!profileResult.success || !profileResult.session) {
+    await clearServerAppSession()
+    return { error: profileResult.error || "Sessao invalida." }
+  }
+
+  const nextSession: AppSession = {
+    userId: profileResult.session.userId,
+    name: profileResult.session.name,
+    email: profileResult.session.email,
+    role: profileResult.session.role === "admin" ? "admin" : "user",
+    accountId: profileResult.session.accountId,
+    keyFrozen: profileResult.session.keyFrozen,
+    withdrawalsEnabled: profileResult.session.withdrawalsEnabled,
+    messengerEnabled: profileResult.session.messengerEnabled,
+    gatewayModeEnabled: profileResult.session.gatewayModeEnabled === true,
+    gatewayEnabled:
+      profileResult.session.role === "admin"
+        ? true
+        : profileResult.session.gatewayEnabled === true,
+  }
+
+  await persistServerAppSession(nextSession)
+  return { success: true, session: nextSession }
 }
 
 export async function clearAuthenticatedAppSession() {
