@@ -18,7 +18,7 @@ export function DashboardCustomerFunnel({
       <CardHeader>
         <CardTitle>Comportamento no Checkout</CardTitle>
         <CardDescription>
-          Etapas reais dos clientes no checkout com atualizacao automatica por sessao.
+          Leitura das ultimas 24 horas nas quatro etapas principais do checkout.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -26,16 +26,18 @@ export function DashboardCustomerFunnel({
           <FunnelChart
             data={funnel}
             orientation="vertical"
-            className="min-h-[360px]"
+            className="min-h-[300px]"
+            layers={2}
             labelLayout="grouped"
             labelOrientation="vertical"
+            labelAlign="center"
             showLabels
             showPercentage
             showValues
           />
         ) : (
-          <div className="flex min-h-[360px] items-center justify-center rounded-xl border border-dashed text-sm text-muted-foreground">
-            Ainda nao existe comportamento real suficiente para montar o funil.
+          <div className="flex min-h-[300px] items-center justify-center rounded-xl border border-dashed text-sm text-muted-foreground">
+            Ainda nao existem eventos suficientes nas ultimas 24 horas para montar o funil.
           </div>
         )}
       </CardContent>

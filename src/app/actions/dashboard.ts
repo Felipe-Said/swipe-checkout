@@ -212,10 +212,8 @@ function buildCustomerFunnel(events: DashboardCheckoutBehaviorRow[]) {
 
   const stages = [
     { label: "Acessou checkout", eventType: "checkout_viewed", color: "#fb4303" },
-    { label: "Iniciou contato", eventType: "contact_started", color: "#f97316" },
-    { label: "Iniciou entrega", eventType: "delivery_started", color: "#f59e0b" },
-    { label: "Chegou ao pagamento", eventType: "payment_viewed", color: "#2563eb" },
-    { label: "Iniciou pagamento", eventType: "payment_started", color: "#8b5cf6" },
+    { label: "Informou envio", eventType: "delivery_started", color: "#f97316" },
+    { label: "Dados de pagamento", eventType: "payment_viewed", color: "#2563eb" },
     { label: "Concluiu pedido", eventType: "order_completed", color: "#16a34a" },
   ] as const
 
@@ -478,6 +476,8 @@ export async function loadDashboardForSession(input: {
 
   const chartStart = startOfYear(new Date(`${input.referenceDate}T00:00:00.000`))
   chartStart.setFullYear(chartStart.getFullYear() - 4)
+  const funnelStart = new Date(end)
+  funnelStart.setHours(funnelStart.getHours() - 24)
 
   const [checkoutsResult, domainsResult, storesResult, ordersResult, withdrawalsResult, chartOrdersResult, behaviorEventsResult] =
     await Promise.all([
@@ -517,7 +517,7 @@ export async function loadDashboardForSession(input: {
         .from("checkout_behavior_events")
         .select("checkout_id, session_id, event_type, last_seen_at")
         .in("account_id", visibleAccountIds)
-        .gte("last_seen_at", start.toISOString())
+        .gte("last_seen_at", funnelStart.toISOString())
         .lte("last_seen_at", end.toISOString())
         .order("last_seen_at", { ascending: false }),
     ])
