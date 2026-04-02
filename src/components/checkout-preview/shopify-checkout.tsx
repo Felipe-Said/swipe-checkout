@@ -379,6 +379,18 @@ const DANIEL_CHECKOUT_CSS = `
   box-shadow: none !important;
 }
 
+[data-swipe-slot="daniel-shell"] .payment-frame,
+[data-swipe-slot="daniel-shell"] .payment-frame > div,
+[data-swipe-slot="daniel-shell"] .payment-frame [data-whop-embed-root],
+[data-swipe-slot="daniel-shell"] .payment-frame iframe {
+  max-height: none !important;
+  overflow: visible !important;
+}
+
+[data-swipe-slot="daniel-shell"] .payment-frame * {
+  overscroll-behavior: contain;
+}
+
 [data-swipe-slot="daniel-shell"] .payment-methods {
   margin-top: 0.95rem;
 }
