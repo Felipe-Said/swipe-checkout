@@ -1567,11 +1567,7 @@ export function EditorShell() {
                       </div>
                     </div>
                   </>
-                ) : (
-                  <div className="rounded-lg border p-4 text-sm text-muted-foreground">
-                    O layout `Daniel` mostra apenas os campos que realmente afetam essa versao do checkout.
-                  </div>
-                )}
+                ) : null}
 
                 <div className="flex items-center justify-between">
                   <Label htmlFor="show-logo">Exibir Logo/Texto</Label>
