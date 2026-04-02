@@ -32,6 +32,7 @@ type DashboardOrderRow = {
   id: string
   accountId: string
   checkoutId: string | null
+  checkoutName?: string | null
   customerName: string
   amount: number
   currency: SupportedCurrency
@@ -238,23 +239,34 @@ function buildRevenueChart(
 ): RevenueChartSummary {
   const palette = ["#fb4303", "#1d4ed8", "#16a34a", "#a855f7", "#f59e0b"]
   const referenceEnd = new Date(`${input.referenceDate}T23:59:59.999`)
-  const seriesRevenue = new Map<string, number>()
+  const seriesRevenue = new Map<string, { total: number; label: string }>()
 
   for (const order of input.orders) {
-    if (!isPaidStatus(order.status) || !order.checkoutId) continue
-    seriesRevenue.set(order.checkoutId, (seriesRevenue.get(order.checkoutId) ?? 0) + order.amount)
+    if (!isPaidStatus(order.status)) continue
+
+    const checkoutId = order.checkoutId?.trim() || ""
+    const fallbackLabel = order.checkoutName?.trim() || "Produto"
+    const seriesId = checkoutId || `fallback:${fallbackLabel.toLowerCase()}`
+    const label = checkoutId
+      ? input.checkoutNames.get(checkoutId) ?? fallbackLabel
+      : fallbackLabel
+
+    const current = seriesRevenue.get(seriesId) ?? { total: 0, label }
+    current.total += order.amount
+    current.label = current.label || label
+    seriesRevenue.set(seriesId, current)
   }
 
   const topCheckoutIds = [...seriesRevenue.entries()]
-    .sort((a, b) => b[1] - a[1])
+    .sort((a, b) => b[1].total - a[1].total)
     .slice(0, 4)
-    .map(([checkoutId]) => checkoutId)
+    .map(([seriesId, data]) => ({ seriesId, label: data.label }))
 
-  const series = topCheckoutIds.map((checkoutId, index) => ({
+  const series = topCheckoutIds.map(({ seriesId, label }, index) => ({
     key: `checkout_${index + 1}`,
-    label: input.checkoutNames.get(checkoutId) ?? "Checkout",
+    label,
     color: palette[index % palette.length],
-    checkoutId,
+    seriesId,
   }))
 
   function createPoints(
@@ -297,7 +309,10 @@ function buildRevenueChart(
 
       point[`total_${currency}`] = Number(point[`total_${currency}`] ?? 0) + order.amount
 
-      const seriesMatch = series.find((item) => item.checkoutId === order.checkoutId)
+      const checkoutId = order.checkoutId?.trim() || ""
+      const fallbackLabel = order.checkoutName?.trim() || "Produto"
+      const orderSeriesId = checkoutId || `fallback:${fallbackLabel.toLowerCase()}`
+      const seriesMatch = series.find((item) => item.seriesId === orderSeriesId)
       if (seriesMatch) {
         const dataKey = `${seriesMatch.key}_${currency}`
         point[dataKey] = Number(point[dataKey] ?? 0) + order.amount
@@ -534,37 +549,6 @@ export async function loadDashboardForSession(input: {
     }
   }
 
-  const recentOrders: DashboardOrderRow[] = (ordersResult.data ?? []).map((order) => ({
-    id: order.id,
-    accountId: order.account_id,
-    checkoutId: order.checkout_id ?? null,
-    customerName: order.customer_name ?? "Cliente",
-    amount: Number(order.amount ?? 0),
-    currency: normalizeCurrency(order.currency),
-    status: order.status ?? "Pendente",
-    date: order.date,
-  }))
-
-  const chartOrders: DashboardOrderRow[] = (chartOrdersResult.data ?? []).map((order) => ({
-    id: order.id,
-    accountId: order.account_id,
-    checkoutId: order.checkout_id ?? null,
-    customerName: order.customer_name ?? "Cliente",
-    amount: Number(order.amount ?? 0),
-    currency: normalizeCurrency(order.currency),
-    status: order.status ?? "Pendente",
-    date: order.date,
-  }))
-
-  const checkoutBehaviorEvents: DashboardCheckoutBehaviorRow[] = (
-    behaviorEventsResult.error ? [] : behaviorEventsResult.data ?? []
-  ).map((event) => ({
-    checkoutId: event.checkout_id,
-    sessionId: event.session_id,
-    eventType: event.event_type,
-    lastSeenAt: event.last_seen_at,
-  }))
-
   const visibleCheckoutsRows = (checkoutsResult.data ?? []).map((checkout) => {
     const config =
       checkout.config && typeof checkout.config === "object" && !Array.isArray(checkout.config)
@@ -594,6 +578,43 @@ export async function loadDashboardForSession(input: {
       domainHost: explicitDomain ?? domainByCheckout.get(checkout.id) ?? null,
     }
   })
+
+  const checkoutNameMap = new Map(
+    visibleCheckoutsRows.map((checkout) => [checkout.id, checkout.name])
+  )
+
+  const recentOrders: DashboardOrderRow[] = (ordersResult.data ?? []).map((order) => ({
+    id: order.id,
+    accountId: order.account_id,
+    checkoutId: order.checkout_id ?? null,
+    checkoutName: order.checkout_id ? checkoutNameMap.get(order.checkout_id) ?? null : null,
+    customerName: order.customer_name ?? "Cliente",
+    amount: Number(order.amount ?? 0),
+    currency: normalizeCurrency(order.currency),
+    status: order.status ?? "Pendente",
+    date: order.date,
+  }))
+
+  const chartOrders: DashboardOrderRow[] = (chartOrdersResult.data ?? []).map((order) => ({
+    id: order.id,
+    accountId: order.account_id,
+    checkoutId: order.checkout_id ?? null,
+    checkoutName: order.checkout_id ? checkoutNameMap.get(order.checkout_id) ?? null : null,
+    customerName: order.customer_name ?? "Cliente",
+    amount: Number(order.amount ?? 0),
+    currency: normalizeCurrency(order.currency),
+    status: order.status ?? "Pendente",
+    date: order.date,
+  }))
+
+  const checkoutBehaviorEvents: DashboardCheckoutBehaviorRow[] = (
+    behaviorEventsResult.error ? [] : behaviorEventsResult.data ?? []
+  ).map((event) => ({
+    checkoutId: event.checkout_id,
+    sessionId: event.session_id,
+    eventType: event.event_type,
+    lastSeenAt: event.last_seen_at,
+  }))
 
   const totalOrders = recentOrders.length
   const paidOrders = recentOrders.filter((order) => isPaidStatus(order.status))
@@ -683,9 +704,6 @@ export async function loadDashboardForSession(input: {
     .filter((checkout) => checkout.status === "Ativo")
     .slice(0, 5)
 
-  const checkoutNameMap = new Map(
-    visibleCheckoutsRows.map((checkout) => [checkout.id, checkout.name])
-  )
   const revenueChart = buildRevenueChart({
     orders: chartOrders,
     checkoutNames: checkoutNameMap,

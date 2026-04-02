@@ -60,6 +60,8 @@ export function DashboardRevenueChart({
 
   const hasProductSeries = current.series.length > 0
   const totalKey = `total_${currency}`
+  const showProductsMode = mode === "products"
+  const canRenderProducts = showProductsMode && hasProductSeries
 
   return (
     <Card>
@@ -101,13 +103,12 @@ export function DashboardRevenueChart({
               size="sm"
               variant={mode === "products" ? "default" : "outline"}
               onClick={() => setMode("products")}
-              disabled={!hasProductSeries}
             >
               Por produto
             </Button>
           </div>
 
-          {mode === "products" && hasProductSeries ? (
+          {canRenderProducts ? (
             <div className="flex flex-wrap gap-3">
               {current.series.map((series) => (
                 <div key={series.key} className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -115,6 +116,10 @@ export function DashboardRevenueChart({
                   <span>{series.label}</span>
                 </div>
               ))}
+            </div>
+          ) : showProductsMode ? (
+            <div className="text-sm text-muted-foreground">
+              Ainda nao ha dados suficientes para separar este faturamento por produto.
             </div>
           ) : null}
         </div>
@@ -124,7 +129,7 @@ export function DashboardRevenueChart({
         {points.length > 0 ? (
           <AreaChart data={points} xDataKey="date" aspectRatio="16 / 6" className="min-h-[260px]">
             <Grid horizontal />
-            {mode === "products" && hasProductSeries
+            {canRenderProducts
               ? current.series.map((series) => (
                   <Area
                     key={series.key}
@@ -145,7 +150,7 @@ export function DashboardRevenueChart({
             <XAxis tickCount={granularity === "year" ? 5 : 6} />
             <ChartTooltip
               rows={(point) => {
-                if (mode === "products" && hasProductSeries) {
+                if (canRenderProducts) {
                   return current.series.map((series) => ({
                     color: series.color,
                     label: series.label,
