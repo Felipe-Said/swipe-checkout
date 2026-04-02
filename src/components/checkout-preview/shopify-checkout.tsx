@@ -2024,69 +2024,149 @@ function ThankYouPage({
       className="max-w-[420px] shadow-[0_20px_60px_rgba(15,23,42,0.12)]"
     />
   )
-  const shopsfiLayout = (
-    <div data-swipe-slot="thank-you-shopsfi-shell" className="w-full max-w-[1220px]">
-      {device === "mobile" ? (
-        <div
-          className="mb-4 rounded-[14px] border bg-white"
-          style={{ borderColor: "#d9d9d9", color: "#1f1f1f" }}
+  const shopsfiMobileLayout = (
+    <div data-swipe-slot="thank-you-shopsfi-shell" className="mx-auto w-full max-w-[420px]">
+      <div className="mb-4 overflow-hidden rounded-[14px] border bg-white" style={{ borderColor: "#d9d9d9", color: "#1f1f1f" }}>
+        <button
+          type="button"
+          onClick={() => setMobileSummaryOpen((current) => !current)}
+          className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
         >
-          <button
-            type="button"
-            onClick={() => setMobileSummaryOpen((current) => !current)}
-            className="flex w-full items-center justify-between gap-4 px-4 py-3 text-left"
-          >
-            <div className="flex items-center gap-2">
-              <ShoppingBag className="h-4 w-4" style={{ color: "#616161" }} />
-              <span className="text-sm font-medium">{copy.thankYouOrderSummary}</span>
-            </div>
-            <div className="flex items-center gap-3">
-              <span className="text-sm font-semibold">{formattedPrice}</span>
-              <ChevronDown
-                className={cn("h-4 w-4 transition-transform", mobileSummaryOpen ? "rotate-180" : "")}
-                style={{ color: "#616161" }}
-              />
-            </div>
-          </button>
-          {mobileSummaryOpen ? (
-            <div className="border-t px-4 py-4" style={{ borderColor: "#e5e5e5" }}>
-              <div className="rounded-[12px] border bg-white p-4" style={{ borderColor: "#e5e5e5" }}>
-                <div className="flex items-start gap-4">
-                  <div
-                    className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-[10px] border bg-[#f6f6f7]"
-                    style={{ borderColor: "#e5e5e5" }}
-                  >
-                    {storePreview?.imageSrc ? (
-                      <img src={storePreview.imageSrc} alt={storePreview.productName} className="h-full w-full object-cover" />
-                    ) : (
-                      <ShoppingBag className="h-5 w-5 text-[#8a8a8a]" />
-                    )}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium">{storePreview?.productName ?? config.productName}</p>
-                    <p className="mt-1 text-xs text-[#6d7175]">{storePreview?.variantLabel ?? config.productVariantLabel}</p>
-                  </div>
-                  <p className="text-sm font-medium">{formattedPrice}</p>
+          <div className="flex min-w-0 items-center gap-2">
+            <ShoppingBag className="h-4 w-4 shrink-0" style={{ color: "#616161" }} />
+            <span className="truncate text-sm font-medium">{copy.thankYouOrderSummary}</span>
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            <span className="text-sm font-semibold">{formattedPrice}</span>
+            <ChevronDown
+              className={cn("h-4 w-4 transition-transform", mobileSummaryOpen ? "rotate-180" : "")}
+              style={{ color: "#616161" }}
+            />
+          </div>
+        </button>
+        {mobileSummaryOpen ? (
+          <div className="border-t px-4 py-4" style={{ borderColor: "#e5e5e5" }}>
+            <div className="rounded-[12px] border bg-white p-4" style={{ borderColor: "#e5e5e5" }}>
+              <div className="flex items-start gap-4">
+                <div
+                  className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-[10px] border bg-[#f6f6f7]"
+                  style={{ borderColor: "#e5e5e5" }}
+                >
+                  {storePreview?.imageSrc ? (
+                    <img src={storePreview.imageSrc} alt={storePreview.productName} className="h-full w-full object-cover" />
+                  ) : (
+                    <ShoppingBag className="h-5 w-5 text-[#8a8a8a]" />
+                  )}
                 </div>
-                <div className="mt-4 space-y-3 border-t pt-4 text-sm" style={{ borderColor: "#e5e5e5" }}>
-                  <div className="flex items-center justify-between">
-                    <span className="text-[#6d7175]">{detailLabels.product}</span>
-                    <span>{formattedPrice}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-[#6d7175]">{shopsfiSummaryLabels.shipping}</span>
-                    <span>-</span>
-                  </div>
-                  <div className="flex items-center justify-between border-t pt-3 font-semibold" style={{ borderColor: "#e5e5e5" }}>
-                    <span>{copy.total}</span>
-                    <span>{formattedPrice}</span>
-                  </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium">{storePreview?.productName ?? config.productName}</p>
+                  <p className="mt-1 text-xs text-[#6d7175]">{storePreview?.variantLabel ?? config.productVariantLabel}</p>
+                </div>
+                <p className="text-sm font-medium">{formattedPrice}</p>
+              </div>
+              <div className="mt-4 space-y-3 border-t pt-4 text-sm" style={{ borderColor: "#e5e5e5" }}>
+                <div className="flex items-center justify-between">
+                  <span className="text-[#6d7175]">{detailLabels.product}</span>
+                  <span>{formattedPrice}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-[#6d7175]">{shopsfiSummaryLabels.shipping}</span>
+                  <span>-</span>
+                </div>
+                <div className="flex items-center justify-between border-t pt-3 font-semibold" style={{ borderColor: "#e5e5e5" }}>
+                  <span>{copy.total}</span>
+                  <span>{formattedPrice}</span>
                 </div>
               </div>
             </div>
+          </div>
+        ) : null}
+      </div>
+
+      <div className="rounded-[18px] border bg-white p-5" style={{ borderColor: "#d9d9d9", color: "#1f1f1f" }}>
+        <div className="space-y-5">
+          <div className="flex items-center justify-between gap-4 border-b pb-4" style={{ borderColor: "#e5e5e5" }}>
+            <div className="min-w-0 flex-1">
+              <ThankYouBrand config={config} />
+            </div>
+            <div
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border"
+              style={{
+                borderColor: withAlpha(shopsfiSuccessColor, 0.18),
+                backgroundColor: withAlpha(shopsfiSuccessColor, 0.08),
+                color: shopsfiSuccessColor,
+              }}
+            >
+              <ShieldCheck className="h-5 w-5" />
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <p className="text-sm font-medium" style={{ color: shopsfiSuccessColor }}>
+              {locale === "en-US" ? "Confirmed" : locale === "es-ES" ? "Confirmado" : locale === "fr-FR" ? "Confirme" : locale === "de-DE" ? "Bestatigt" : "Confirmado"}
+            </p>
+            <h1 className="text-[2rem] font-semibold tracking-[-0.03em] leading-tight">{thankYouTitle}</h1>
+            {config.thankYouShowMessage && thankYouMessage ? (
+              <p className="text-sm leading-7 text-[#6d7175]">{thankYouMessage}</p>
+            ) : null}
+          </div>
+
+          <div className="rounded-[16px] border bg-white p-4" style={{ borderColor: "#e5e5e5" }}>
+            <div className="space-y-4">
+              <div className="space-y-1">
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#6d7175]">{detailLabels.orderId}</p>
+                <p className="text-base font-semibold">{thankYouMeta?.orderId ?? "SWIPE"}</p>
+              </div>
+              <div className="grid gap-4 border-t pt-4" style={{ borderColor: "#e5e5e5" }}>
+                <div className="space-y-1">
+                  <p className="text-sm font-medium">{detailLabels.dateTime}</p>
+                  <p className="text-sm text-[#6d7175]">{formattedDateTime}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm font-medium">{detailLabels.paymentMethod}</p>
+                  <p className="text-sm text-[#6d7175]">{thankYouMeta?.paymentMethod ?? "Whop"}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm font-medium">{detailLabels.product}</p>
+                  <p className="text-sm text-[#6d7175]">{storePreview?.productName ?? config.productName}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm font-medium">
+                    {locale === "en-US" ? "Variant" : locale === "es-ES" ? "Variante" : locale === "fr-FR" ? "Variante" : locale === "de-DE" ? "Variante" : "Variante"}
+                  </p>
+                  <p className="text-sm text-[#6d7175]">{storePreview?.variantLabel ?? config.productVariantLabel}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {config.thankYouButtonEnabled && thankYouButtonHref ? (
+            <div className="rounded-[16px] border bg-white p-4" style={{ borderColor: "#e5e5e5" }}>
+              <Button
+                onClick={() => {
+                  if (typeof window === "undefined") return
+                  window.location.href = thankYouButtonHref
+                }}
+                className="h-12 w-full"
+                size="lg"
+                style={{
+                  borderRadius: "12px",
+                  backgroundColor: "#111111",
+                  color: "#ffffff",
+                }}
+              >
+                {thankYouButtonText || shopsfiSummaryLabels.backToStore}
+              </Button>
+              {countdownText ? <p className="mt-3 text-center text-xs leading-5 text-[#6d7175]">{countdownText}</p> : null}
+            </div>
           ) : null}
         </div>
-      ) : null}
+      </div>
+    </div>
+  )
+
+  const shopsfiDesktopLayout = (
+    <div data-swipe-slot="thank-you-shopsfi-shell" className="w-full max-w-[1220px]">
       <div className="grid gap-0 lg:grid-cols-[minmax(0,1fr)_minmax(380px,0.46fr)]">
         <div
           data-swipe-slot="thank-you-shopsfi-main"
@@ -2180,9 +2260,7 @@ function ThankYouPage({
                 >
                   {thankYouButtonText || shopsfiSummaryLabels.backToStore}
                 </Button>
-                {countdownText ? (
-                  <p className="mt-3 text-center text-xs leading-5 text-[#6d7175]">{countdownText}</p>
-                ) : null}
+                {countdownText ? <p className="mt-3 text-center text-xs leading-5 text-[#6d7175]">{countdownText}</p> : null}
               </div>
             ) : null}
           </div>
@@ -2190,10 +2268,7 @@ function ThankYouPage({
 
         <aside
           data-swipe-slot="thank-you-shopsfi-summary"
-          className={cn(
-            "border bg-white p-5 sm:p-7 lg:rounded-l-none lg:border-l lg:p-8",
-            device === "mobile" ? "hidden" : "block"
-          )}
+          className="border bg-white p-5 sm:p-7 lg:rounded-l-none lg:border-l lg:p-8"
           style={{
             borderColor: "#d9d9d9",
             color: "#1f1f1f",
@@ -2242,7 +2317,7 @@ function ThankYouPage({
                 <span className="text-[#6d7175]">{shopsfiSummaryLabels.shipping}</span>
                 <span className="font-medium">-</span>
               </div>
-              <Separator style={{ backgroundColor: "#e5e5e5" }} />
+              <div className="h-px w-full bg-[#e5e5e5]" />
               <div className="flex items-center justify-between text-base font-semibold">
                 <span>{copy.total}</span>
                 <span>{formattedPrice}</span>
@@ -2253,6 +2328,8 @@ function ThankYouPage({
       </div>
     </div>
   )
+
+  const shopsfiLayout = device === "mobile" ? shopsfiMobileLayout : shopsfiDesktopLayout
 
   return (
     <div
@@ -2265,7 +2342,12 @@ function ThankYouPage({
       style={{
         backgroundColor: thankYouLayoutStyle === "shopsfi" ? "#f1f1f1" : config.checkoutBackgroundColor,
         color: thankYouLayoutStyle === "shopsfi" ? "#1f1f1f" : config.checkoutTextColor,
-        backgroundImage: thankYouBackgroundSrc ? `url(${thankYouBackgroundSrc})` : undefined,
+        backgroundImage:
+          thankYouLayoutStyle === "shopsfi"
+            ? undefined
+            : thankYouBackgroundSrc
+              ? `url(${thankYouBackgroundSrc})`
+              : undefined,
         backgroundSize: "cover",
         backgroundPosition: "center",
       }}
