@@ -80,6 +80,10 @@ export async function POST(request: Request) {
     typeof metadata.swipeCheckoutId === "string" && metadata.swipeCheckoutId.trim()
       ? metadata.swipeCheckoutId.trim()
       : null
+  const returnToken =
+    typeof metadata.swipeReturnToken === "string" && metadata.swipeReturnToken.trim()
+      ? metadata.swipeReturnToken.trim()
+      : null
   const customerName =
     payment.user?.name ||
     payment.billing_address?.name ||
@@ -102,6 +106,7 @@ export async function POST(request: Request) {
       currency,
       status,
       date: orderDate,
+      whop_return_token: returnToken,
       attribution_source:
         typeof metadata.utmSource === "string" ? metadata.utmSource : null,
       attribution_medium:

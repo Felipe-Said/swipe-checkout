@@ -121,15 +121,33 @@ export default async function PublicCheckoutThankYouPage({
     typeof resolvedSearchParams.order_id === "string"
       ? resolvedSearchParams.order_id
       : checkout.id.slice(0, 8).toUpperCase()
-  const { data: verifiedOrder } = orderId
-    ? await supabaseAdmin
+  const returnToken =
+    typeof resolvedSearchParams.return_token === "string" ? resolvedSearchParams.return_token : ""
+  const verifiedOrderByIdPromise = orderId
+    ? supabaseAdmin
         .from("orders")
-        .select("id, amount, currency, status, date, checkout_id")
+        .select("id, amount, currency, status, date, checkout_id, whop_return_token")
         .eq("id", orderId)
         .eq("checkout_id", checkout.id)
         .eq("status", "Pago")
         .maybeSingle()
-    : { data: null }
+    : Promise.resolve({ data: null } as const)
+  const verifiedOrderByTokenPromise = returnToken
+    ? supabaseAdmin
+        .from("orders")
+        .select("id, amount, currency, status, date, checkout_id, whop_return_token")
+        .eq("whop_return_token", returnToken)
+        .eq("checkout_id", checkout.id)
+        .eq("status", "Pago")
+        .order("date", { ascending: false })
+        .limit(1)
+        .maybeSingle()
+    : Promise.resolve({ data: null } as const)
+  const [verifiedOrderById, verifiedOrderByToken] = await Promise.all([
+    verifiedOrderByIdPromise,
+    verifiedOrderByTokenPromise,
+  ])
+  const verifiedOrder = verifiedOrderById.data ?? verifiedOrderByToken.data
   const paymentVerified = Boolean(verifiedOrder)
   const paymentMethod = paymentVerified
     ? typeof resolvedSearchParams.payment_method === "string"

@@ -29,6 +29,7 @@ type EditorCheckoutConfig = {
     companyId?: string | null
     publishedAt?: string
     amount?: number
+    returnToken?: string | null
     publicSessionSignature?: string | null
     redirectUrl?: string | null
     sourceUrl?: string | null
@@ -155,6 +156,10 @@ function buildThankYouRedirectUrl(
   return url.toString()
 }
 
+function createWhopReturnToken() {
+  return crypto.randomUUID()
+}
+
 function buildPublicWhopSessionSignature(input: {
   checkoutId: string
   selectedWhopAccountId?: string
@@ -171,6 +176,7 @@ function buildPublicWhopSessionSignature(input: {
   imageSrc?: string | null
   amount?: number | null
   currency?: string | null
+  returnToken?: string | null
   attribution?: CheckoutAttribution | null
 }) {
   return JSON.stringify({
@@ -186,6 +192,7 @@ function buildPublicWhopSessionSignature(input: {
     imageSrc: input.imageSrc ?? null,
     amount: typeof input.amount === "number" && Number.isFinite(input.amount) ? input.amount : null,
     currency: input.currency ?? null,
+    returnToken: input.returnToken ?? null,
     attribution: {
       source: input.attribution?.source ?? null,
       medium: input.attribution?.medium ?? null,
@@ -696,6 +703,7 @@ export async function saveCheckoutFromEditor(input: {
         companyId: checkoutConfiguration.company_id ?? whopAccount.whop_company_id,
         publishedAt: new Date().toISOString(),
         amount: checkoutAmount,
+        returnToken: null,
         redirectUrl,
         sourceUrl,
       }
@@ -808,7 +816,9 @@ export async function createPublicWhopCheckoutSession(input: {
     const checkoutTitle = input.storePreview?.productName
       ? input.storePreview.productName.slice(0, 30)
       : resolveConfiguredCheckoutTitle(input.config, input.config.companyName?.trim() || "Checkout Swipe")
+    const returnToken = createWhopReturnToken()
     const redirectUrl = buildThankYouRedirectUrl(input.checkoutId, selectedDomain?.host, {
+      return_token: returnToken,
       shop: input.shopDomain || null,
       store:
         input.shopifyStoreId ||
@@ -859,16 +869,9 @@ export async function createPublicWhopCheckoutSession(input: {
       imageSrc: input.imageSrc || input.storePreview?.imageSrc || null,
       amount: checkoutAmount,
       currency: input.currency || input.storePreview?.currency || checkoutCurrency || null,
+      returnToken,
       attribution: input.attribution,
     })
-
-    if (
-      input.config.whop?.purchaseUrl &&
-      (input.config.whop?.checkoutConfigurationId || input.config.whop?.planId) &&
-      input.config.whop?.publicSessionSignature === sessionSignature
-    ) {
-      return { whop: input.config.whop }
-    }
 
     const client = new Whop({ apiKey: whopAccount.whop_key })
     const checkoutConfiguration = await client.checkoutConfigurations.create({
@@ -891,6 +894,7 @@ export async function createPublicWhopCheckoutSession(input: {
         swipeVariantLabel:
           input.variantLabel || input.storePreview?.variantLabel || input.config.productVariantLabel || "Variante padrao",
         swipeProductImage: input.imageSrc || input.storePreview?.imageSrc || null,
+        swipeReturnToken: returnToken,
         swipeAmount: checkoutAmount,
         swipeCurrency: checkoutCurrency || null,
         utmSource: input.attribution?.source || null,
@@ -920,6 +924,7 @@ export async function createPublicWhopCheckoutSession(input: {
         companyId: checkoutConfiguration.company_id ?? whopAccount.whop_company_id,
         publishedAt: new Date().toISOString(),
         amount: checkoutAmount,
+        returnToken,
         publicSessionSignature: sessionSignature,
         redirectUrl,
         sourceUrl,
