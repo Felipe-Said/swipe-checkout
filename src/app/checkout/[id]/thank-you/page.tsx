@@ -207,6 +207,7 @@ export default async function PublicCheckoutThankYouPage({
               checkoutId={checkout.id}
               config={pixelConfig}
               stage="thank-you"
+              orderId={verifiedOrder?.id ?? orderId}
               productName={productName}
               variantLabel={variantLabel}
               amount={resolvedAmount}

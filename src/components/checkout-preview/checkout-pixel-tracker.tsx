@@ -11,6 +11,7 @@ type PixelTrackerProps = {
   checkoutId: string
   config?: CheckoutPixelConfig | null
   stage: PixelTrackerStage
+  orderId?: string | null
   productName: string
   variantLabel: string
   amount: number
@@ -60,6 +61,8 @@ const TIKTOK_PIXEL_SCRIPT_ID = "swipe-tiktok-pixel-script"
 export function CheckoutPixelTracker(props: PixelTrackerProps) {
   React.useEffect(() => {
     if (!props.config) return
+    if (props.stage !== "thank-you") return
+    if (!props.orderId?.trim()) return
 
     const attribution = props.config.trackCampaignSource
       ? captureAttribution(props.checkoutId)
@@ -67,6 +70,7 @@ export function CheckoutPixelTracker(props: PixelTrackerProps) {
     const dedupeKey = [
       "swipe-pixel-stage",
       props.stage,
+      props.orderId,
       props.checkoutId,
       props.productId ?? "product",
       props.variantId ?? "variant",
@@ -115,77 +119,36 @@ export function CheckoutPixelTracker(props: PixelTrackerProps) {
       ...buildAttributionPayload(attribution),
     }
 
-    if (props.stage === "checkout") {
-      trackMetaEvent("PageView")
-      trackMetaEvent("ViewContent", commonPayload)
-      trackMetaEvent("InitiateCheckout", commonPayload)
+    trackMetaEvent("Purchase", commonPayload)
 
-      trackGoogleEvent("page_view", {
-        page_location: window.location.href,
-      })
-      trackGoogleEvent("view_item", {
-        currency: props.currency,
-        value: props.amount,
-        items: [
-          {
-            item_id: props.variantId || props.productId || props.checkoutId,
-            item_name: props.productName,
-            item_variant: props.variantLabel,
-            price: props.amount,
-            quantity: 1,
-          },
-        ],
-        ...buildAttributionPayload(attribution),
-      })
-      trackGoogleEvent("begin_checkout", {
-        currency: props.currency,
-        value: props.amount,
-        items: [
-          {
-            item_id: props.variantId || props.productId || props.checkoutId,
-            item_name: props.productName,
-            item_variant: props.variantLabel,
-            price: props.amount,
-            quantity: 1,
-          },
-        ],
-        ...buildAttributionPayload(attribution),
-      })
+    trackGoogleEvent("purchase", {
+      transaction_id: props.orderId,
+      currency: props.currency,
+      value: props.amount,
+      items: [
+        {
+          item_id: props.variantId || props.productId || props.checkoutId,
+          item_name: props.productName,
+          item_variant: props.variantLabel,
+          price: props.amount,
+          quantity: 1,
+        },
+      ],
+      ...buildAttributionPayload(attribution),
+    })
 
-      trackTikTokEvent("PageView")
-      trackTikTokEvent("ViewContent", commonPayload)
-      trackTikTokEvent("InitiateCheckout", commonPayload)
-    } else {
-      trackMetaEvent("Purchase", commonPayload)
-
-      trackGoogleEvent("purchase", {
-        transaction_id: props.checkoutId,
-        currency: props.currency,
-        value: props.amount,
-        items: [
-          {
-            item_id: props.variantId || props.productId || props.checkoutId,
-            item_name: props.productName,
-            item_variant: props.variantLabel,
-            price: props.amount,
-            quantity: 1,
-          },
-        ],
-        ...buildAttributionPayload(attribution),
-      })
-
-      for (const entry of googleEntries) {
-        if (entry.label) {
-          trackGoogleEvent("conversion", {
-            send_to: `${entry.id}/${entry.label}`,
-            value: props.amount,
-            currency: props.currency,
-          })
-        }
+    for (const entry of googleEntries) {
+      if (entry.label) {
+        trackGoogleEvent("conversion", {
+          send_to: `${entry.id}/${entry.label}`,
+          transaction_id: props.orderId,
+          value: props.amount,
+          currency: props.currency,
+        })
       }
-
-      trackTikTokEvent("CompletePayment", commonPayload)
     }
+
+    trackTikTokEvent("CompletePayment", commonPayload)
 
     window.sessionStorage.setItem(dedupeKey, "done")
   }, [
@@ -193,6 +156,7 @@ export function CheckoutPixelTracker(props: PixelTrackerProps) {
     props.checkoutId,
     props.config,
     props.currency,
+    props.orderId,
     props.productId,
     props.productName,
     props.stage,

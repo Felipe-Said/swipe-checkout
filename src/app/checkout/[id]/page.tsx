@@ -306,6 +306,7 @@ export default async function PublicCheckoutPage({
           checkoutId={checkout.id}
           config={pixelConfig}
           stage="checkout"
+          orderId={null}
           productName={
             storePreviewResult.preview?.productName ||
             productNameFromRedirect ||

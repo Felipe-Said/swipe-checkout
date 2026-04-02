@@ -26,15 +26,6 @@ function getSessionStorage() {
   }
 }
 
-function getLocalStorage() {
-  if (typeof window === "undefined") return null
-  try {
-    return window.localStorage
-  } catch {
-    return null
-  }
-}
-
 function generateSessionId() {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
     return crypto.randomUUID()
@@ -44,7 +35,7 @@ function generateSessionId() {
 }
 
 export function getOrCreateCheckoutSessionId(checkoutId: string) {
-  const storage = getLocalStorage()
+  const storage = getSessionStorage()
   const key = `${SESSION_PREFIX}:${checkoutId}`
 
   const existing = storage?.getItem(key)
