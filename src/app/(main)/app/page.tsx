@@ -185,6 +185,46 @@ export default function DashboardPage() {
         <DashboardCustomerFunnel funnel={summary.customerFunnel} />
       </div>
 
+      <Card>
+        <CardHeader>
+          <CardTitle>Campanhas</CardTitle>
+          <CardDescription>
+            Esta secao agora exibe apenas atribuicao real. Sem dados atribuidos, ela fica vazia.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {summary.campaigns.length > 0 ? (
+            summary.campaigns.map((campaign) => (
+              <div key={campaign.id} className="flex items-center justify-between rounded-xl border p-4">
+                <div className="flex items-center gap-3">
+                  <div className="rounded-lg bg-muted p-2">
+                    <Megaphone className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <div className="font-medium">{campaign.campaignName}</div>
+                    <div className="text-sm text-muted-foreground">
+                      {campaign.platform} â€¢ {campaign.purchases} compras
+                    </div>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="font-medium">
+                    {formatAmount(campaign.revenue, campaign.currency, language)}
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    Atualizado em {formatDateTime(campaign.updatedAt, language)}
+                  </div>
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="rounded-xl border border-dashed p-4 text-sm text-muted-foreground">
+              Nenhuma campanha real rastreada no banco ainda.
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       <div className="grid gap-4 rounded-xl border p-4 lg:grid-cols-[220px_220px]">
         <div className="space-y-2">
           <Label htmlFor="metric-date">{t("dash.date_ref")}</Label>
@@ -375,46 +415,6 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
       </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Campanhas</CardTitle>
-          <CardDescription>
-            Esta secao agora exibe apenas atribuicao real. Sem dados atribuidos, ela fica vazia.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {summary.campaigns.length > 0 ? (
-            summary.campaigns.map((campaign) => (
-              <div key={campaign.id} className="flex items-center justify-between rounded-xl border p-4">
-                <div className="flex items-center gap-3">
-                  <div className="rounded-lg bg-muted p-2">
-                    <Megaphone className="h-4 w-4" />
-                  </div>
-                  <div>
-                    <div className="font-medium">{campaign.campaignName}</div>
-                    <div className="text-sm text-muted-foreground">
-                      {campaign.platform} • {campaign.purchases} compras
-                    </div>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <div className="font-medium">
-                    {formatAmount(campaign.revenue, campaign.currency, language)}
-                  </div>
-                  <div className="text-sm text-muted-foreground">
-                    Atualizado em {formatDateTime(campaign.updatedAt, language)}
-                  </div>
-                </div>
-              </div>
-            ))
-          ) : (
-            <div className="rounded-xl border border-dashed p-4 text-sm text-muted-foreground">
-              Nenhuma campanha real rastreada no banco ainda.
-            </div>
-          )}
-        </CardContent>
-      </Card>
     </div>
   )
 }
