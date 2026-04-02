@@ -8,11 +8,13 @@ import {
   saveWhopAccountCredentials,
   validateWhopAccount,
 } from "@/app/actions/whop"
+import { loadDomainsForSession } from "@/app/actions/domains"
 import { getCurrentAppSession } from "@/lib/app-session"
 import {
   getManagedAccounts,
   type ManagedAccount,
 } from "@/lib/account-metrics"
+import { type ConnectedDomain } from "@/lib/domain-data"
 import { toast } from "sonner"
 
 import {
@@ -30,6 +32,7 @@ import { WhopWebhookStatusCard } from "@/components/whop/whop-webhook-status-car
 import { WhopCheckoutReadinessCard } from "@/components/whop/whop-checkout-readiness-card"
 import { WhopAccountSummaryCard } from "@/components/whop/whop-account-summary-card"
 import { WhopAdvancedSettings } from "@/components/whop/whop-advanced-settings"
+import { WhopApplePayDomainCard } from "@/components/whop/whop-apple-pay-domain-card"
 import { cn } from "@/lib/utils"
 
 type DiagnosticEvent = {
@@ -55,10 +58,12 @@ function getWhopWebhookEndpoint() {
 export default function WhopPage() {
   const searchParams = useSearchParams()
   const [sessionRole, setSessionRole] = React.useState<"admin" | "user">("user")
+  const [sessionUserId, setSessionUserId] = React.useState("")
   const [accounts, setAccounts] = React.useState<ManagedAccount[]>([])
   const [selectedAccountId, setSelectedAccountId] = React.useState("")
   const [isValidating, setIsValidating] = React.useState(false)
   const [events, setEvents] = React.useState<DiagnosticEvent[]>([])
+  const [applePayDomains, setApplePayDomains] = React.useState<ConnectedDomain[]>([])
   const [loaded, setLoaded] = React.useState(false)
 
   React.useEffect(() => {
@@ -68,6 +73,7 @@ export default function WhopPage() {
       const session = await getCurrentAppSession()
       if (session && !cancelled) {
         setSessionRole(session.role === "admin" ? "admin" : "user")
+        setSessionUserId(session.userId)
       }
 
       let loadedAccounts = await getManagedAccounts()
@@ -128,6 +134,34 @@ export default function WhopPage() {
       cancelled = true
     }
   }, [searchParams])
+
+  React.useEffect(() => {
+    let cancelled = false
+
+    async function loadApplePayDomains() {
+      if (!loaded || !sessionUserId || !selectedAccountId) {
+        if (!cancelled) {
+          setApplePayDomains([])
+        }
+        return
+      }
+
+      const result = await loadDomainsForSession({
+        userId: sessionUserId,
+        accountId: selectedAccountId,
+      })
+
+      if (!cancelled) {
+        setApplePayDomains(result.domains ?? [])
+      }
+    }
+
+    void loadApplePayDomains()
+
+    return () => {
+      cancelled = true
+    }
+  }, [loaded, selectedAccountId, sessionUserId])
 
   const reloadAccounts = React.useCallback(async () => {
     const session = await getCurrentAppSession()
@@ -449,6 +483,10 @@ export default function WhopPage() {
             webhookEndpoint={getWhopWebhookEndpoint()}
             successUrl={`${typeof window !== "undefined" ? window.location.origin : "https://seu-dominio.com"}/app`}
             cancelUrl={`${typeof window !== "undefined" ? window.location.origin : "https://seu-dominio.com"}/app/whop`}
+          />
+          <WhopApplePayDomainCard
+            accountName={currentAccount.name || "Conta Swipe"}
+            domains={applePayDomains}
           />
         </div>
       </div>
