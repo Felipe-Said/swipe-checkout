@@ -1879,6 +1879,7 @@ function ThankYouPage({
       : 10
   const autoRedirectEnabled = Boolean(config.thankYouAutoRedirectEnabled && autoRedirectHref)
   const [secondsRemaining, setSecondsRemaining] = React.useState(autoRedirectDelaySeconds)
+  const [mobileSummaryOpen, setMobileSummaryOpen] = React.useState(false)
   const hasCustomLayout = shouldUseCustomLayoutMode(config.customCss ?? "")
   const formattedDateTime = React.useMemo(() => {
     if (thankYouMeta?.paidAt) {
@@ -1898,6 +1899,10 @@ function ThankYouPage({
   React.useEffect(() => {
     setSecondsRemaining(autoRedirectDelaySeconds)
   }, [autoRedirectDelaySeconds, autoRedirectHref])
+
+  React.useEffect(() => {
+    setMobileSummaryOpen(false)
+  }, [device, thankYouLayoutStyle, storePreview?.productName, formattedPrice])
 
   React.useEffect(() => {
     if (!autoRedirectEnabled || !autoRedirectHref || typeof window === "undefined") {
@@ -1933,6 +1938,7 @@ function ThankYouPage({
             : `Redirecionando automaticamente em ${secondsRemaining}s.`
     : undefined
   const injectedCustomCss = React.useMemo(() => buildInjectedCheckoutCss(config.customCss ?? ""), [config.customCss])
+  const shopsfiSuccessColor = "#008060"
   const detailLabels = {
     orderId: locale === "en-US" ? "Order ID" : locale === "es-ES" ? "Pedido" : locale === "fr-FR" ? "Commande" : locale === "de-DE" ? "Bestellung" : "Pedido",
     paymentMethod:
@@ -2019,100 +2025,193 @@ function ThankYouPage({
     />
   )
   const shopsfiLayout = (
-    <div
-      data-swipe-slot="thank-you-shopsfi-shell"
-      className="w-full max-w-[1120px] overflow-hidden rounded-[28px] border shadow-[0_20px_60px_rgba(15,23,42,0.12)]"
-      style={{
-        backgroundColor: config.checkoutSurfaceColor,
-        borderColor: config.checkoutMutedColor,
-        backgroundImage: thankYouCardBackgroundSrc ? `url(${thankYouCardBackgroundSrc})` : undefined,
-        backgroundRepeat: "no-repeat",
-        backgroundPosition: "center",
-        backgroundSize: `${thankYouCardBackgroundSize}%`,
-      }}
-    >
-      <div className="grid gap-0 lg:grid-cols-[minmax(0,1.25fr)_minmax(320px,0.75fr)]">
+    <div data-swipe-slot="thank-you-shopsfi-shell" className="w-full max-w-[1220px]">
+      {device === "mobile" ? (
+        <div
+          className="mb-4 rounded-[14px] border bg-white"
+          style={{ borderColor: "#d9d9d9", color: "#1f1f1f" }}
+        >
+          <button
+            type="button"
+            onClick={() => setMobileSummaryOpen((current) => !current)}
+            className="flex w-full items-center justify-between gap-4 px-4 py-3 text-left"
+          >
+            <div className="flex items-center gap-2">
+              <ShoppingBag className="h-4 w-4" style={{ color: "#616161" }} />
+              <span className="text-sm font-medium">{copy.thankYouOrderSummary}</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="text-sm font-semibold">{formattedPrice}</span>
+              <ChevronDown
+                className={cn("h-4 w-4 transition-transform", mobileSummaryOpen ? "rotate-180" : "")}
+                style={{ color: "#616161" }}
+              />
+            </div>
+          </button>
+          {mobileSummaryOpen ? (
+            <div className="border-t px-4 py-4" style={{ borderColor: "#e5e5e5" }}>
+              <div className="rounded-[12px] border bg-white p-4" style={{ borderColor: "#e5e5e5" }}>
+                <div className="flex items-start gap-4">
+                  <div
+                    className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-[10px] border bg-[#f6f6f7]"
+                    style={{ borderColor: "#e5e5e5" }}
+                  >
+                    {storePreview?.imageSrc ? (
+                      <img src={storePreview.imageSrc} alt={storePreview.productName} className="h-full w-full object-cover" />
+                    ) : (
+                      <ShoppingBag className="h-5 w-5 text-[#8a8a8a]" />
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium">{storePreview?.productName ?? config.productName}</p>
+                    <p className="mt-1 text-xs text-[#6d7175]">{storePreview?.variantLabel ?? config.productVariantLabel}</p>
+                  </div>
+                  <p className="text-sm font-medium">{formattedPrice}</p>
+                </div>
+                <div className="mt-4 space-y-3 border-t pt-4 text-sm" style={{ borderColor: "#e5e5e5" }}>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[#6d7175]">{detailLabels.product}</span>
+                    <span>{formattedPrice}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[#6d7175]">{shopsfiSummaryLabels.shipping}</span>
+                    <span>-</span>
+                  </div>
+                  <div className="flex items-center justify-between border-t pt-3 font-semibold" style={{ borderColor: "#e5e5e5" }}>
+                    <span>{copy.total}</span>
+                    <span>{formattedPrice}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+      <div className="grid gap-0 lg:grid-cols-[minmax(0,1fr)_minmax(380px,0.46fr)]">
         <div
           data-swipe-slot="thank-you-shopsfi-main"
-          className="space-y-8 p-6 sm:p-8 lg:p-10"
-          style={{ color: config.checkoutTextColor }}
+          className="min-w-0 space-y-6 rounded-[18px] border bg-white p-5 sm:p-7 lg:rounded-r-none lg:border-r-0 lg:p-10"
+          style={{ color: "#1f1f1f", borderColor: "#d9d9d9" }}
         >
-          <div className="flex items-center justify-between gap-4 border-b pb-6" style={{ borderColor: config.checkoutMutedColor }}>
+          <div className="flex items-center justify-between gap-4 border-b pb-5" style={{ borderColor: "#e5e5e5" }}>
             <ThankYouBrand config={config} />
             <div
               className="flex h-12 w-12 items-center justify-center rounded-full border"
               style={{
-                borderColor: withAlpha(config.primaryColor || config.checkoutAccentColor, 0.16),
-                backgroundColor: withAlpha(config.primaryColor || config.checkoutAccentColor, 0.08),
-                color: config.primaryColor || config.checkoutAccentColor,
+                borderColor: withAlpha(shopsfiSuccessColor, 0.18),
+                backgroundColor: withAlpha(shopsfiSuccessColor, 0.08),
+                color: shopsfiSuccessColor,
               }}
             >
               <ShieldCheck className="h-6 w-6" />
             </div>
           </div>
 
-          <div data-swipe-slot="thank-you-shopsfi-header" className="space-y-3">
-            <p className="text-sm font-medium" style={{ color: config.checkoutAccentColor }}>
-              {thankYouMeta?.orderId ?? "SWIPE"}
+          <div data-swipe-slot="thank-you-shopsfi-header" className="space-y-3 pt-1">
+            <p className="text-sm font-medium" style={{ color: shopsfiSuccessColor }}>
+              {locale === "en-US" ? "Confirmed" : locale === "es-ES" ? "Confirmado" : locale === "fr-FR" ? "Confirme" : locale === "de-DE" ? "Bestatigt" : "Confirmado"}
             </p>
-            <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">{thankYouTitle}</h1>
+            <h1 className="text-[2rem] font-semibold tracking-[-0.03em] sm:text-[2.35rem]">{thankYouTitle}</h1>
             {config.thankYouShowMessage && thankYouMessage ? (
-              <p className="max-w-2xl text-sm leading-7 sm:text-base" style={{ color: withAlpha(config.checkoutTextColor, 0.72) }}>
+              <p className="max-w-2xl text-sm leading-7 sm:text-base" style={{ color: "#6d7175" }}>
                 {thankYouMessage}
               </p>
             ) : null}
           </div>
 
-          <div data-swipe-slot="thank-you-shopsfi-details" className="grid gap-4 sm:grid-cols-2">
-            <div className="rounded-2xl border p-5" style={{ borderColor: config.checkoutMutedColor }}>
-              <p className="text-xs font-medium uppercase tracking-[0.2em]" style={{ color: withAlpha(config.checkoutTextColor, 0.56) }}>
-                {detailLabels.orderId}
-              </p>
-              <p className="mt-3 text-lg font-semibold">{thankYouMeta?.orderId ?? "SWIPE"}</p>
+          <div data-swipe-slot="thank-you-shopsfi-details" className="space-y-5">
+            <div className="rounded-[16px] border bg-white p-5" style={{ borderColor: "#e5e5e5" }}>
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#6d7175]">
+                    {detailLabels.orderId}
+                  </p>
+                  <p className="mt-2 text-lg font-semibold">{thankYouMeta?.orderId ?? "SWIPE"}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#6d7175]">
+                    {detailLabels.dateTime}
+                  </p>
+                  <p className="mt-2 text-sm font-medium">{formattedDateTime}</p>
+                </div>
+              </div>
             </div>
-            <div className="rounded-2xl border p-5" style={{ borderColor: config.checkoutMutedColor }}>
-              <p className="text-xs font-medium uppercase tracking-[0.2em]" style={{ color: withAlpha(config.checkoutTextColor, 0.56) }}>
-                {detailLabels.paymentMethod}
+
+            <div className="rounded-[16px] border bg-white p-5" style={{ borderColor: "#e5e5e5" }}>
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#6d7175]">
+                {locale === "en-US" ? "Information" : locale === "es-ES" ? "Informacion" : locale === "fr-FR" ? "Informations" : locale === "de-DE" ? "Informationen" : "Informacoes"}
               </p>
-              <p className="mt-3 text-lg font-semibold">{thankYouMeta?.paymentMethod ?? "Whop"}</p>
+              <div className="mt-4 grid gap-5 sm:grid-cols-2">
+                <div className="space-y-1">
+                  <p className="text-sm font-medium">{detailLabels.paymentMethod}</p>
+                  <p className="text-sm text-[#6d7175]">{thankYouMeta?.paymentMethod ?? "Whop"}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm font-medium">{detailLabels.total}</p>
+                  <p className="text-sm text-[#6d7175]">{formattedPrice}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm font-medium">{detailLabels.product}</p>
+                  <p className="text-sm text-[#6d7175]">{storePreview?.productName ?? config.productName}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm font-medium">
+                    {locale === "en-US" ? "Variant" : locale === "es-ES" ? "Variante" : locale === "fr-FR" ? "Variante" : locale === "de-DE" ? "Variante" : "Variante"}
+                  </p>
+                  <p className="text-sm text-[#6d7175]">{storePreview?.variantLabel ?? config.productVariantLabel}</p>
+                </div>
+              </div>
             </div>
-            <div className="rounded-2xl border p-5" style={{ borderColor: config.checkoutMutedColor }}>
-              <p className="text-xs font-medium uppercase tracking-[0.2em]" style={{ color: withAlpha(config.checkoutTextColor, 0.56) }}>
-                {detailLabels.dateTime}
-              </p>
-              <p className="mt-3 text-lg font-semibold">{formattedDateTime}</p>
-            </div>
-            <div className="rounded-2xl border p-5" style={{ borderColor: config.checkoutMutedColor }}>
-              <p className="text-xs font-medium uppercase tracking-[0.2em]" style={{ color: withAlpha(config.checkoutTextColor, 0.56) }}>
-                {detailLabels.total}
-              </p>
-              <p className="mt-3 text-lg font-semibold">{formattedPrice}</p>
-            </div>
+
+            {config.thankYouButtonEnabled && thankYouButtonHref ? (
+              <div className="rounded-[16px] border bg-white p-5" style={{ borderColor: "#e5e5e5" }}>
+                <Button
+                  onClick={() => {
+                    if (typeof window === "undefined") return
+                    window.location.href = thankYouButtonHref
+                  }}
+                  className="h-12 w-full"
+                  size="lg"
+                  style={{
+                    borderRadius: "12px",
+                    backgroundColor: "#111111",
+                    color: "#ffffff",
+                  }}
+                >
+                  {thankYouButtonText || shopsfiSummaryLabels.backToStore}
+                </Button>
+                {countdownText ? (
+                  <p className="mt-3 text-center text-xs leading-5 text-[#6d7175]">{countdownText}</p>
+                ) : null}
+              </div>
+            ) : null}
           </div>
         </div>
 
         <aside
           data-swipe-slot="thank-you-shopsfi-summary"
-          className="border-l p-6 sm:p-8"
+          className={cn(
+            "border bg-white p-5 sm:p-7 lg:rounded-l-none lg:border-l lg:p-8",
+            device === "mobile" ? "hidden" : "block"
+          )}
           style={{
-            borderColor: config.checkoutMutedColor,
-            backgroundColor: withAlpha(config.checkoutBackgroundColor, 0.78),
-            color: config.checkoutTextColor,
+            borderColor: "#d9d9d9",
+            color: "#1f1f1f",
           }}
         >
           <div className="space-y-6">
             <div className="space-y-1">
-              <p className="text-sm font-medium" style={{ color: withAlpha(config.checkoutTextColor, 0.72) }}>
+              <p className="text-sm font-medium text-[#6d7175]">
                 {shopsfiSummaryLabels.summary}
               </p>
               <h2 className="text-2xl font-semibold">{copy.total}</h2>
             </div>
 
-            <div className="rounded-2xl border p-4" style={{ borderColor: config.checkoutMutedColor }}>
+            <div className="rounded-[16px] border p-4" style={{ borderColor: "#e5e5e5" }}>
               <div className="flex items-start gap-4">
                 <div
-                  className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl border"
-                  style={{ borderColor: config.checkoutMutedColor, backgroundColor: "#ffffff" }}
+                  className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-[12px] border bg-[#f6f6f7]"
+                  style={{ borderColor: "#e5e5e5" }}
                 >
                   {storePreview?.imageSrc ? (
                     <img
@@ -2121,12 +2220,12 @@ function ThankYouPage({
                       className="h-full w-full object-cover"
                     />
                   ) : (
-                    <ShoppingBag className="h-6 w-6" style={{ color: withAlpha(config.checkoutTextColor, 0.5) }} />
+                    <ShoppingBag className="h-6 w-6 text-[#8a8a8a]" />
                   )}
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="text-base font-semibold">{storePreview?.productName ?? config.productName}</p>
-                  <p className="mt-1 text-sm" style={{ color: withAlpha(config.checkoutTextColor, 0.7) }}>
+                  <p className="mt-1 text-sm text-[#6d7175]">
                     {storePreview?.variantLabel ?? config.productVariantLabel}
                   </p>
                 </div>
@@ -2134,45 +2233,21 @@ function ThankYouPage({
               </div>
             </div>
 
-            <div className="space-y-4 rounded-2xl border p-4" style={{ borderColor: config.checkoutMutedColor }}>
+            <div className="space-y-4 rounded-[16px] border p-4" style={{ borderColor: "#e5e5e5" }}>
               <div className="flex items-center justify-between text-sm">
-                <span style={{ color: withAlpha(config.checkoutTextColor, 0.72) }}>{detailLabels.product}</span>
+                <span className="text-[#6d7175]">{detailLabels.product}</span>
                 <span className="font-medium">{formattedPrice}</span>
               </div>
               <div className="flex items-center justify-between text-sm">
-                <span style={{ color: withAlpha(config.checkoutTextColor, 0.72) }}>{shopsfiSummaryLabels.shipping}</span>
+                <span className="text-[#6d7175]">{shopsfiSummaryLabels.shipping}</span>
                 <span className="font-medium">-</span>
               </div>
-              <Separator style={{ backgroundColor: config.checkoutMutedColor }} />
+              <Separator style={{ backgroundColor: "#e5e5e5" }} />
               <div className="flex items-center justify-between text-base font-semibold">
                 <span>{copy.total}</span>
                 <span>{formattedPrice}</span>
               </div>
             </div>
-
-            {config.thankYouButtonEnabled && thankYouButtonHref ? (
-              <Button
-                onClick={() => {
-                  if (typeof window === "undefined") return
-                  window.location.href = thankYouButtonHref
-                }}
-                className="h-12 w-full"
-                size="lg"
-                style={{
-                  borderRadius: config.borderRadius,
-                  backgroundColor: config.primaryColor || config.checkoutAccentColor,
-                  color: "#ffffff",
-                }}
-              >
-                {thankYouButtonText || shopsfiSummaryLabels.backToStore}
-              </Button>
-            ) : null}
-
-            {countdownText ? (
-              <p className="text-center text-xs leading-5" style={{ color: withAlpha(config.checkoutTextColor, 0.64) }}>
-                {countdownText}
-              </p>
-            ) : null}
           </div>
         </aside>
       </div>
@@ -2188,8 +2263,8 @@ function ThankYouPage({
       data-swipe-layout-style={config.layoutStyle}
       data-swipe-page="thank-you"
       style={{
-        backgroundColor: config.checkoutBackgroundColor,
-        color: config.checkoutTextColor,
+        backgroundColor: thankYouLayoutStyle === "shopsfi" ? "#f1f1f1" : config.checkoutBackgroundColor,
+        color: thankYouLayoutStyle === "shopsfi" ? "#1f1f1f" : config.checkoutTextColor,
         backgroundImage: thankYouBackgroundSrc ? `url(${thankYouBackgroundSrc})` : undefined,
         backgroundSize: "cover",
         backgroundPosition: "center",

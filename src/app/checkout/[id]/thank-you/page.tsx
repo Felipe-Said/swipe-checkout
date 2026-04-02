@@ -133,10 +133,28 @@ export default async function PublicCheckoutThankYouPage({
     dateStyle: "short",
     timeStyle: "short",
   }).format(new Date(paidAt))
+  const thankYouLayoutStyle =
+    checkout.config &&
+    typeof checkout.config === "object" &&
+    (checkout.config as Record<string, unknown>).thankYouLayoutStyle === "shopsfi"
+      ? "shopsfi"
+      : "default"
 
   return (
-    <main className="min-h-screen bg-[#111111] px-4 py-8 md:px-8">
-      <div className="mx-auto max-w-[1200px] overflow-hidden rounded-[28px] border border-white/10 bg-white shadow-2xl">
+    <main
+      className={
+        thankYouLayoutStyle === "shopsfi"
+          ? "min-h-screen bg-[#f1f1f1] px-0 py-0"
+          : "min-h-screen bg-[#111111] px-4 py-8 md:px-8"
+      }
+    >
+      <div
+        className={
+          thankYouLayoutStyle === "shopsfi"
+            ? "mx-auto max-w-[1280px]"
+            : "mx-auto max-w-[1200px] overflow-hidden rounded-[28px] border border-white/10 bg-white shadow-2xl"
+        }
+      >
         <CheckoutPixelTracker
           checkoutId={checkout.id}
           config={pixelConfig}
