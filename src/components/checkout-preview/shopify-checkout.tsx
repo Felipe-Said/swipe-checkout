@@ -2097,7 +2097,7 @@ function ThankYouPage({
                 color: shopsfiSuccessColor,
               }}
             >
-              <ShieldCheck className="h-5 w-5" />
+              <ShopsfiConfirmationIcon color={shopsfiSuccessColor} />
             </div>
           </div>
 
@@ -2183,7 +2183,7 @@ function ThankYouPage({
                 color: shopsfiSuccessColor,
               }}
             >
-              <ShieldCheck className="h-6 w-6" />
+              <ShopsfiConfirmationIcon color={shopsfiSuccessColor} />
             </div>
           </div>
 
@@ -2427,6 +2427,31 @@ function CheckCircleBadge({ accentColor }: { accentColor: string }) {
     >
       <ShieldCheck className="h-8 w-8" />
     </div>
+  )
+}
+
+function ShopsfiConfirmationIcon({ color }: { color: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      fill="none"
+      viewBox="0 0 50 50"
+      focusable="false"
+      aria-hidden="true"
+      className="h-6 w-6"
+      style={{ color }}
+    >
+      <path
+        strokeWidth="2"
+        d="M49 25c0 13.255-10.745 24-24 24S1 38.255 1 25 11.745 1 25 1s24 10.745 24 24Z"
+        style={{ stroke: "currentcolor" }}
+      />
+      <path
+        strokeWidth="2"
+        d="m15 24.511 7.307 7.307L35.125 19"
+        style={{ stroke: "currentcolor" }}
+      />
+    </svg>
   )
 }
 
