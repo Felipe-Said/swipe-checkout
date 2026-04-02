@@ -316,8 +316,7 @@ const deviceOptions = [
 
 const layoutOptions = [
   { value: "classic" as const, label: "Classico" },
-  { value: "one-page" as const, label: "One page" },
-  { value: "daniel" as const, label: "Daniel" },
+  { value: "daniel" as const, label: "Swipe" },
 ]
 
 const localeOptions: Array<{ value: SupportedLocale; label: string }> = [
@@ -535,9 +534,16 @@ export function EditorShell() {
 
         if (result.checkout) {
           setCheckoutName(result.checkout.name)
-          const nextConfig = {
+          const resolvedLayoutStyle =
+            result.checkout.config?.layoutStyle === "daniel" ||
+            result.checkout.config?.layoutStyle === "classic"
+              ? result.checkout.config.layoutStyle
+              : "classic"
+
+          const nextConfig: EditorConfig = {
             ...initialConfig,
             ...result.checkout.config,
+            layoutStyle: resolvedLayoutStyle,
           }
           configHistoryRef.current = [nextConfig]
           historyIndexRef.current = 0
@@ -1999,7 +2005,7 @@ export function EditorShell() {
             <div className="flex items-center gap-1">
               <LayoutTemplate className="h-3 w-3" />
               <span>
-                Baseado em: Shopify Checkout Extensibility {config.layoutStyle === "one-page" ? "• One page" : config.layoutStyle === "daniel" ? "• Daniel" : ""}
+                Baseado em: Shopify Checkout Extensibility {config.layoutStyle === "daniel" ? "• Swipe" : ""}
               </span>
             </div>
             <Separator orientation="vertical" className="h-3" />
