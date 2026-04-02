@@ -33,21 +33,23 @@ export async function POST(request: Request) {
     return NextResponse.json({ received: true })
   }
 
-  let event: any = payload
+  if (!account.whop_key) {
+    return NextResponse.json({ error: "Webhook secret nao configurado." }, { status: 401 })
+  }
 
-  if (account.whop_key) {
-    try {
-      const client = new Whop({ apiKey: account.whop_key })
-      event = client.webhooks.unwrap(rawBody, {
-        headers: {
-          "webhook-id": request.headers.get("webhook-id") || "",
-          "webhook-timestamp": request.headers.get("webhook-timestamp") || "",
-          "webhook-signature": request.headers.get("webhook-signature") || "",
-        },
-      })
-    } catch {
-      event = payload
-    }
+  let event: any
+
+  try {
+    const client = new Whop({ apiKey: account.whop_key })
+    event = client.webhooks.unwrap(rawBody, {
+      headers: {
+        "webhook-id": request.headers.get("webhook-id") || "",
+        "webhook-timestamp": request.headers.get("webhook-timestamp") || "",
+        "webhook-signature": request.headers.get("webhook-signature") || "",
+      },
+    })
+  } catch {
+    return NextResponse.json({ error: "Assinatura do webhook invalida." }, { status: 401 })
   }
 
   if (!["payment.succeeded", "payment.pending", "payment.failed"].includes(event?.type)) {

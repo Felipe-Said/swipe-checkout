@@ -1,6 +1,7 @@
 "use server"
 
 import { getSupabaseAdmin } from "@/lib/supabase"
+import { requireServerAppSession } from "@/lib/server-app-session"
 import { type ShippingMethod } from "@/lib/shipping-data"
 
 type ShippingMethodRow = {
@@ -27,12 +28,13 @@ function mapShippingMethod(row: ShippingMethodRow): ShippingMethod {
 }
 
 async function resolveAuthorizedAccount(accountId: string, userId: string) {
+  const actor = await requireServerAppSession(userId)
   const supabaseAdmin = getSupabaseAdmin()
 
   const { data: profile } = await supabaseAdmin
     .from("profiles")
     .select("role")
-    .eq("id", userId)
+    .eq("id", actor.userId)
     .maybeSingle()
 
   let accountQuery = supabaseAdmin
@@ -41,7 +43,7 @@ async function resolveAuthorizedAccount(accountId: string, userId: string) {
     .eq("id", accountId)
 
   if (profile?.role !== "admin") {
-    accountQuery = accountQuery.eq("profile_id", userId)
+    accountQuery = accountQuery.eq("profile_id", actor.userId)
   }
 
   const { data: account, error } = await accountQuery.maybeSingle()

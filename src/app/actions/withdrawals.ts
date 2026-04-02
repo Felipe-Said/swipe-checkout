@@ -3,6 +3,7 @@
 import Whop from "@whop/sdk"
 
 import { getSupabaseAdmin } from "@/lib/supabase"
+import { requireServerAppSession } from "@/lib/server-app-session"
 import type {
   BankAccountDetails,
   SupportedWithdrawalCurrency,
@@ -141,11 +142,12 @@ async function calculateAvailableByCurrency(input: AvailableBalanceInput) {
 }
 
 async function resolveSession(input: { userId: string }) {
+  const actor = await requireServerAppSession(input.userId)
   const supabaseAdmin = getSupabaseAdmin()
   const { data: profile } = await supabaseAdmin
     .from("profiles")
     .select("id, role, email")
-    .eq("id", input.userId)
+    .eq("id", actor.userId)
     .maybeSingle()
 
   if (!profile) {
@@ -163,7 +165,8 @@ async function resolveAccountForUser(input: {
   userId: string
   accountId?: string | null
 }) {
-  const { supabaseAdmin, role } = await resolveSession({ userId: input.userId })
+  const actor = await requireServerAppSession(input.userId)
+  const { supabaseAdmin, role } = await resolveSession({ userId: actor.userId })
 
   if (role === "admin") {
     if (!input.accountId) {
@@ -182,7 +185,7 @@ async function resolveAccountForUser(input: {
   let query = supabaseAdmin
     .from("managed_accounts")
     .select("id, profile_id")
-    .eq("profile_id", input.userId)
+    .eq("profile_id", actor.userId)
 
   if (input.accountId) {
     query = query.eq("id", input.accountId)

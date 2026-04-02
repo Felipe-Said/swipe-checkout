@@ -3,6 +3,7 @@
 import Whop from "@whop/sdk"
 
 import { getSupabaseAdmin } from "@/lib/supabase"
+import { requireServerAppSession } from "@/lib/server-app-session"
 import { type ManagedAccount } from "@/lib/account-metrics"
 import { SWIPE_MANUAL_STORE_ID } from "@/lib/catalog-products"
 import {
@@ -229,7 +230,42 @@ function mapManagedAccountToWhopState(row: WhopManagedAccount, profile?: any): M
   }
 }
 
+async function assertWhopAccountAccess(input: {
+  accountId: string
+  userId?: string | null
+}) {
+  const actor = await requireServerAppSession(input.userId ?? undefined)
+  const supabaseAdmin = getSupabaseAdmin()
+  const { data: profile } = await supabaseAdmin
+    .from("profiles")
+    .select("role")
+    .eq("id", actor.userId)
+    .maybeSingle()
+
+  let accountQuery = supabaseAdmin
+    .from("managed_accounts")
+    .select("id, profile_id")
+    .eq("id", input.accountId)
+
+  if (profile?.role !== "admin") {
+    accountQuery = accountQuery.eq("profile_id", actor.userId)
+  }
+
+  const { data: account, error } = await accountQuery.maybeSingle()
+  if (error || !account) {
+    throw new Error("Conta operacional nao encontrada.")
+  }
+
+  return {
+    actor,
+    role: profile?.role === "admin" ? "admin" : "user",
+    account,
+    supabaseAdmin,
+  }
+}
+
 export async function loadWhopAccountForSession(input: { accountId?: string | null; userId: string }) {
+  const actor = await requireServerAppSession(input.userId)
   const supabaseAdmin = getSupabaseAdmin()
 
   let accountQuery = supabaseAdmin
@@ -241,7 +277,7 @@ export async function loadWhopAccountForSession(input: { accountId?: string | nu
   if (input.accountId) {
     accountQuery = accountQuery.eq("id", input.accountId)
   } else {
-    accountQuery = accountQuery.eq("profile_id", input.userId)
+    accountQuery = accountQuery.eq("profile_id", actor.userId)
   }
 
   const { data: account, error: accountError } = await accountQuery.maybeSingle()
@@ -272,7 +308,7 @@ export async function validateWhopAccount(input: {
     return { error: "Conta e API key sao obrigatorias." }
   }
 
-  const supabaseAdmin = getSupabaseAdmin()
+  const { supabaseAdmin } = await assertWhopAccountAccess({ accountId: input.accountId })
 
   const { data: account, error: accountError } = await supabaseAdmin
     .from("managed_accounts")
@@ -359,7 +395,7 @@ export async function saveWhopAccountCredentials(input: {
     return { error: "Conta operacional nao encontrada." }
   }
 
-  const supabaseAdmin = getSupabaseAdmin()
+  const { supabaseAdmin } = await assertWhopAccountAccess({ accountId: input.accountId })
 
   const { data: account, error: accountError } = await supabaseAdmin
     .from("managed_accounts")
@@ -395,7 +431,7 @@ export async function loadCheckoutsForAccount(input: { accountId: string }) {
     return { checkouts: [] as CheckoutRecord[] }
   }
 
-  const supabaseAdmin = getSupabaseAdmin()
+  const { supabaseAdmin } = await assertWhopAccountAccess({ accountId: input.accountId })
   const { data, error } = await supabaseAdmin
     .from("checkouts")
     .select("id, account_id, name, status, type, config, created_at")
@@ -416,7 +452,7 @@ export async function loadCheckoutForEditor(input: { checkoutId: string; account
     return { checkout: null as CheckoutRecord | null }
   }
 
-  const supabaseAdmin = getSupabaseAdmin()
+  const { supabaseAdmin } = await assertWhopAccountAccess({ accountId: input.accountId })
   const { data, error } = await supabaseAdmin
     .from("checkouts")
     .select("id, account_id, name, status, type, config, created_at")
@@ -438,7 +474,7 @@ export async function deleteCheckoutForAccount(input: { checkoutId: string; acco
     return { error: "Checkout invalido." }
   }
 
-  const supabaseAdmin = getSupabaseAdmin()
+  const { supabaseAdmin } = await assertWhopAccountAccess({ accountId: input.accountId })
   const { error } = await supabaseAdmin
     .from("checkouts")
     .delete()
@@ -462,7 +498,7 @@ export async function saveCheckoutFromEditor(input: {
     return { error: "Conta e nome do checkout sao obrigatorios." }
   }
 
-  const supabaseAdmin = getSupabaseAdmin()
+  const { supabaseAdmin } = await assertWhopAccountAccess({ accountId: input.accountId })
   const cleanName = input.name.trim()
   const status = "Ativo"
 

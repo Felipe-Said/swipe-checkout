@@ -3,7 +3,11 @@
 import * as React from "react"
 import dynamic from "next/dynamic"
 import { usePathname, useRouter } from "next/navigation"
-import { resolveLoginProfile } from "@/app/auth/actions"
+import {
+  clearAuthenticatedAppSession,
+  persistAuthenticatedAppSession,
+  resolveLoginProfile,
+} from "@/app/auth/actions"
 import {
   clearAppSession,
   getCurrentAppSession,
@@ -43,6 +47,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   const forceBlockedLogout = React.useCallback(async () => {
     clearAppSession()
+    await clearAuthenticatedAppSession()
     await supabase.auth.signOut()
     router.replace(withEmbeddedContext("/login?message=blocked"))
   }, [router, withEmbeddedContext])
@@ -90,6 +95,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     async function loadSession() {
       const storedSession = readAppSession()
       if (storedSession && !cancelled) {
+        await persistAuthenticatedAppSession(storedSession)
         setSession(storedSession)
         setReady(true)
       }
@@ -126,6 +132,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           }
 
           writeAppSession(syncedSession)
+          await persistAuthenticatedAppSession(syncedSession)
 
           const restrictedRedirect = shouldRedirectRestrictedRoute(syncedSession)
           if (restrictedRedirect) {
@@ -144,6 +151,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         router.replace(withEmbeddedContext("/login"))
         return
       }
+
+      await persistAuthenticatedAppSession(nextSession)
 
       const restrictedRedirect = shouldRedirectRestrictedRoute(nextSession)
       if (restrictedRedirect) {

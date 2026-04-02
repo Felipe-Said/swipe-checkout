@@ -3,6 +3,7 @@
 import Whop from "@whop/sdk"
 
 import { getSupabaseAdmin } from "@/lib/supabase"
+import { requireServerAppSession } from "@/lib/server-app-session"
 
 type SessionRole = "admin" | "user"
 
@@ -82,11 +83,12 @@ function normalizeFeeRate(value: number | string | null | undefined) {
 }
 
 async function resolveSession(input: { userId: string }) {
+  const actor = await requireServerAppSession(input.userId)
   const supabaseAdmin = getSupabaseAdmin()
   const { data: profile } = await supabaseAdmin
     .from("profiles")
     .select("id, role")
-    .eq("id", input.userId)
+    .eq("id", actor.userId)
     .maybeSingle()
 
   if (!profile) {

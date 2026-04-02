@@ -35,8 +35,6 @@ function mapDbToStore(db: any): ConnectedShopifyStore {
     name: db.name,
     shopDomain: db.shop_domain,
     storefrontToken: db.storefront_token ?? "",
-    clientId: db.client_id ?? "",
-    clientSecret: db.client_secret ?? "",
     defaultCheckoutId: db.default_checkout_id ?? "",
     skipCartRedirect: Boolean(db.skip_cart_redirect),
     scriptTagId: db.script_tag_id ?? "",
@@ -51,7 +49,9 @@ function mapDbToStore(db: any): ConnectedShopifyStore {
 export async function getConnectedShopifyStores(accountId: string) {
   const { data, error } = await supabase
     .from("shopify_stores")
-    .select("*")
+    .select(
+      "id, name, shop_domain, storefront_token, default_checkout_id, skip_cart_redirect, script_tag_id, checkout_type, status, product_count, variant_count, last_sync"
+    )
     .eq("account_id", accountId)
     .order("created_at", { ascending: false })
 

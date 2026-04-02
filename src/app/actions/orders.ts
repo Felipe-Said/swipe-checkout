@@ -1,6 +1,7 @@
 "use server"
 
 import { getSupabaseAdmin } from "@/lib/supabase"
+import { requireServerAppSession } from "@/lib/server-app-session"
 
 type RealOrderRow = {
   id: string
@@ -15,12 +16,13 @@ export async function loadOrdersForSession(input: {
   userId: string
   accountId?: string | null
 }) {
+  const actor = await requireServerAppSession(input.userId)
   const supabaseAdmin = getSupabaseAdmin()
 
   const { data: profile } = await supabaseAdmin
     .from("profiles")
     .select("role")
-    .eq("id", input.userId)
+    .eq("id", actor.userId)
     .maybeSingle()
 
   const isAdmin = profile?.role === "admin"

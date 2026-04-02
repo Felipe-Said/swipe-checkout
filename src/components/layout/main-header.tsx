@@ -23,6 +23,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { clearAuthenticatedAppSession } from "@/app/auth/actions"
 import { loadProfilePhoto } from "@/app/actions/settings"
 import { clearAppSession, type AppSession } from "@/lib/app-session"
 import { supabase } from "@/lib/supabase"
@@ -62,6 +63,7 @@ export function MainHeader({ session }: { session: AppSession }) {
 
   const handleLogout = async () => {
     clearAppSession()
+    await clearAuthenticatedAppSession()
     await supabase.auth.signOut()
     router.replace("/login")
   }

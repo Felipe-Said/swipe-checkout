@@ -2,6 +2,7 @@
 
 import { sendPushcutNotificationsForCheckout } from "@/lib/pushcut"
 import { getSupabaseAdmin } from "@/lib/supabase"
+import { requireServerAppSession } from "@/lib/server-app-session"
 import type { CheckoutPixelConfig } from "@/lib/pixels-data"
 import type { PushcutCheckoutConfig } from "@/lib/pushcut-data"
 
@@ -20,12 +21,13 @@ function normalizePixelIds(value: unknown, fallback?: unknown) {
 }
 
 async function assertCheckoutIntegrationAccess(input: { accountId: string; userId: string }) {
+  const actor = await requireServerAppSession(input.userId)
   const supabaseAdmin = getSupabaseAdmin()
 
   const { data: profile } = await supabaseAdmin
     .from("profiles")
     .select("role")
-    .eq("id", input.userId)
+    .eq("id", actor.userId)
     .maybeSingle()
 
   const isAdmin = profile?.role === "admin"
@@ -36,7 +38,7 @@ async function assertCheckoutIntegrationAccess(input: { accountId: string; userI
     .eq("id", input.accountId)
 
   if (!isAdmin) {
-    query = query.eq("profile_id", input.userId)
+    query = query.eq("profile_id", actor.userId)
   }
 
   const { data: account, error } = await query.maybeSingle()

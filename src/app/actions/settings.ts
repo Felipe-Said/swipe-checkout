@@ -1,6 +1,7 @@
 "use server"
 
 import { getSupabaseAdmin } from "@/lib/supabase"
+import { requireServerAppSession } from "@/lib/server-app-session"
 
 type LoginEventRow = {
   id: string
@@ -13,12 +14,13 @@ export async function loadSettingsForSession(input: {
   userId: string
   accountId?: string | null
 }) {
+  const actor = await requireServerAppSession(input.userId)
   const supabaseAdmin = getSupabaseAdmin()
 
   const { data: profile, error: profileError } = await supabaseAdmin
     .from("profiles")
     .select("id, name, email, role, photo_url")
-    .eq("id", input.userId)
+    .eq("id", actor.userId)
     .single()
 
   if (profileError || !profile) {
@@ -46,7 +48,7 @@ export async function loadSettingsForSession(input: {
   const { data: loginEvents, error: loginEventsError } = await supabaseAdmin
     .from("login_events")
     .select("id, device, location, logged_at")
-    .eq("user_id", input.userId)
+    .eq("user_id", actor.userId)
     .order("logged_at", { ascending: false })
     .limit(10)
 
@@ -72,11 +74,12 @@ export async function saveSettingsProfile(input: {
   email: string
   photoUrl?: string | null
 }) {
+  const actor = await requireServerAppSession(input.userId)
   const supabaseAdmin = getSupabaseAdmin()
   const nextName = input.name.trim()
   const nextEmail = input.email.trim()
 
-  const { error: authError } = await supabaseAdmin.auth.admin.updateUserById(input.userId, {
+  const { error: authError } = await supabaseAdmin.auth.admin.updateUserById(actor.userId, {
     email: nextEmail,
     user_metadata: {
       name: nextName,
@@ -95,7 +98,7 @@ export async function saveSettingsProfile(input: {
       photo_url: input.photoUrl || null,
       updated_at: new Date().toISOString(),
     })
-    .eq("id", input.userId)
+    .eq("id", actor.userId)
 
   if (error) {
     return { error: error.message }
@@ -107,7 +110,7 @@ export async function saveSettingsProfile(input: {
       name: nextName,
       updated_at: new Date().toISOString(),
     })
-    .eq("profile_id", input.userId)
+    .eq("profile_id", actor.userId)
 
   if (accountError) {
     return { error: accountError.message }
@@ -122,10 +125,11 @@ export async function recordLoginEvent(input: {
   device: string
   location?: string | null
 }) {
+  const actor = await requireServerAppSession(input.userId)
   const supabaseAdmin = getSupabaseAdmin()
 
   const { error } = await supabaseAdmin.from("login_events").insert({
-    user_id: input.userId,
+    user_id: actor.userId,
     account_id: input.accountId || null,
     device: input.device,
     location: input.location || null,
@@ -139,11 +143,12 @@ export async function recordLoginEvent(input: {
 }
 
 export async function loadProfilePhoto(input: { userId: string }) {
+  const actor = await requireServerAppSession(input.userId)
   const supabaseAdmin = getSupabaseAdmin()
   const { data, error } = await supabaseAdmin
     .from("profiles")
     .select("photo_url")
-    .eq("id", input.userId)
+    .eq("id", actor.userId)
     .maybeSingle()
 
   if (error) {

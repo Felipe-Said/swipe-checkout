@@ -1,6 +1,7 @@
 "use server"
 
 import { getSupabaseAdmin } from "@/lib/supabase"
+import { requireServerAppSession } from "@/lib/server-app-session"
 import type { ConnectedDomain, DomainMode, DomainStatus } from "@/lib/domain-data"
 
 type DomainConfigResponse = {
@@ -228,11 +229,12 @@ async function syncDomainRecord(input: {
 }
 
 async function assertDomainAccess(input: { userId: string; accountId: string }) {
+  const actor = await requireServerAppSession(input.userId)
   const supabaseAdmin = getSupabaseAdmin()
   const { data: profile } = await supabaseAdmin
     .from("profiles")
     .select("role")
-    .eq("id", input.userId)
+    .eq("id", actor.userId)
     .maybeSingle()
 
   if (profile?.role === "admin") {
@@ -243,7 +245,7 @@ async function assertDomainAccess(input: { userId: string; accountId: string }) 
     .from("managed_accounts")
     .select("id")
     .eq("id", input.accountId)
-    .eq("profile_id", input.userId)
+    .eq("profile_id", actor.userId)
     .maybeSingle()
 
   if (!account) {

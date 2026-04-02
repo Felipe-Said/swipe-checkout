@@ -1,6 +1,7 @@
 "use server"
 
 import { getSupabaseAdmin } from "@/lib/supabase"
+import { requireServerAppSession } from "@/lib/server-app-session"
 import { normalizeShopDomain, type ConnectedShopifyStore } from "@/lib/shopify-store-data"
 import type { StoreCatalogProduct } from "@/lib/catalog-products"
 
@@ -355,11 +356,12 @@ async function fetchShopifyGraphQLProductPreview(input: {
 }
 
 async function assertAccountAccess(accountId: string, userId: string) {
+  const actor = await requireServerAppSession(userId)
   const supabaseAdmin = getSupabaseAdmin()
   const { data: profile } = await supabaseAdmin
     .from("profiles")
     .select("role")
-    .eq("id", userId)
+    .eq("id", actor.userId)
     .maybeSingle()
 
   const isAdmin = profile?.role === "admin"
@@ -370,7 +372,7 @@ async function assertAccountAccess(accountId: string, userId: string) {
     .eq("id", accountId)
 
   if (!isAdmin) {
-    query = query.eq("profile_id", userId)
+    query = query.eq("profile_id", actor.userId)
   }
 
   const { data: account, error } = await query.maybeSingle()
@@ -563,8 +565,6 @@ function mapDbToStore(db: any): ConnectedShopifyStore {
     name: db.name,
     shopDomain: db.shop_domain,
     storefrontToken: db.storefront_token ?? "",
-    clientId: db.client_id ?? "",
-    clientSecret: db.client_secret ?? "",
     defaultCheckoutId: db.default_checkout_id ?? "",
     skipCartRedirect: Boolean(db.skip_cart_redirect),
     scriptTagId: db.script_tag_id ?? "",
@@ -1097,7 +1097,9 @@ export async function loadShopifyStoresForSession(input: { accountId: string; us
   const supabaseAdmin = getSupabaseAdmin()
   const { data, error } = await supabaseAdmin
     .from("shopify_stores")
-    .select("*")
+    .select(
+      "id, name, shop_domain, storefront_token, default_checkout_id, skip_cart_redirect, script_tag_id, checkout_type, status, product_count, variant_count, last_sync"
+    )
     .eq("account_id", input.accountId)
     .order("created_at", { ascending: false })
 

@@ -4,10 +4,10 @@ import * as React from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Loader2, AlertCircle } from "lucide-react"
-import { resolveLoginProfile } from "@/app/auth/actions"
+import { persistAuthenticatedAppSession, resolveLoginProfile } from "@/app/auth/actions"
 import { recordLoginEvent } from "@/app/actions/settings"
 import { useSearchParams } from "next/navigation"
-import { clearAppSession, writeAppSession } from "@/lib/app-session"
+import { clearAppSession, type AppSession, writeAppSession } from "@/lib/app-session"
 import { buildEmbeddedPath } from "@/lib/shopify-embedded"
 import { supabase } from "@/lib/supabase"
 import { Button } from "@/components/ui/button"
@@ -104,7 +104,7 @@ function LoginContent() {
       return
     }
 
-    writeAppSession({
+    const nextAppSession: AppSession = {
       userId: profileResult.session.userId,
       name: profileResult.session.name,
       email: profileResult.session.email,
@@ -118,7 +118,10 @@ function LoginContent() {
         profileResult.session.role === "admin"
           ? true
           : profileResult.session.gatewayEnabled === true,
-    })
+    }
+
+    writeAppSession(nextAppSession)
+    await persistAuthenticatedAppSession(nextAppSession)
 
     await recordLoginEvent({
       userId: profileResult.session.userId,

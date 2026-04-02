@@ -1,6 +1,7 @@
 "use server"
 
 import { getSupabaseAdmin } from "@/lib/supabase"
+import { requireServerAppSession } from "@/lib/server-app-session"
 
 type AdminCustomerAccount = {
   id: string
@@ -66,11 +67,12 @@ type BankAccountMap = Record<
 >
 
 async function assertAdmin(userId: string) {
+  const actor = await requireServerAppSession(userId)
   const supabaseAdmin = getSupabaseAdmin()
   const { data: profile } = await supabaseAdmin
     .from("profiles")
     .select("role")
-    .eq("id", userId)
+    .eq("id", actor.userId)
     .maybeSingle()
 
   if (profile?.role !== "admin") {
@@ -351,6 +353,7 @@ export async function loadSupportMessagesForSession(input: {
   userId: string
   accountId: string
 }) {
+  const actor = await requireServerAppSession(input.userId)
   const supabaseAdmin = getSupabaseAdmin()
 
   const { data: account } = await supabaseAdmin
@@ -359,7 +362,7 @@ export async function loadSupportMessagesForSession(input: {
     .eq("id", input.accountId)
     .maybeSingle()
 
-  if (!account || account.profile_id !== input.userId) {
+  if (!account || account.profile_id !== actor.userId) {
     return { error: "Conta nao encontrada.", messages: [] as SupportMessage[] }
   }
 
@@ -395,6 +398,7 @@ export async function sendSupportMessageForSession(input: {
   text: string
   imageSrc: string
 }) {
+  const actor = await requireServerAppSession(input.userId)
   const supabaseAdmin = getSupabaseAdmin()
 
   const { data: account } = await supabaseAdmin
@@ -403,7 +407,7 @@ export async function sendSupportMessageForSession(input: {
     .eq("id", input.accountId)
     .maybeSingle()
 
-  if (!account || account.profile_id !== input.userId) {
+  if (!account || account.profile_id !== actor.userId) {
     return { error: "Conta nao encontrada." }
   }
 

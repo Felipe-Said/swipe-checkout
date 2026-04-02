@@ -1,8 +1,9 @@
 'use server'
 
-import { cookies } from 'next/headers'
 import { getSupabaseAdmin, supabase } from '@/lib/supabase'
 import { redirect } from 'next/navigation'
+import { clearServerAppSession, persistServerAppSession } from "@/lib/server-app-session"
+import type { AppSession } from "@/lib/app-session"
 
 async function ensureManagedAccount(userId: string, name: string, role: "admin" | "user") {
   const supabaseAdmin = getSupabaseAdmin()
@@ -167,6 +168,17 @@ export async function resolveLoginProfile(userId: string) {
 }
 
 export async function logout() {
+  await clearServerAppSession()
   await supabase.auth.signOut()
   redirect('/login')
+}
+
+export async function persistAuthenticatedAppSession(session: AppSession) {
+  await persistServerAppSession(session)
+  return { success: true }
+}
+
+export async function clearAuthenticatedAppSession() {
+  await clearServerAppSession()
+  return { success: true }
 }

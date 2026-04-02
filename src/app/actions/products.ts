@@ -3,6 +3,7 @@
 import crypto from "crypto"
 
 import { getSupabaseAdmin } from "@/lib/supabase"
+import { requireServerAppSession } from "@/lib/server-app-session"
 import type {
   CatalogProduct,
   CatalogProductCurrency,
@@ -90,11 +91,12 @@ function resolveCatalogProductVariants(row: any): CatalogProductVariant[] {
 }
 
 async function assertProductAccountAccess(accountId: string, userId: string) {
+  const actor = await requireServerAppSession(userId)
   const supabaseAdmin = getSupabaseAdmin()
   const { data: profile } = await supabaseAdmin
     .from("profiles")
     .select("role")
-    .eq("id", userId)
+    .eq("id", actor.userId)
     .maybeSingle()
 
   const isAdmin = profile?.role === "admin"
@@ -105,7 +107,7 @@ async function assertProductAccountAccess(accountId: string, userId: string) {
     .eq("id", accountId)
 
   if (!isAdmin) {
-    query = query.eq("profile_id", userId)
+    query = query.eq("profile_id", actor.userId)
   }
 
   const { data: account, error } = await query.maybeSingle()

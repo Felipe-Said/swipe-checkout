@@ -1,6 +1,7 @@
 "use server"
 
 import { getSupabaseAdmin } from "@/lib/supabase"
+import { requireServerAppSession } from "@/lib/server-app-session"
 
 type SessionRole = "admin" | "user"
 type SupportedCurrency = "BRL" | "USD" | "EUR" | "GBP"
@@ -357,13 +358,14 @@ export async function loadDashboardForSession(input: {
   period: DashboardPeriod
   referenceDate: string
 }) {
+  const actor = await requireServerAppSession(input.userId)
   const supabaseAdmin = getSupabaseAdmin()
   const { start, end } = getWindowBounds(input.referenceDate, input.period)
 
   const { data: sessionProfile } = await supabaseAdmin
     .from("profiles")
     .select("id, role, email")
-    .eq("id", input.userId)
+    .eq("id", actor.userId)
     .maybeSingle()
 
   if (!sessionProfile) {
@@ -418,11 +420,11 @@ export async function loadDashboardForSession(input: {
   const visibleAccounts =
     sessionRole === "admin"
       ? allAccounts
-      : allAccounts.filter((account) => account.profileId === input.userId)
+      : allAccounts.filter((account) => account.profileId === actor.userId)
 
   const currentAccount =
     sessionRole === "admin"
-      ? visibleAccounts.find((account) => account.profileId === input.userId) ??
+      ? visibleAccounts.find((account) => account.profileId === actor.userId) ??
         visibleAccounts.find((account) => account.id === input.accountId) ??
         visibleAccounts[0] ??
         null
