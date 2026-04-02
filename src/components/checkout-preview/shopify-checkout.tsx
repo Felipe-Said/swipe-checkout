@@ -631,6 +631,7 @@ interface CheckoutConfig {
   locale: SupportedLocale
   currencyMode: "manual" | "auto"
   currency: SupportedCurrency
+  thankYouLayoutStyle: "default" | "shopsfi"
   thankYouDragEnabled: boolean
   thankYouCardBackgroundDesktopSrc: string
   thankYouCardBackgroundMobileSrc: string
@@ -1859,6 +1860,7 @@ function ThankYouPage({
   const thankYouTitle = config.thankYouTitle?.trim() || "Pedido confirmado com sucesso"
   const thankYouMessage = config.thankYouMessage?.trim()
   const thankYouButtonText = config.thankYouButtonText?.trim() || "Ir para minha conta"
+  const thankYouLayoutStyle = config.thankYouLayoutStyle === "shopsfi" ? "shopsfi" : "default"
   const resolvedStoreUrl = normalizeThankYouUrl(storePreview?.storeUrl)
   const thankYouButtonHref = resolveThankYouTargetUrl({
     mode: config.thankYouButtonTarget,
@@ -1931,6 +1933,63 @@ function ThankYouPage({
             : `Redirecionando automaticamente em ${secondsRemaining}s.`
     : undefined
   const injectedCustomCss = React.useMemo(() => buildInjectedCheckoutCss(config.customCss ?? ""), [config.customCss])
+  const detailLabels = {
+    orderId: locale === "en-US" ? "Order ID" : locale === "es-ES" ? "Pedido" : locale === "fr-FR" ? "Commande" : locale === "de-DE" ? "Bestellung" : "Pedido",
+    paymentMethod:
+      locale === "en-US"
+        ? "Payment Method"
+        : locale === "es-ES"
+          ? "Metodo de pago"
+          : locale === "fr-FR"
+            ? "Paiement"
+            : locale === "de-DE"
+              ? "Zahlungsart"
+              : "Pagamento",
+    dateTime:
+      locale === "en-US"
+        ? "Date & Time"
+        : locale === "es-ES"
+          ? "Fecha y hora"
+          : locale === "fr-FR"
+            ? "Date et heure"
+            : locale === "de-DE"
+              ? "Datum und Uhrzeit"
+              : "Data e hora",
+    total: copy.total,
+    product:
+      locale === "en-US"
+        ? "Product"
+        : locale === "es-ES"
+          ? "Producto"
+          : locale === "fr-FR"
+            ? "Produit"
+            : locale === "de-DE"
+              ? "Produkt"
+              : "Produto",
+  }
+  const shopsfiSummaryLabels = {
+    summary: copy.thankYouOrderSummary,
+    shipping:
+      locale === "en-US"
+        ? "Shipping"
+        : locale === "es-ES"
+          ? "Envio"
+          : locale === "fr-FR"
+            ? "Livraison"
+            : locale === "de-DE"
+              ? "Versand"
+              : "Frete",
+    backToStore:
+      locale === "en-US"
+        ? "Back to store"
+        : locale === "es-ES"
+          ? "Volver a la tienda"
+          : locale === "fr-FR"
+            ? "Retour a la boutique"
+            : locale === "de-DE"
+              ? "Zuruck zum Shop"
+              : "Voltar para a loja",
+  }
   const confirmationCard = (
     <OrderConfirmationCard
       orderId={thankYouMeta?.orderId ?? "SWIPE"}
@@ -1943,40 +2002,7 @@ function ThankYouPage({
       description={thankYouMessage}
       buttonText={thankYouButtonText}
       buttonVisible={Boolean(config.thankYouButtonEnabled && thankYouButtonHref)}
-      labels={{
-        orderId: locale === "en-US" ? "Order ID" : locale === "es-ES" ? "Pedido" : locale === "fr-FR" ? "Commande" : locale === "de-DE" ? "Bestellung" : "Pedido",
-        paymentMethod:
-          locale === "en-US"
-            ? "Payment Method"
-            : locale === "es-ES"
-              ? "Metodo de pago"
-              : locale === "fr-FR"
-                ? "Paiement"
-                : locale === "de-DE"
-                  ? "Zahlungsart"
-                  : "Pagamento",
-        dateTime:
-          locale === "en-US"
-            ? "Date & Time"
-            : locale === "es-ES"
-              ? "Fecha y hora"
-              : locale === "fr-FR"
-                ? "Date et heure"
-                : locale === "de-DE"
-                  ? "Datum und Uhrzeit"
-                  : "Data e hora",
-        total: copy.total,
-        product:
-          locale === "en-US"
-            ? "Product"
-            : locale === "es-ES"
-              ? "Producto"
-              : locale === "fr-FR"
-                ? "Produit"
-                : locale === "de-DE"
-                  ? "Produkt"
-                  : "Produto",
-      }}
+      labels={detailLabels}
       countdownText={countdownText}
       borderRadius={config.borderRadius}
       surfaceColor={config.checkoutSurfaceColor}
@@ -1991,6 +2017,166 @@ function ThankYouPage({
       }}
       className="max-w-[420px] shadow-[0_20px_60px_rgba(15,23,42,0.12)]"
     />
+  )
+  const shopsfiLayout = (
+    <div
+      data-swipe-slot="thank-you-shopsfi-shell"
+      className="w-full max-w-[1120px] overflow-hidden rounded-[28px] border shadow-[0_20px_60px_rgba(15,23,42,0.12)]"
+      style={{
+        backgroundColor: config.checkoutSurfaceColor,
+        borderColor: config.checkoutMutedColor,
+        backgroundImage: thankYouCardBackgroundSrc ? `url(${thankYouCardBackgroundSrc})` : undefined,
+        backgroundRepeat: "no-repeat",
+        backgroundPosition: "center",
+        backgroundSize: `${thankYouCardBackgroundSize}%`,
+      }}
+    >
+      <div className="grid gap-0 lg:grid-cols-[minmax(0,1.25fr)_minmax(320px,0.75fr)]">
+        <div
+          data-swipe-slot="thank-you-shopsfi-main"
+          className="space-y-8 p-6 sm:p-8 lg:p-10"
+          style={{ color: config.checkoutTextColor }}
+        >
+          <div className="flex items-center justify-between gap-4 border-b pb-6" style={{ borderColor: config.checkoutMutedColor }}>
+            <ThankYouBrand config={config} />
+            <div
+              className="flex h-12 w-12 items-center justify-center rounded-full border"
+              style={{
+                borderColor: withAlpha(config.primaryColor || config.checkoutAccentColor, 0.16),
+                backgroundColor: withAlpha(config.primaryColor || config.checkoutAccentColor, 0.08),
+                color: config.primaryColor || config.checkoutAccentColor,
+              }}
+            >
+              <ShieldCheck className="h-6 w-6" />
+            </div>
+          </div>
+
+          <div data-swipe-slot="thank-you-shopsfi-header" className="space-y-3">
+            <p className="text-sm font-medium" style={{ color: config.checkoutAccentColor }}>
+              {thankYouMeta?.orderId ?? "SWIPE"}
+            </p>
+            <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">{thankYouTitle}</h1>
+            {config.thankYouShowMessage && thankYouMessage ? (
+              <p className="max-w-2xl text-sm leading-7 sm:text-base" style={{ color: withAlpha(config.checkoutTextColor, 0.72) }}>
+                {thankYouMessage}
+              </p>
+            ) : null}
+          </div>
+
+          <div data-swipe-slot="thank-you-shopsfi-details" className="grid gap-4 sm:grid-cols-2">
+            <div className="rounded-2xl border p-5" style={{ borderColor: config.checkoutMutedColor }}>
+              <p className="text-xs font-medium uppercase tracking-[0.2em]" style={{ color: withAlpha(config.checkoutTextColor, 0.56) }}>
+                {detailLabels.orderId}
+              </p>
+              <p className="mt-3 text-lg font-semibold">{thankYouMeta?.orderId ?? "SWIPE"}</p>
+            </div>
+            <div className="rounded-2xl border p-5" style={{ borderColor: config.checkoutMutedColor }}>
+              <p className="text-xs font-medium uppercase tracking-[0.2em]" style={{ color: withAlpha(config.checkoutTextColor, 0.56) }}>
+                {detailLabels.paymentMethod}
+              </p>
+              <p className="mt-3 text-lg font-semibold">{thankYouMeta?.paymentMethod ?? "Whop"}</p>
+            </div>
+            <div className="rounded-2xl border p-5" style={{ borderColor: config.checkoutMutedColor }}>
+              <p className="text-xs font-medium uppercase tracking-[0.2em]" style={{ color: withAlpha(config.checkoutTextColor, 0.56) }}>
+                {detailLabels.dateTime}
+              </p>
+              <p className="mt-3 text-lg font-semibold">{formattedDateTime}</p>
+            </div>
+            <div className="rounded-2xl border p-5" style={{ borderColor: config.checkoutMutedColor }}>
+              <p className="text-xs font-medium uppercase tracking-[0.2em]" style={{ color: withAlpha(config.checkoutTextColor, 0.56) }}>
+                {detailLabels.total}
+              </p>
+              <p className="mt-3 text-lg font-semibold">{formattedPrice}</p>
+            </div>
+          </div>
+        </div>
+
+        <aside
+          data-swipe-slot="thank-you-shopsfi-summary"
+          className="border-l p-6 sm:p-8"
+          style={{
+            borderColor: config.checkoutMutedColor,
+            backgroundColor: withAlpha(config.checkoutBackgroundColor, 0.78),
+            color: config.checkoutTextColor,
+          }}
+        >
+          <div className="space-y-6">
+            <div className="space-y-1">
+              <p className="text-sm font-medium" style={{ color: withAlpha(config.checkoutTextColor, 0.72) }}>
+                {shopsfiSummaryLabels.summary}
+              </p>
+              <h2 className="text-2xl font-semibold">{copy.total}</h2>
+            </div>
+
+            <div className="rounded-2xl border p-4" style={{ borderColor: config.checkoutMutedColor }}>
+              <div className="flex items-start gap-4">
+                <div
+                  className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl border"
+                  style={{ borderColor: config.checkoutMutedColor, backgroundColor: "#ffffff" }}
+                >
+                  {storePreview?.imageSrc ? (
+                    <img
+                      src={storePreview.imageSrc}
+                      alt={storePreview.productName}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <ShoppingBag className="h-6 w-6" style={{ color: withAlpha(config.checkoutTextColor, 0.5) }} />
+                  )}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-base font-semibold">{storePreview?.productName ?? config.productName}</p>
+                  <p className="mt-1 text-sm" style={{ color: withAlpha(config.checkoutTextColor, 0.7) }}>
+                    {storePreview?.variantLabel ?? config.productVariantLabel}
+                  </p>
+                </div>
+                <p className="text-sm font-semibold">{formattedPrice}</p>
+              </div>
+            </div>
+
+            <div className="space-y-4 rounded-2xl border p-4" style={{ borderColor: config.checkoutMutedColor }}>
+              <div className="flex items-center justify-between text-sm">
+                <span style={{ color: withAlpha(config.checkoutTextColor, 0.72) }}>{detailLabels.product}</span>
+                <span className="font-medium">{formattedPrice}</span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span style={{ color: withAlpha(config.checkoutTextColor, 0.72) }}>{shopsfiSummaryLabels.shipping}</span>
+                <span className="font-medium">-</span>
+              </div>
+              <Separator style={{ backgroundColor: config.checkoutMutedColor }} />
+              <div className="flex items-center justify-between text-base font-semibold">
+                <span>{copy.total}</span>
+                <span>{formattedPrice}</span>
+              </div>
+            </div>
+
+            {config.thankYouButtonEnabled && thankYouButtonHref ? (
+              <Button
+                onClick={() => {
+                  if (typeof window === "undefined") return
+                  window.location.href = thankYouButtonHref
+                }}
+                className="h-12 w-full"
+                size="lg"
+                style={{
+                  borderRadius: config.borderRadius,
+                  backgroundColor: config.primaryColor || config.checkoutAccentColor,
+                  color: "#ffffff",
+                }}
+              >
+                {thankYouButtonText || shopsfiSummaryLabels.backToStore}
+              </Button>
+            ) : null}
+
+            {countdownText ? (
+              <p className="text-center text-xs leading-5" style={{ color: withAlpha(config.checkoutTextColor, 0.64) }}>
+                {countdownText}
+              </p>
+            ) : null}
+          </div>
+        </aside>
+      </div>
+    </div>
   )
 
   return (
@@ -2017,20 +2203,32 @@ function ThankYouPage({
         />
       ) : null}
       <div
-        data-swipe-slot="thank-you-shell"
-        className="w-full max-w-[520px] rounded-[28px] border p-5 text-center shadow-sm sm:p-8"
-        style={{
-          backgroundColor: config.checkoutSurfaceColor,
-          borderColor: config.checkoutMutedColor,
-          backgroundImage: thankYouCardBackgroundSrc ? `url(${thankYouCardBackgroundSrc})` : undefined,
-          backgroundRepeat: "no-repeat",
-          backgroundPosition: "center",
-          backgroundSize: `${thankYouCardBackgroundSize}%`,
-        }}
+        data-swipe-slot={thankYouLayoutStyle === "shopsfi" ? "thank-you-layout-container" : "thank-you-shell"}
+        className="w-full"
       >
-        <div data-swipe-slot="thank-you-confirmation" className="mx-auto flex min-h-full w-full max-w-[420px] items-center justify-center py-3 sm:py-6">
-          {confirmationCard}
-        </div>
+        {thankYouLayoutStyle === "shopsfi" ? (
+          shopsfiLayout
+        ) : (
+          <div
+            data-swipe-slot="thank-you-shell"
+            className="mx-auto w-full max-w-[520px] rounded-[28px] border p-5 text-center shadow-sm sm:p-8"
+            style={{
+              backgroundColor: config.checkoutSurfaceColor,
+              borderColor: config.checkoutMutedColor,
+              backgroundImage: thankYouCardBackgroundSrc ? `url(${thankYouCardBackgroundSrc})` : undefined,
+              backgroundRepeat: "no-repeat",
+              backgroundPosition: "center",
+              backgroundSize: `${thankYouCardBackgroundSize}%`,
+            }}
+          >
+            <div
+              data-swipe-slot="thank-you-confirmation"
+              className="mx-auto flex min-h-full w-full max-w-[420px] items-center justify-center py-3 sm:py-6"
+            >
+              {confirmationCard}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )
@@ -2071,6 +2269,35 @@ function CheckCircleBadge({ accentColor }: { accentColor: string }) {
       }}
     >
       <ShieldCheck className="h-8 w-8" />
+    </div>
+  )
+}
+
+function ThankYouBrand({ config }: { config: CheckoutConfig }) {
+  if (!config.showLogo) {
+    return (
+      <div className="text-lg font-semibold tracking-tight" style={{ color: config.checkoutTextColor }}>
+        {config.companyName}
+      </div>
+    )
+  }
+
+  if (config.logoDisplayMode === "image" && config.logoSrc) {
+    return (
+      <div className="flex items-center">
+        <img
+          src={config.logoSrc}
+          alt={config.companyName}
+          className="h-auto max-w-full object-contain"
+          style={{ width: `${Math.min(config.logoWidth, 220)}px` }}
+        />
+      </div>
+    )
+  }
+
+  return (
+    <div className="text-lg font-semibold tracking-tight" style={{ color: config.checkoutTextColor }}>
+      {config.companyName}
     </div>
   )
 }

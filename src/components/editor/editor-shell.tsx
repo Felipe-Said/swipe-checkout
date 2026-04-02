@@ -129,6 +129,7 @@ type EditorConfig = {
   locale: SupportedLocale
   currencyMode: "manual" | "auto"
   currency: SupportedCurrency
+  thankYouLayoutStyle: "default" | "shopsfi"
   thankYouDragEnabled: boolean
   thankYouCardBackgroundDesktopSrc: string
   thankYouCardBackgroundMobileSrc: string
@@ -235,6 +236,7 @@ const initialConfig: EditorConfig = {
   locale: "pt-BR",
   currencyMode: "manual",
   currency: "BRL",
+  thankYouLayoutStyle: "default",
   thankYouDragEnabled: true,
   thankYouCardBackgroundDesktopSrc: "",
   thankYouCardBackgroundMobileSrc: "",
@@ -317,6 +319,11 @@ const deviceOptions = [
 const layoutOptions = [
   { value: "classic" as const, label: "Classico" },
   { value: "daniel" as const, label: "Swipe" },
+]
+
+const thankYouLayoutOptions = [
+  { value: "default" as const, label: "Padrao" },
+  { value: "shopsfi" as const, label: "Shopsfi" },
 ]
 
 const localeOptions: Array<{ value: SupportedLocale; label: string }> = [
@@ -539,11 +546,17 @@ export function EditorShell() {
             result.checkout.config?.layoutStyle === "classic"
               ? result.checkout.config.layoutStyle
               : "classic"
+          const resolvedThankYouLayoutStyle =
+            result.checkout.config?.thankYouLayoutStyle === "shopsfi" ||
+            result.checkout.config?.thankYouLayoutStyle === "default"
+              ? result.checkout.config.thankYouLayoutStyle
+              : "default"
 
           const nextConfig: EditorConfig = {
             ...initialConfig,
             ...result.checkout.config,
             layoutStyle: resolvedLayoutStyle,
+            thankYouLayoutStyle: resolvedThankYouLayoutStyle,
           }
           configHistoryRef.current = [nextConfig]
           historyIndexRef.current = 0
@@ -1066,6 +1079,96 @@ export function EditorShell() {
                   <Label>Pagina de Agradecimento</Label>
                   <div className="rounded-lg border p-3 text-sm text-muted-foreground">
                     Esta pagina segue automaticamente as cores, a moeda e o idioma do checkout principal. Aqui voce edita o conteudo, o fundo e os redirects do thank-you.
+                  </div>
+
+                  <div className="space-y-4">
+                    <Label>Layout do Agradecimento</Label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {thankYouLayoutOptions.map((option) => (
+                        <Button
+                          key={option.value}
+                          variant={config.thankYouLayoutStyle === option.value ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => handleUpdate("thankYouLayoutStyle", option.value)}
+                        >
+                          {option.label}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="space-y-4 rounded-lg border p-3">
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="thank-you-show-logo">Logo do Agradecimento</Label>
+                      <input
+                        type="checkbox"
+                        id="thank-you-show-logo"
+                        checked={config.showLogo}
+                        onChange={(e) => handleUpdate("showLogo", e.target.checked)}
+                        className="h-4 w-4"
+                      />
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      O layout `Shopsfi` usa a mesma logo e os mesmos dados de marca do checkout principal.
+                    </p>
+                    {config.showLogo ? (
+                      <>
+                        <div className="space-y-2">
+                          <Label>Exibicao da Logo</Label>
+                          <div className="grid grid-cols-2 gap-2">
+                            <Button
+                              variant={config.logoDisplayMode === "text" ? "default" : "outline"}
+                              size="sm"
+                              onClick={() => handleUpdate("logoDisplayMode", "text")}
+                            >
+                              Texto
+                            </Button>
+                            <Button
+                              variant={config.logoDisplayMode === "image" ? "default" : "outline"}
+                              size="sm"
+                              onClick={() => handleUpdate("logoDisplayMode", "image")}
+                              disabled={!config.logoSrc}
+                            >
+                              Imagem
+                            </Button>
+                          </div>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label htmlFor="thank-you-logo-upload">Arquivo da Logo</Label>
+                          <Input
+                            id="thank-you-logo-upload"
+                            type="file"
+                            accept=".png,.svg,.jpg,.jpeg,image/png,image/svg+xml,image/jpeg"
+                            onChange={handleLogoUpload}
+                          />
+                        </div>
+
+                        {config.logoSrc ? (
+                          <>
+                            <Button variant="outline" size="sm" onClick={handleRemoveLogo}>
+                              Apagar imagem
+                            </Button>
+                            <div className="space-y-2">
+                              <div className="flex items-center justify-between">
+                                <Label htmlFor="thank-you-logo-width">Tamanho da Logo</Label>
+                                <span className="text-xs text-muted-foreground">{config.logoWidth}px</span>
+                              </div>
+                              <input
+                                id="thank-you-logo-width"
+                                type="range"
+                                min="80"
+                                max="320"
+                                step="4"
+                                value={config.logoWidth}
+                                onChange={(e) => handleUpdate("logoWidth", Number(e.target.value))}
+                                className="w-full"
+                              />
+                            </div>
+                          </>
+                        ) : null}
+                      </>
+                    ) : null}
                   </div>
 
                   <div className="space-y-3 rounded-lg border p-3">
