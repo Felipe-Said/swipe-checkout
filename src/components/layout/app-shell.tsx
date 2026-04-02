@@ -10,6 +10,7 @@ import {
 } from "@/app/auth/actions"
 import {
   clearAppSession,
+  readAppSession,
   type AppSession,
   writeAppSession,
 } from "@/lib/app-session"
@@ -28,8 +29,8 @@ const SidebarShaderBackground = dynamic(
 export function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const pathname = usePathname()
-  const [session, setSession] = React.useState<AppSession | null>(null)
-  const [ready, setReady] = React.useState(false)
+  const [session, setSession] = React.useState<AppSession | null>(() => readAppSession())
+  const [ready, setReady] = React.useState(() => Boolean(readAppSession()))
 
   const withEmbeddedContext = React.useCallback(
     (targetPath: string) => {
@@ -150,7 +151,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       router.replace(withEmbeddedContext("/login"))
     }
 
-    loadSession()
+    void loadSession()
 
     return () => {
       cancelled = true
