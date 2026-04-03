@@ -355,9 +355,27 @@ async function fetchShopifyGraphQLProductPreview(input: {
   })
 }
 
-async function assertAccountAccess(accountId: string, userId: string) {
-  const actor = await requireServerAppSession(userId)
+async function assertAccountAccess(input: {
+  accountId: string
+  userId: string
+  accessToken?: string | null
+}) {
   const supabaseAdmin = getSupabaseAdmin()
+  const accessToken = input.accessToken?.trim()
+  const actor = accessToken
+    ? await (async () => {
+        const {
+          data: { user },
+          error,
+        } = await supabaseAdmin.auth.getUser(accessToken)
+
+        if (error || !user || user.id !== input.userId) {
+          throw new Error("Sessao invalida.")
+        }
+
+        return { userId: user.id }
+      })()
+    : await requireServerAppSession(input.userId)
   const { data: profile } = await supabaseAdmin
     .from("profiles")
     .select("role")
@@ -369,7 +387,7 @@ async function assertAccountAccess(accountId: string, userId: string) {
   let query = supabaseAdmin
     .from("managed_accounts")
     .select("id, profile_id")
-    .eq("id", accountId)
+    .eq("id", input.accountId)
 
   if (!isAdmin) {
     query = query.eq("profile_id", actor.userId)
@@ -973,8 +991,9 @@ export async function loadShopifyStorePreviewForSession(input: {
   storeId: string
   accountId: string
   userId: string
+  accessToken?: string | null
 }) {
-  await assertAccountAccess(input.accountId, input.userId)
+  await assertAccountAccess(input)
   return fetchShopifyStorePreview(input)
 }
 
@@ -983,8 +1002,9 @@ export async function loadShopifyStoreCatalogForSession(input: {
   accountId: string
   userId: string
   limit?: number
+  accessToken?: string | null
 }) {
-  await assertAccountAccess(input.accountId, input.userId)
+  await assertAccountAccess(input)
   return fetchShopifyStoreCatalog(input)
 }
 
@@ -1091,8 +1111,12 @@ export async function loadShopifyProductPreviewByDomainForPublishing(input: {
   return fetchShopifyProductPreviewByDomain(input)
 }
 
-export async function loadShopifyStoresForSession(input: { accountId: string; userId: string }) {
-  await assertAccountAccess(input.accountId, input.userId)
+export async function loadShopifyStoresForSession(input: {
+  accountId: string
+  userId: string
+  accessToken?: string | null
+}) {
+  await assertAccountAccess(input)
 
   const supabaseAdmin = getSupabaseAdmin()
   const { data, error } = await supabaseAdmin
@@ -1132,12 +1156,13 @@ export async function connectShopifyStore(input: {
   shopDomain: string
   clientId: string
   clientSecret: string
+  accessToken?: string | null
 }) {
   if (!input.storeName.trim() || !input.shopDomain.trim() || !input.clientId.trim() || !input.clientSecret.trim()) {
     return { error: "Nome interno, dominio Shopify, Client ID e Secret sao obrigatorios." }
   }
 
-  await assertAccountAccess(input.accountId, input.userId)
+  await assertAccountAccess(input)
 
   try {
     const normalizedDomain = normalizeShopDomain(input.shopDomain)
@@ -1210,8 +1235,9 @@ export async function syncShopifyStore(input: {
   storeId: string
   accountId: string
   userId: string
+  accessToken?: string | null
 }) {
-  await assertAccountAccess(input.accountId, input.userId)
+  await assertAccountAccess(input)
 
   const supabaseAdmin = getSupabaseAdmin()
   const { data: store, error } = await supabaseAdmin
@@ -1274,8 +1300,9 @@ export async function deleteShopifyStoreForSession(input: {
   storeId: string
   accountId: string
   userId: string
+  accessToken?: string | null
 }) {
-  await assertAccountAccess(input.accountId, input.userId)
+  await assertAccountAccess(input)
 
   const supabaseAdmin = getSupabaseAdmin()
   const { error } = await supabaseAdmin
@@ -1297,8 +1324,9 @@ export async function updateShopifyStoreBehavior(input: {
   userId: string
   defaultCheckoutId: string
   skipCartRedirect: boolean
+  accessToken?: string | null
 }) {
-  await assertAccountAccess(input.accountId, input.userId)
+  await assertAccountAccess(input)
 
   const supabaseAdmin = getSupabaseAdmin()
   const { data: store, error } = await supabaseAdmin

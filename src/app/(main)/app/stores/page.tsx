@@ -43,9 +43,14 @@ export default function StoresPage() {
   const [userId, setUserId] = React.useState("")
 
   const loadStores = React.useCallback(async (nextAccountId: string, nextUserId: string) => {
+    const {
+      data: { session: supabaseSession },
+    } = await supabase.auth.getSession()
+
     const result = await loadShopifyStoresForSession({
       accountId: nextAccountId,
       userId: nextUserId,
+      accessToken: supabaseSession?.access_token ?? null,
     })
 
     if (result.error) {
@@ -106,6 +111,10 @@ export default function StoresPage() {
     setIsConnecting(true)
     setCurrentStep("syncing")
 
+    const {
+      data: { session: supabaseSession },
+    } = await supabase.auth.getSession()
+
     const result = await connectShopifyStore({
       accountId,
       userId,
@@ -113,6 +122,7 @@ export default function StoresPage() {
       shopDomain,
       clientId,
       clientSecret,
+      accessToken: supabaseSession?.access_token ?? null,
     })
 
     if (result.error) {
@@ -134,10 +144,15 @@ export default function StoresPage() {
   const handleSync = async (id: string) => {
     if (!accountId || !userId) return
 
+    const {
+      data: { session: supabaseSession },
+    } = await supabase.auth.getSession()
+
     const result = await syncShopifyStore({
       storeId: id,
       accountId,
       userId,
+      accessToken: supabaseSession?.access_token ?? null,
     })
 
     if (result.error) {
@@ -153,10 +168,15 @@ export default function StoresPage() {
   const handleDelete = async (id: string) => {
     if (!accountId || !userId) return
 
+    const {
+      data: { session: supabaseSession },
+    } = await supabase.auth.getSession()
+
     const result = await deleteShopifyStoreForSession({
       storeId: id,
       accountId,
       userId,
+      accessToken: supabaseSession?.access_token ?? null,
     })
 
     if (result.error) {
@@ -175,12 +195,17 @@ export default function StoresPage() {
   const handleSaveBehavior = async (storeId: string, defaultCheckoutId: string, skipCartRedirect: boolean) => {
     if (!accountId || !userId) return
 
+    const {
+      data: { session: supabaseSession },
+    } = await supabase.auth.getSession()
+
     const result = await updateShopifyStoreBehavior({
       storeId,
       accountId,
       userId,
       defaultCheckoutId,
       skipCartRedirect,
+      accessToken: supabaseSession?.access_token ?? null,
     })
 
     if (result.error) {
