@@ -1,7 +1,7 @@
 # Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
 
 client_id = "ac1c4dc9235186f2ce5c8e8582a6857e"
-extension_directories = [ "extensions-secondary" ]
+extension_directories = [ "extensions/swipe-checkout-redirect-2" ]
 name = "Swipe App"
 application_url = "https://swipe-checkout.vercel.app/?shopify_app=2"
 embedded = true

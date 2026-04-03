@@ -1,0 +1,60 @@
+{% liquid
+  assign swipe_app_url = block.settings.app_url | strip
+  assign swipe_shop_domain = shop.permanent_domain | strip
+  assign swipe_product_id = product.id | default: blank
+  assign swipe_variant_id = product.selected_or_first_available_variant.id | default: blank
+  assign swipe_currency = localization.country.currency.iso_code | default: cart.currency.iso_code | default: shop.currency
+%}
+
+{% if swipe_app_url != blank %}
+  <div
+    id="swipe-checkout-redirect-config"
+    data-app-url="{{ swipe_app_url | escape }}"
+    data-shop-domain="{{ swipe_shop_domain | escape }}"
+    data-enabled="{{ block.settings.enabled }}"
+    data-product-id="{{ swipe_product_id }}"
+    data-selected-variant-id="{{ swipe_variant_id }}"
+    data-currency="{{ swipe_currency | escape }}"
+  ></div>
+  {% if product %}
+    <script id="swipe-checkout-redirect-product" type="application/json">
+      {
+        "id": {{ product.id | json }},
+        "title": {{ product.title | json }},
+        "featuredImage": {{ product.featured_image | image_url: width: 1200 | json }},
+        "variants": [
+          {% for variant in product.variants %}
+            {
+              "id": {{ variant.id | json }},
+              "title": {{ variant.title | json }},
+              "price": {{ variant.price | json }},
+              "image": {{ variant.featured_image | default: product.featured_image | image_url: width: 1200 | json }}
+            }{% unless forloop.last %},{% endunless %}
+          {% endfor %}
+        ]
+      }
+    </script>
+  {% endif %}
+  <script src="{{ 'swipe-checkout-redirect.js' | asset_url }}" defer></script>
+{% endif %}
+
+{% schema %}
+{
+  "name": "Swipe Checkout Redirect",
+  "target": "body",
+  "settings": [
+    {
+      "type": "checkbox",
+      "id": "enabled",
+      "label": "Ativar redirecionamento do Swipe",
+      "default": true
+    },
+    {
+      "type": "text",
+      "id": "app_url",
+      "label": "URL da aplicacao Swipe",
+      "info": "Exemplo: https://seu-projeto.vercel.app"
+    }
+  ]
+}
+{% endschema %}
