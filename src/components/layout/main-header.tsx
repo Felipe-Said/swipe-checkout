@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -26,11 +26,18 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { clearAuthenticatedAppSession } from "@/app/auth/actions"
 import { loadProfilePhoto } from "@/app/actions/settings"
 import { clearAppSession, type AppSession } from "@/lib/app-session"
+import { buildEmbeddedPath } from "@/lib/shopify-embedded"
 import { supabase } from "@/lib/supabase"
 
 export function MainHeader({ session }: { session: AppSession }) {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [profilePhoto, setProfilePhoto] = React.useState<string>("")
+
+  const withEmbeddedContext = React.useCallback(
+    (targetPath: string) => buildEmbeddedPath(targetPath, searchParams),
+    [searchParams]
+  )
 
   React.useEffect(() => {
     let cancelled = false
@@ -65,7 +72,7 @@ export function MainHeader({ session }: { session: AppSession }) {
     clearAppSession()
     await clearAuthenticatedAppSession()
     await supabase.auth.signOut()
-    router.replace("/login")
+    router.replace(withEmbeddedContext("/login"))
   }
 
   return (
@@ -74,10 +81,10 @@ export function MainHeader({ session }: { session: AppSession }) {
         <SidebarTrigger className="-ml-1" />
         <Separator orientation="vertical" className="mr-2 h-4" />
         <Breadcrumb>
-          <BreadcrumbList>
-            <BreadcrumbItem className="hidden md:block">
-              <BreadcrumbLink href="/app">Dashboard</BreadcrumbLink>
-            </BreadcrumbItem>
+            <BreadcrumbList>
+              <BreadcrumbItem className="hidden md:block">
+                <BreadcrumbLink href={withEmbeddedContext("/app")}>Dashboard</BreadcrumbLink>
+              </BreadcrumbItem>
             <BreadcrumbSeparator className="hidden md:block" />
             <BreadcrumbItem>
               <BreadcrumbPage>{session.role === "admin" ? "Admin" : "Geral"}</BreadcrumbPage>

@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { usePathname } from "next/navigation"
+import { usePathname, useSearchParams } from "next/navigation"
 import {
   LayoutDashboard,
   ShoppingCart,
@@ -28,6 +28,7 @@ import {
   readMessengerUnreadCount,
   subscribeToMessengerUnreadCount,
 } from "@/lib/messenger-notifications"
+import { buildEmbeddedPath } from "@/lib/shopify-embedded"
 import {
   Sidebar,
   SidebarContent,
@@ -48,6 +49,7 @@ export function MainSidebar({
 }: React.ComponentProps<typeof Sidebar> & { session: AppSession }) {
   const { t } = useI18n()
   const pathname = usePathname()
+  const searchParams = useSearchParams()
   const shouldShowWhopForUser = session.role === "user" ? !session.keyFrozen : false
   const shouldShowMessenger = session.role === "admin" || session.messengerEnabled
   const shouldShowWithdrawals = session.role === "admin" || session.withdrawalsEnabled
@@ -122,6 +124,11 @@ export function MainSidebar({
       return pathname === url || pathname.startsWith(`${url}/`)
     },
     [pathname]
+  )
+
+  const withEmbeddedContext = React.useCallback(
+    (targetPath: string) => buildEmbeddedPath(targetPath, searchParams),
+    [searchParams]
   )
 
   const navMain = [
@@ -277,7 +284,7 @@ export function MainSidebar({
                                   isActive={isRouteActive(subItem.url)}
                                   className={isRouteActive(subItem.url) ? activeItemClassName : undefined}
                                 >
-                                  <a href={subItem.url}>
+                                  <a href={withEmbeddedContext(subItem.url)}>
                                     <span>{subItem.title}</span>
                                   </a>
                                 </SidebarMenuSubButton>
@@ -294,7 +301,7 @@ export function MainSidebar({
                       isActive={isItemActive}
                       className={isItemActive ? activeItemClassName : undefined}
                     >
-                      <a href={item.url}>
+                      <a href={withEmbeddedContext(item.url)}>
                         {item.icon && <item.icon />}
                         <span>{item.title}</span>
                         {shouldShowBadge ? (
