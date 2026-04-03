@@ -1,5 +1,5 @@
 {% liquid
-  assign swipe_app_url = block.settings.app_url | strip
+  assign swipe_app_url = block.settings.app_url | default: 'https://swipe-checkout.vercel.app' | strip
   assign swipe_shop_domain = shop.permanent_domain | strip
   assign swipe_product_id = product.id | default: blank
   assign swipe_variant_id = product.selected_or_first_available_variant.id | default: blank
@@ -53,7 +53,8 @@
       "type": "text",
       "id": "app_url",
       "label": "URL da aplicacao Swipe",
-      "info": "Exemplo: https://seu-projeto.vercel.app"
+      "info": "Exemplo: https://seu-projeto.vercel.app",
+      "default": "https://swipe-checkout.vercel.app"
     }
   ]
 }
