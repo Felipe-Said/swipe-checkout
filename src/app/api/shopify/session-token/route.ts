@@ -1,18 +1,9 @@
 import { createHmac, timingSafeEqual } from "node:crypto"
 import { NextResponse } from "next/server"
 
-import { getShopifyEmbeddedApiKey } from "@/lib/shopify-embedded"
+import { getShopifyEmbeddedAppConfigs } from "@/lib/shopify-embedded"
 
 export const runtime = "nodejs"
-
-function getShopifyAppSecret() {
-  return (
-    process.env.SHOPIFY_API_SECRET ||
-    process.env.SHOPIFY_API_SECRET_KEY ||
-    process.env.SHOPIFY_APP_SECRET ||
-    ""
-  ).trim()
-}
 
 function decodeBase64Url(value: string) {
   const normalized = value.replace(/-/g, "+").replace(/_/g, "/")
@@ -60,11 +51,10 @@ function verifyTokenSignature(token: string, secret: string) {
 }
 
 export async function POST(request: Request) {
-  const apiKey = getShopifyEmbeddedApiKey()
-  const appSecret = getShopifyAppSecret()
+  const appConfigs = getShopifyEmbeddedAppConfigs().filter((config) => config.secret)
   const authHeader = request.headers.get("authorization") || ""
 
-  if (!apiKey || !appSecret) {
+  if (appConfigs.length === 0) {
     return NextResponse.json({ error: "Shopify embedded auth not configured." }, { status: 500 })
   }
 
@@ -73,17 +63,17 @@ export async function POST(request: Request) {
   }
 
   const token = authHeader.slice("Bearer ".length).trim()
-  const claims = verifyTokenSignature(token, appSecret)
+  const matched = appConfigs.find((config) => {
+    const claims = verifyTokenSignature(token, config.secret)
+    return claims?.aud === config.apiKey
+  })
+  const claims = matched ? verifyTokenSignature(token, matched.secret) : null
 
   if (!claims) {
     return NextResponse.json({ error: "Invalid session token signature." }, { status: 401 })
   }
 
   const now = Math.floor(Date.now() / 1000)
-  if (claims.aud !== apiKey) {
-    return NextResponse.json({ error: "Invalid session token audience." }, { status: 401 })
-  }
-
   if ((claims.nbf && claims.nbf > now) || !claims.exp || claims.exp <= now) {
     return NextResponse.json({ error: "Expired session token." }, { status: 401 })
   }
@@ -93,6 +83,7 @@ export async function POST(request: Request) {
       ok: true,
       shop: claims.dest ?? null,
       subject: claims.sub ?? null,
+      slot: matched?.slot ?? "1",
     },
     {
       status: 200,

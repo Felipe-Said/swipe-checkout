@@ -5,7 +5,7 @@ import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { ShopifyEmbeddedProbe } from "@/components/shopify/shopify-embedded-probe";
-import { getShopifyEmbeddedApiKey } from "@/lib/shopify-embedded";
+import { getShopifyEmbeddedAppConfigs } from "@/lib/shopify-embedded";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -32,14 +32,33 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const shopifyApiKey = getShopifyEmbeddedApiKey();
+  const shopifyEmbeddedConfigs = getShopifyEmbeddedAppConfigs()
+  const embeddedApiKeys = Object.fromEntries(
+    shopifyEmbeddedConfigs.map((config) => [config.slot, config.apiKey])
+  )
 
   return (
     <html lang="pt-BR" suppressHydrationWarning>
       <head>
-        {shopifyApiKey ? (
+        {shopifyEmbeddedConfigs.length > 0 ? (
           <>
-            <meta name="shopify-api-key" content={shopifyApiKey} />
+            <script
+              dangerouslySetInnerHTML={{
+                __html: `
+                  (function () {
+                    var params = new URLSearchParams(window.location.search);
+                    var slot = params.get("shopify_app") === "2" ? "2" : "1";
+                    var apiKeys = ${JSON.stringify(embeddedApiKeys)};
+                    var apiKey = apiKeys[slot] || apiKeys["1"] || "";
+                    if (!apiKey) return;
+                    var meta = document.createElement("meta");
+                    meta.name = "shopify-api-key";
+                    meta.content = apiKey;
+                    document.head.appendChild(meta);
+                  })();
+                `,
+              }}
+            />
             <script src="https://cdn.shopify.com/shopifycloud/app-bridge.js" />
           </>
         ) : null}
