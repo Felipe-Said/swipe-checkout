@@ -991,7 +991,7 @@ export function EditorShell() {
       <header className="flex h-14 shrink-0 items-center justify-between border-b px-4 lg:px-6">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" asChild>
-            <Link href="/app/checkouts">
+            <Link href={withEmbeddedContext("/app/checkouts")}>
               <ChevronLeft className="h-4 w-4" />
             </Link>
           </Button>
@@ -1526,7 +1526,7 @@ export function EditorShell() {
                     ) : (
                       <button
                         type="button"
-                        onClick={() => router.push("/app/products")}
+                        onClick={() => router.push(withEmbeddedContext("/app/products"))}
                         className="w-full rounded-md border border-dashed px-3 py-3 text-left text-sm text-muted-foreground hover:bg-muted"
                       >
                         Nenhum produto proprio ainda. Clique aqui para criar um produto da Swipe.
@@ -1777,7 +1777,7 @@ export function EditorShell() {
                   ) : (
                     <button
                       type="button"
-                      onClick={() => router.push("/app/domains")}
+                      onClick={() => router.push(withEmbeddedContext("/app/domains"))}
                       className="w-full rounded-md border border-dashed px-3 py-3 text-left text-sm text-muted-foreground hover:bg-muted"
                     >
                       Nenhum dominio configurado. Clique aqui para adicionar um novo dominio.
@@ -1804,7 +1804,7 @@ export function EditorShell() {
                   ) : (
                     <button
                       type="button"
-                      onClick={() => router.push("/app/stores")}
+                      onClick={() => router.push(withEmbeddedContext("/app/stores"))}
                       className="w-full rounded-md border border-dashed px-3 py-3 text-left text-sm text-muted-foreground hover:bg-muted"
                     >
                       Nenhuma loja configurada. Clique aqui para adicionar uma nova loja.
@@ -1832,7 +1832,7 @@ export function EditorShell() {
                   ) : (
                     <button
                       type="button"
-                      onClick={() => router.push("/app/whop")}
+                      onClick={() => router.push(withEmbeddedContext("/app/whop"))}
                       className="w-full rounded-md border border-dashed px-3 py-3 text-left text-sm text-muted-foreground hover:bg-muted"
                     >
                       Nenhuma conta Whop disponivel. Clique aqui para configurar uma nova conta.

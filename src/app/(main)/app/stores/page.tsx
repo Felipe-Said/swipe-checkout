@@ -10,6 +10,7 @@ import {
   type ConnectedShopifyStore,
 } from "@/lib/shopify-store-data"
 import { getCurrentAppSession } from "@/lib/app-session"
+import { supabase } from "@/lib/supabase"
 import {
   connectShopifyStore,
   deleteShopifyStoreForSession,
@@ -55,8 +56,16 @@ export default function StoresPage() {
     setStores(result.stores)
   }, [])
 
-  const loadCheckouts = React.useCallback(async (nextAccountId: string) => {
-    const result = await loadCheckoutsForAccount({ accountId: nextAccountId })
+  const loadCheckouts = React.useCallback(async (nextAccountId: string, nextUserId: string) => {
+    const {
+      data: { session: supabaseSession },
+    } = await supabase.auth.getSession()
+
+    const result = await loadCheckoutsForAccount({
+      accountId: nextAccountId,
+      userId: nextUserId,
+      accessToken: supabaseSession?.access_token ?? null,
+    })
     if (result.error) {
       toast.error(result.error)
       return
@@ -80,7 +89,7 @@ export default function StoresPage() {
       setAccountId(session.accountId)
       setUserId(session.userId)
       await loadStores(session.accountId, session.userId)
-      await loadCheckouts(session.accountId)
+      await loadCheckouts(session.accountId, session.userId)
     }
 
     load()

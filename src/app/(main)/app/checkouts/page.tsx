@@ -15,6 +15,7 @@ import {
   Trash2,
 } from "lucide-react"
 import Link from "next/link"
+import { useSearchParams } from "next/navigation"
 
 import {
   loadCheckoutPixelConfigsForSession,
@@ -26,6 +27,7 @@ import {
 import { deleteCheckoutForAccount, loadCheckoutsForAccount } from "@/app/actions/whop"
 import { loadDomainsForSession } from "@/app/actions/domains"
 import { getCurrentAppSession } from "@/lib/app-session"
+import { buildEmbeddedPath } from "@/lib/shopify-embedded"
 import { type ConnectedDomain } from "@/lib/domain-data"
 import { supabase } from "@/lib/supabase"
 import { type PushcutCheckoutConfig } from "@/lib/pushcut-data"
@@ -74,6 +76,7 @@ type CheckoutRow = {
 }
 
 export default function CheckoutsPage() {
+  const searchParams = useSearchParams()
   const [checkouts, setCheckouts] = React.useState<CheckoutRow[]>([])
   const [domains, setDomains] = React.useState<ConnectedDomain[]>([])
   const [stores, setStores] = React.useState<ConnectedShopifyStore[]>([])
@@ -90,6 +93,11 @@ export default function CheckoutsPage() {
   const [userId, setUserId] = React.useState("")
   const [isTestingPushcut, setIsTestingPushcut] = React.useState(false)
   const [pushcutFeedback, setPushcutFeedback] = React.useState<string | null>(null)
+
+  const withEmbeddedContext = React.useCallback(
+    (targetPath: string) => buildEmbeddedPath(targetPath, searchParams),
+    [searchParams]
+  )
 
   React.useEffect(() => {
     async function load() {
@@ -138,7 +146,15 @@ export default function CheckoutsPage() {
         .select("checkout_id,total,paid")
         .eq("account_id", session.accountId)
 
-      const result = await loadCheckoutsForAccount({ accountId: session.accountId })
+      const {
+        data: { session: supabaseSession },
+      } = await supabase.auth.getSession()
+
+      const result = await loadCheckoutsForAccount({
+        accountId: session.accountId,
+        userId: session.userId,
+        accessToken: supabaseSession?.access_token ?? null,
+      })
       const nextCheckouts = (result.checkouts || []).map((checkout) => ({
         id: checkout.id,
         name: checkout.name,
@@ -162,11 +178,22 @@ export default function CheckoutsPage() {
   }, [])
 
   const handleDeleteCheckout = (checkoutId: string) => {
-    if (accountId) {
-      void deleteCheckoutForAccount({ checkoutId, accountId })
-    }
+    void (async () => {
+      if (accountId && userId) {
+        const {
+          data: { session: supabaseSession },
+        } = await supabase.auth.getSession()
 
-    setCheckouts((currentCheckouts) => currentCheckouts.filter((checkout) => checkout.id !== checkoutId))
+        await deleteCheckoutForAccount({
+          checkoutId,
+          accountId,
+          userId,
+          accessToken: supabaseSession?.access_token ?? null,
+        })
+      }
+
+      setCheckouts((currentCheckouts) => currentCheckouts.filter((checkout) => checkout.id !== checkoutId))
+    })()
   }
 
   const handleOpenPushcut = (checkout: CheckoutRow) => {
@@ -334,7 +361,7 @@ export default function CheckoutsPage() {
             </p>
           </div>
           <Button asChild>
-            <Link href="/app/checkouts/new/editor">
+            <Link href={withEmbeddedContext("/app/checkouts/new/editor")}>
               <Plus className="mr-2 h-4 w-4" /> Criar Checkout
             </Link>
           </Button>
@@ -400,13 +427,13 @@ export default function CheckoutsPage() {
                         <DropdownMenuContent align="end">
                           <DropdownMenuLabel>Acoes</DropdownMenuLabel>
                           <DropdownMenuItem asChild>
-                            <Link href={`/app/checkouts/${checkout.id}/editor?mode=preview`}>
+                            <Link href={withEmbeddedContext(`/app/checkouts/${checkout.id}/editor?mode=preview`)}>
                               <Eye className="h-4 w-4" />
                               Visualizar
                             </Link>
                           </DropdownMenuItem>
                           <DropdownMenuItem asChild>
-                            <Link href={`/app/checkouts/${checkout.id}/editor`}>
+                            <Link href={withEmbeddedContext(`/app/checkouts/${checkout.id}/editor`)}>
                               <Pencil className="h-4 w-4" />
                               Editar
                             </Link>

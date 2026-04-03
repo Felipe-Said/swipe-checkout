@@ -92,6 +92,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     let cancelled = false
 
     async function loadSession() {
+      const localSession = readAppSession()
       const {
         data: { session: supabaseSession },
       } = await supabase.auth.getSession()
@@ -146,6 +147,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         }
       }
 
+      if (localSession && !cancelled) {
+        setSession(localSession)
+        setReady(true)
+        return
+      }
+
       clearAppSession()
       await clearAuthenticatedAppSession()
       router.replace(withEmbeddedContext("/login"))
@@ -153,8 +160,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
     void loadSession()
 
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "SIGNED_OUT") {
+        clearAppSession()
+        void clearAuthenticatedAppSession()
+        router.replace(withEmbeddedContext("/login"))
+      }
+    })
+
     return () => {
       cancelled = true
+      subscription.unsubscribe()
     }
   }, [forceBlockedLogout, pathname, router, shouldRedirectRestrictedRoute, withEmbeddedContext])
 

@@ -514,12 +514,20 @@ export async function saveWhopAccountCredentials(input: {
   return { success: true }
 }
 
-export async function loadCheckoutsForAccount(input: { accountId: string }) {
+export async function loadCheckoutsForAccount(input: {
+  accountId: string
+  userId?: string | null
+  accessToken?: string | null
+}) {
   if (!input.accountId) {
     return { checkouts: [] as CheckoutRecord[] }
   }
 
-  const { supabaseAdmin } = await assertWhopAccountAccess({ accountId: input.accountId })
+  const { supabaseAdmin } = await assertWhopAccountAccess({
+    accountId: input.accountId,
+    userId: input.userId,
+    accessToken: input.accessToken,
+  })
   const { data, error } = await supabaseAdmin
     .from("checkouts")
     .select("id, account_id, name, status, type, config, created_at")
@@ -564,12 +572,21 @@ export async function loadCheckoutForEditor(input: {
   }
 }
 
-export async function deleteCheckoutForAccount(input: { checkoutId: string; accountId: string }) {
+export async function deleteCheckoutForAccount(input: {
+  checkoutId: string
+  accountId: string
+  userId?: string | null
+  accessToken?: string | null
+}) {
   if (!input.checkoutId || !input.accountId) {
     return { error: "Checkout invalido." }
   }
 
-  const { supabaseAdmin } = await assertWhopAccountAccess({ accountId: input.accountId })
+  const { supabaseAdmin } = await assertWhopAccountAccess({
+    accountId: input.accountId,
+    userId: input.userId,
+    accessToken: input.accessToken,
+  })
   const { error } = await supabaseAdmin
     .from("checkouts")
     .delete()
