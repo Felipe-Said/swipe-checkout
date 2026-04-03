@@ -197,7 +197,7 @@ function LoginContent() {
                 <div className="grid gap-2">
                   <div className="flex items-center justify-between">
                     <Label htmlFor="password">Senha</Label>
-                    <Link href="/forgot-password" className="text-xs text-muted-foreground hover:underline">
+                    <Link href={withEmbeddedContext("/forgot-password")} className="text-xs text-muted-foreground hover:underline">
                       Esqueceu a senha?
                     </Link>
                   </div>
@@ -252,11 +252,11 @@ function LoginContent() {
           </Card>
           <p className="px-8 text-center text-sm text-muted-foreground">
             Ao clicar em entrar, voce concorda com nossos{" "}
-            <Link href="/terms" className="underline underline-offset-4 hover:text-primary">
+            <Link href={withEmbeddedContext("/terms")} className="underline underline-offset-4 hover:text-primary">
               Termos de Servico
             </Link>{" "}
             e{" "}
-            <Link href="/privacy" className="underline underline-offset-4 hover:text-primary">
+            <Link href={withEmbeddedContext("/privacy")} className="underline underline-offset-4 hover:text-primary">
               Politica de Privacidade
             </Link>
             .

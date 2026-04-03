@@ -1,15 +1,22 @@
 "use client"
 
 import * as React from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 
 import { LandingFortex } from "@/components/landing/landing-fortex"
 import { getCurrentAppSession } from "@/lib/app-session"
 import type { PublicLocale } from "@/lib/public-locale"
+import { buildEmbeddedPath } from "@/lib/shopify-embedded"
 
 export function LandingPageClient({ locale }: { locale: PublicLocale }) {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [ready, setReady] = React.useState(false)
+
+  const withEmbeddedContext = React.useCallback(
+    (targetPath: string) => buildEmbeddedPath(targetPath, searchParams),
+    [searchParams]
+  )
 
   React.useEffect(() => {
     let cancelled = false
@@ -22,7 +29,7 @@ export function LandingPageClient({ locale }: { locale: PublicLocale }) {
       }
 
       if (session) {
-        router.replace("/app")
+        router.replace(withEmbeddedContext("/app"))
         return
       }
 
@@ -34,7 +41,7 @@ export function LandingPageClient({ locale }: { locale: PublicLocale }) {
     return () => {
       cancelled = true
     }
-  }, [router])
+  }, [router, withEmbeddedContext])
 
   if (!ready) {
     return null

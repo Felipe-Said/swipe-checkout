@@ -60,7 +60,7 @@ export default function SignupPage() {
         />
         <div className="absolute inset-0 bg-zinc-950/62" />
         <Link
-          href="/"
+          href={withEmbeddedContext("/")}
           className="relative z-20 flex w-fit items-center text-lg font-medium"
         >
           <img
@@ -164,14 +164,14 @@ export default function SignupPage() {
           <p className="px-8 text-center text-xs leading-relaxed text-muted-foreground">
             Ao se registrar, voce concorda com nossos{" "}
             <Link
-              href="/terms"
+              href={withEmbeddedContext("/terms")}
               className="underline underline-offset-4 transition-colors hover:text-primary"
             >
               Termos de Servico
             </Link>{" "}
             e{" "}
             <Link
-              href="/privacy"
+              href={withEmbeddedContext("/privacy")}
               className="underline underline-offset-4 transition-colors hover:text-primary"
             >
               Politica de Privacidade

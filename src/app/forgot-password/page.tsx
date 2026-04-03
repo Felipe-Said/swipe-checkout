@@ -2,10 +2,11 @@
 
 import * as React from "react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { CreditCard, KeyRound, Loader2, Mail, ShieldCheck } from "lucide-react"
 
 import { supabase } from "@/lib/supabase"
+import { buildEmbeddedPath } from "@/lib/shopify-embedded"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -19,7 +20,22 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 
 export default function ForgotPasswordPage() {
+  return (
+    <React.Suspense
+      fallback={
+        <div className="flex h-screen items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      }
+    >
+      <ForgotPasswordContent />
+    </React.Suspense>
+  )
+}
+
+function ForgotPasswordContent() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [email, setEmail] = React.useState("")
   const [password, setPassword] = React.useState("")
   const [confirmPassword, setConfirmPassword] = React.useState("")
@@ -28,6 +44,12 @@ export default function ForgotPasswordPage() {
   const [error, setError] = React.useState("")
   const [notice, setNotice] = React.useState("")
   const [isRecoveryMode, setIsRecoveryMode] = React.useState(false)
+
+  const withEmbeddedContext = React.useCallback(
+    (pathname: string, extraParams?: Record<string, string>) =>
+      buildEmbeddedPath(pathname, searchParams, extraParams),
+    [searchParams]
+  )
 
   React.useEffect(() => {
     let mounted = true
@@ -49,7 +71,7 @@ export default function ForgotPasswordPage() {
           setIsRecoveryMode(true)
           setNotice("Token de recuperacao validado. Defina sua nova senha.")
           setError("")
-          window.history.replaceState({}, document.title, "/forgot-password")
+          window.history.replaceState({}, document.title, withEmbeddedContext("/forgot-password"))
         }
       } else {
         const {
@@ -90,10 +112,9 @@ export default function ForgotPasswordPage() {
     setError("")
     setNotice("")
 
-    const redirectTo =
-      typeof window !== "undefined"
-        ? `${window.location.origin}/forgot-password`
-        : undefined
+    const redirectTo = typeof window !== "undefined"
+      ? `${window.location.origin}${withEmbeddedContext("/forgot-password")}`
+      : undefined
 
     const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim(), {
       redirectTo,
@@ -138,14 +159,14 @@ export default function ForgotPasswordPage() {
     }
 
     await supabase.auth.signOut()
-    router.replace("/login?message=reset")
+    router.replace(withEmbeddedContext("/login", { message: "reset" }))
   }
 
   return (
     <div className="container relative flex min-h-screen flex-col items-center justify-center md:grid lg:max-w-none lg:grid-cols-2 lg:px-0">
       <div className="relative hidden h-full flex-col bg-muted p-10 text-white dark:border-r lg:flex">
         <div className="absolute inset-0 bg-zinc-900" />
-        <Link href="/" className="relative z-20 flex w-fit items-center text-lg font-medium">
+        <Link href={withEmbeddedContext("/")} className="relative z-20 flex w-fit items-center text-lg font-medium">
           <CreditCard className="mr-2 h-6 w-6" />
           Swipe
         </Link>
