@@ -15,7 +15,7 @@ import {
   Undo2,
 } from "lucide-react"
 import Link from "next/link"
-import { useParams, useRouter } from "next/navigation"
+import { useParams, useRouter, useSearchParams } from "next/navigation"
 import { toast } from "sonner"
 
 import {
@@ -40,11 +40,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { ShopifyCheckout } from "../checkout-preview/shopify-checkout"
 import { getCurrentAppSession } from "@/lib/app-session"
+import { buildEmbeddedPath } from "@/lib/shopify-embedded"
 import { SWIPE_MANUAL_STORE_ID, type CatalogProduct } from "@/lib/catalog-products"
 import { getManagedAccounts, type ManagedAccount } from "@/lib/account-metrics"
 import { type ConnectedDomain } from "@/lib/domain-data"
 import { type ShippingMethod } from "@/lib/shipping-data"
 import { type ConnectedShopifyStore } from "@/lib/shopify-store-data"
+import { supabase } from "@/lib/supabase"
 
 type PolicyMode = "link" | "text"
 type SupportedLocale = "pt-BR" | "en-US" | "es-ES" | "fr-FR" | "de-DE"
@@ -383,6 +385,7 @@ const upsellSelections = {
 export function EditorShell() {
   const params = useParams<{ id: string }>()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [activeDevice, setActiveDevice] = React.useState<"desktop" | "mobile">("desktop")
   const [previewPage, setPreviewPage] = React.useState<"checkout" | "thank-you">("checkout")
   const [config, setConfig] = React.useState(initialConfig)
@@ -423,6 +426,11 @@ export function EditorShell() {
       canRedo: historyIndexRef.current < configHistoryRef.current.length - 1,
     })
   }, [])
+
+  const withEmbeddedContext = React.useCallback(
+    (targetPath: string) => buildEmbeddedPath(targetPath, searchParams),
+    [searchParams]
+  )
 
   const updateConfig = React.useCallback(
     (
@@ -534,9 +542,13 @@ export function EditorShell() {
       }
 
       if (session?.accountId && params?.id && params.id !== "new") {
+        const {
+          data: { session: supabaseSession },
+        } = await supabase.auth.getSession()
         const result = await loadCheckoutForEditor({
           checkoutId: params.id,
           accountId: session.accountId,
+          accessToken: supabaseSession?.access_token || "",
         })
 
         if (result.checkout) {
@@ -932,34 +944,44 @@ export function EditorShell() {
     }
 
     setIsSaving(true)
-    const result = await saveCheckoutFromEditor({
-      checkoutId: typeof params?.id === "string" ? params.id : "new",
-      accountId: sessionAccountId,
-      name: checkoutName,
-      config,
-    })
-    setIsSaving(false)
+    try {
+      const {
+        data: { session: supabaseSession },
+      } = await supabase.auth.getSession()
 
-    if (result?.error) {
-      toast.error(result.error)
-      return
-    }
+      const result = await saveCheckoutFromEditor({
+        checkoutId: typeof params?.id === "string" ? params.id : "new",
+        accountId: sessionAccountId,
+        name: checkoutName,
+        config,
+        accessToken: supabaseSession?.access_token || "",
+      })
 
-    if (result?.checkoutId && result.checkoutId !== params?.id) {
-      router.replace(`/app/checkouts/${result.checkoutId}/editor`)
-    }
-
-    if (result?.purchaseUrl) {
-      if (result.whop) {
-        updateConfig((prev) => ({ ...prev, whop: result.whop ?? undefined }), {
-          trackHistory: false,
-        })
+      if (result?.error) {
+        toast.error(result.error)
+        return
       }
-      toast.success("Checkout publicado na Whop com link real gerado.")
-      return
-    }
 
-    toast.success("Checkout salvo com sucesso.")
+      if (result?.checkoutId && result.checkoutId !== params?.id) {
+        router.replace(withEmbeddedContext(`/app/checkouts/${result.checkoutId}/editor`))
+      }
+
+      if (result?.purchaseUrl) {
+        if (result.whop) {
+          updateConfig((prev) => ({ ...prev, whop: result.whop ?? undefined }), {
+            trackHistory: false,
+          })
+        }
+        toast.success("Checkout publicado na Whop com link real gerado.")
+        return
+      }
+
+      toast.success("Checkout salvo com sucesso.")
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Nao foi possivel salvar o checkout.")
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   const activeDeviceIndex = deviceOptions.findIndex((option) => option.value === activeDevice)

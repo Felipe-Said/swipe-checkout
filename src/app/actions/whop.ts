@@ -288,9 +288,28 @@ function mapManagedAccountToWhopState(row: WhopManagedAccount, profile?: any): M
 async function assertWhopAccountAccess(input: {
   accountId: string
   userId?: string | null
+  accessToken?: string | null
 }) {
-  const actor = await requireServerAppSession(input.userId ?? undefined)
   const supabaseAdmin = getSupabaseAdmin()
+  const accessToken = input.accessToken?.trim()
+  const actor = accessToken
+    ? await (async () => {
+        const {
+          data: { user },
+          error,
+        } = await supabaseAdmin.auth.getUser(accessToken)
+
+        if (error || !user) {
+          throw new Error("Sessao invalida.")
+        }
+
+        if (input.userId && user.id !== input.userId) {
+          throw new Error("Sessao invalida.")
+        }
+
+        return { userId: user.id }
+      })()
+    : await requireServerAppSession(input.userId ?? undefined)
   const { data: profile } = await supabaseAdmin
     .from("profiles")
     .select("role")
@@ -516,12 +535,19 @@ export async function loadCheckoutsForAccount(input: { accountId: string }) {
   }
 }
 
-export async function loadCheckoutForEditor(input: { checkoutId: string; accountId: string }) {
+export async function loadCheckoutForEditor(input: {
+  checkoutId: string
+  accountId: string
+  accessToken?: string | null
+}) {
   if (!input.checkoutId || input.checkoutId === "new" || !input.accountId) {
     return { checkout: null as CheckoutRecord | null }
   }
 
-  const { supabaseAdmin } = await assertWhopAccountAccess({ accountId: input.accountId })
+  const { supabaseAdmin } = await assertWhopAccountAccess({
+    accountId: input.accountId,
+    accessToken: input.accessToken,
+  })
   const { data, error } = await supabaseAdmin
     .from("checkouts")
     .select("id, account_id, name, status, type, config, created_at")
@@ -562,12 +588,16 @@ export async function saveCheckoutFromEditor(input: {
   accountId: string
   name: string
   config: EditorCheckoutConfig
+  accessToken?: string | null
 }) {
   if (!input.accountId || !input.name.trim()) {
     return { error: "Conta e nome do checkout sao obrigatorios." }
   }
 
-  const { supabaseAdmin } = await assertWhopAccountAccess({ accountId: input.accountId })
+  const { supabaseAdmin } = await assertWhopAccountAccess({
+    accountId: input.accountId,
+    accessToken: input.accessToken,
+  })
   const cleanName = input.name.trim()
   const status = "Ativo"
 
