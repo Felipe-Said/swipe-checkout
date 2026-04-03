@@ -91,7 +91,7 @@ export async function persistServerAppSession(session: AppSession) {
   const cookieStore = await cookies()
   cookieStore.set(APP_SESSION_COOKIE_NAME, serializeSession(session), {
     httpOnly: true,
-    sameSite: "lax",
+    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
     secure: process.env.NODE_ENV === "production",
     path: "/",
     maxAge: APP_SESSION_COOKIE_MAX_AGE,

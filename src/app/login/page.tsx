@@ -133,15 +133,20 @@ function LoginContent() {
       return
     }
 
-    await recordLoginEvent({
+    const loginEventResult = await recordLoginEvent({
       userId: profileResult.session.userId,
       accountId: profileResult.session.accountId,
+      accessToken,
       device: detectDeviceLabel(),
       location:
         typeof window !== "undefined"
           ? Intl.DateTimeFormat().resolvedOptions().timeZone || null
           : null,
-    })
+    }).catch(() => ({ error: "Nao foi possivel registrar o login." }))
+
+    if (loginEventResult?.error) {
+      console.error("Login event warning:", loginEventResult.error)
+    }
 
     router.replace(withEmbeddedContext("/app"))
   }

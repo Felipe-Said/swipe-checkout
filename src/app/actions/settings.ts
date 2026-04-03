@@ -10,6 +10,25 @@ type LoginEventRow = {
   logged_at: string
 }
 
+async function resolveLoginEventActor(input: { userId: string; accessToken?: string | null }) {
+  const accessToken = input.accessToken?.trim()
+  if (accessToken) {
+    const supabaseAdmin = getSupabaseAdmin()
+    const {
+      data: { user },
+      error,
+    } = await supabaseAdmin.auth.getUser(accessToken)
+
+    if (error || !user || user.id !== input.userId) {
+      throw new Error("Sessao invalida.")
+    }
+
+    return { userId: user.id }
+  }
+
+  return requireServerAppSession(input.userId)
+}
+
 export async function loadSettingsForSession(input: {
   userId: string
   accountId?: string | null
@@ -124,8 +143,12 @@ export async function recordLoginEvent(input: {
   accountId?: string | null
   device: string
   location?: string | null
+  accessToken?: string | null
 }) {
-  const actor = await requireServerAppSession(input.userId)
+  const actor = await resolveLoginEventActor({
+    userId: input.userId,
+    accessToken: input.accessToken,
+  })
   const supabaseAdmin = getSupabaseAdmin()
 
   const { error } = await supabaseAdmin.from("login_events").insert({
