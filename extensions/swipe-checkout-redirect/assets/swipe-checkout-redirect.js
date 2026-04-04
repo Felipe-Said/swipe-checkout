@@ -7,6 +7,7 @@
   var productId = configNode.getAttribute("data-product-id") || "";
   var selectedVariantId = configNode.getAttribute("data-selected-variant-id") || "";
   var currencyCode = configNode.getAttribute("data-currency") || "";
+  var shopifyAppSlot = configNode.getAttribute("data-shopify-app-slot") || "";
   var enabled = configNode.getAttribute("data-enabled") !== "false";
   var productDataNode = document.getElementById("swipe-checkout-redirect-product");
   var productData = null;
@@ -21,7 +22,11 @@
 
   if (!enabled || !appUrl || !shopDomain) return;
 
-  var configUrl = appUrl + "/api/shopify/storefront-config?shop=" + encodeURIComponent(shopDomain);
+  var configUrl =
+    appUrl +
+    "/api/shopify/storefront-config?shop=" +
+    encodeURIComponent(shopDomain) +
+    (shopifyAppSlot ? "&shopify_app=" + encodeURIComponent(shopifyAppSlot) : "");
 
   function normalizeResourceId(value) {
     if (!value) return "";

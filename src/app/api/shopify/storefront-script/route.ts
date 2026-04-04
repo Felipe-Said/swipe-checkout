@@ -15,9 +15,26 @@ function getAppBaseUrl(request: Request) {
   return new URL(request.url).origin
 }
 
+function resolveShopifyAppClientId(slot: string | null) {
+  if (slot === "2") {
+    return (
+      process.env.NEXT_PUBLIC_SHOPIFY_API_KEY_2 ||
+      process.env.SHOPIFY_API_KEY_2 ||
+      ""
+    ).trim()
+  }
+
+  return (
+    process.env.NEXT_PUBLIC_SHOPIFY_API_KEY ||
+    process.env.SHOPIFY_API_KEY ||
+    ""
+  ).trim()
+}
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const storeId = searchParams.get("storeId")
+  const shopifyAppSlot = searchParams.get("shopify_app")?.trim() || null
 
   if (!storeId) {
     return new NextResponse("console.warn('Swipe: storeId ausente.');", {
@@ -26,11 +43,22 @@ export async function GET(request: Request) {
   }
 
   const supabaseAdmin = getSupabaseAdmin()
+  const preferredClientId = resolveShopifyAppClientId(shopifyAppSlot)
   const { data: store } = await supabaseAdmin
     .from("shopify_stores")
-    .select("id, default_checkout_id, skip_cart_redirect")
+    .select("id, client_id, default_checkout_id, skip_cart_redirect")
     .eq("id", storeId)
     .maybeSingle()
+
+  if (
+    preferredClientId &&
+    store &&
+    String(store.client_id || "").trim() !== preferredClientId
+  ) {
+    return new NextResponse("console.warn('Swipe: configuracao de app invalida para esta loja.');", {
+      headers: { "Content-Type": "application/javascript; charset=utf-8" },
+    })
+  }
 
   const checkoutUrl =
     store?.default_checkout_id

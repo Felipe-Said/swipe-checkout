@@ -7,6 +7,7 @@ import { requireServerAppSession } from "@/lib/server-app-session"
 import { type ManagedAccount } from "@/lib/account-metrics"
 import { SWIPE_MANUAL_STORE_ID } from "@/lib/catalog-products"
 import {
+  loadShopifyProductPreviewForPublishing,
   loadShopifyStorePreviewForPublishing,
   loadShopifyVariantPreviewForPublishing,
 } from "@/app/actions/shopify"
@@ -719,10 +720,24 @@ export async function saveCheckoutFromEditor(input: {
 
       const storePreviewResult =
         hasRealShopifyStoreId(input.config.selectedStoreId)
-          ? await loadShopifyStorePreviewForPublishing({
-              storeId: String(input.config.selectedStoreId),
-              accountId: input.accountId,
-            })
+          ? input.config.selectedVariantId
+            ? await loadShopifyVariantPreviewForPublishing({
+                storeId: String(input.config.selectedStoreId),
+                accountId: input.accountId,
+                variantId: String(input.config.selectedVariantId),
+                productId: input.config.selectedProductId || undefined,
+              })
+            : input.config.selectedProductId
+              ? await loadShopifyProductPreviewForPublishing({
+                  storeId: String(input.config.selectedStoreId),
+                  accountId: input.accountId,
+                  productId: String(input.config.selectedProductId),
+                  variantId: input.config.selectedVariantId || undefined,
+                })
+              : await loadShopifyStorePreviewForPublishing({
+                  storeId: String(input.config.selectedStoreId),
+                  accountId: input.accountId,
+                })
           : { preview: null as null | { amount: number; currency: string; productName: string } }
 
       const storePreview = storePreviewResult.preview

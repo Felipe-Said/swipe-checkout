@@ -30,6 +30,22 @@ function getAppBaseUrl(request: Request) {
   return new URL(request.url).origin
 }
 
+function resolveShopifyAppClientId(slot: string | null) {
+  if (slot === "2") {
+    return (
+      process.env.NEXT_PUBLIC_SHOPIFY_API_KEY_2 ||
+      process.env.SHOPIFY_API_KEY_2 ||
+      ""
+    ).trim()
+  }
+
+  return (
+    process.env.NEXT_PUBLIC_SHOPIFY_API_KEY ||
+    process.env.SHOPIFY_API_KEY ||
+    ""
+  ).trim()
+}
+
 function getVercelDomainCheckConfig() {
   const token = process.env.VERCEL_API_TOKEN
   const project = process.env.VERCEL_PROJECT_ID_OR_NAME || process.env.VERCEL_PROJECT_ID
@@ -82,6 +98,7 @@ async function isVercelDomainVerified(host: string) {
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const shop = searchParams.get("shop")?.trim().toLowerCase()
+  const shopifyAppSlot = searchParams.get("shopify_app")?.trim() || null
   const corsHeaders = buildCorsHeaders(request)
 
   if (!shop) {
@@ -95,14 +112,24 @@ export async function GET(request: Request) {
   }
 
   const supabaseAdmin = getSupabaseAdmin()
+  const preferredClientId = resolveShopifyAppClientId(shopifyAppSlot)
   const { data: stores } = await supabaseAdmin
     .from("shopify_stores")
-    .select("id, default_checkout_id, skip_cart_redirect, updated_at")
+    .select("id, client_id, default_checkout_id, skip_cart_redirect, updated_at")
     .eq("shop_domain", shop)
     .in("status", ["Pronta", "Conectada"])
     .order("updated_at", { ascending: false })
 
-  const candidateStores = Array.isArray(stores) ? stores : []
+  const allCandidateStores = Array.isArray(stores) ? stores : []
+  const candidateStores =
+    preferredClientId &&
+    allCandidateStores.some(
+      (candidate) => String(candidate.client_id || "").trim() === preferredClientId
+    )
+      ? allCandidateStores.filter(
+          (candidate) => String(candidate.client_id || "").trim() === preferredClientId
+        )
+      : allCandidateStores
   const activeCheckoutIds = candidateStores
     .map((store) => String(store.default_checkout_id || "").trim())
     .filter(Boolean)
@@ -190,6 +217,7 @@ export async function GET(request: Request) {
     {
       checkoutUrl,
       skipCartRedirect: Boolean(store?.skip_cart_redirect),
+      storeId: store?.id ?? "",
     },
     {
       headers: {
