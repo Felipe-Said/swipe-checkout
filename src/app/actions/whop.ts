@@ -338,9 +338,27 @@ async function assertWhopAccountAccess(input: {
   }
 }
 
-export async function loadWhopAccountForSession(input: { accountId?: string | null; userId: string }) {
-  const actor = await requireServerAppSession(input.userId)
+export async function loadWhopAccountForSession(input: {
+  accountId?: string | null
+  userId: string
+  accessToken?: string | null
+}) {
   const supabaseAdmin = getSupabaseAdmin()
+  const accessToken = input.accessToken?.trim()
+  const actor = accessToken
+    ? await (async () => {
+        const {
+          data: { user },
+          error,
+        } = await supabaseAdmin.auth.getUser(accessToken)
+
+        if (error || !user || user.id !== input.userId) {
+          throw new Error("Sessao invalida.")
+        }
+
+        return { userId: user.id }
+      })()
+    : await requireServerAppSession(input.userId)
 
   let resolvedAccountId = input.accountId?.trim() || ""
   if (!resolvedAccountId) {
@@ -389,6 +407,8 @@ export async function validateWhopAccount(input: {
   accountId: string
   apiKey: string
   companyId?: string
+  userId?: string | null
+  accessToken?: string | null
 }) {
   const apiKey = input.apiKey.trim()
   const manualCompanyId = input.companyId?.trim() || null
@@ -396,7 +416,11 @@ export async function validateWhopAccount(input: {
     return { error: "Conta e API key sao obrigatorias." }
   }
 
-  const { supabaseAdmin } = await assertWhopAccountAccess({ accountId: input.accountId })
+  const { supabaseAdmin } = await assertWhopAccountAccess({
+    accountId: input.accountId,
+    userId: input.userId,
+    accessToken: input.accessToken,
+  })
 
   const { data: account, error: accountError } = await supabaseAdmin
     .from("managed_accounts")
@@ -476,6 +500,8 @@ export async function saveWhopAccountCredentials(input: {
   accountId: string
   apiKey: string
   companyId?: string
+  userId?: string | null
+  accessToken?: string | null
 }) {
   const apiKey = input.apiKey.trim()
   const companyId = input.companyId?.trim() || null
@@ -483,7 +509,11 @@ export async function saveWhopAccountCredentials(input: {
     return { error: "Conta operacional nao encontrada." }
   }
 
-  const { supabaseAdmin } = await assertWhopAccountAccess({ accountId: input.accountId })
+  const { supabaseAdmin } = await assertWhopAccountAccess({
+    accountId: input.accountId,
+    userId: input.userId,
+    accessToken: input.accessToken,
+  })
 
   const { data: account, error: accountError } = await supabaseAdmin
     .from("managed_accounts")

@@ -31,6 +31,7 @@ import { WhopCheckoutReadinessCard } from "@/components/whop/whop-checkout-readi
 import { WhopAccountSummaryCard } from "@/components/whop/whop-account-summary-card"
 import { WhopAdvancedSettings } from "@/components/whop/whop-advanced-settings"
 import { cn } from "@/lib/utils"
+import { supabase } from "@/lib/supabase"
 
 type DiagnosticEvent = {
   id: string
@@ -70,12 +71,17 @@ export default function WhopPage() {
         setSessionRole(session.role === "admin" ? "admin" : "user")
       }
 
+      const {
+        data: { session: supabaseSession },
+      } = await supabase.auth.getSession()
+
       let loadedAccounts = await getManagedAccounts()
 
       if (session?.userId) {
         const serverLoaded = await loadWhopAccountForSession({
           accountId: session.accountId,
           userId: session.userId,
+          accessToken: supabaseSession?.access_token ?? null,
         })
 
         if (serverLoaded.account) {
@@ -135,9 +141,14 @@ export default function WhopPage() {
       return
     }
 
+    const {
+      data: { session: supabaseSession },
+    } = await supabase.auth.getSession()
+
     const result = await loadWhopAccountForSession({
       accountId: session.accountId,
       userId: session.userId,
+      accessToken: supabaseSession?.access_token ?? null,
     })
 
     if (!result.account) {
@@ -175,10 +186,17 @@ export default function WhopPage() {
     if (!currentAccount) return
 
     try {
+      const session = await getCurrentAppSession()
+      const {
+        data: { session: supabaseSession },
+      } = await supabase.auth.getSession()
+
       const result = await saveWhopAccountCredentials({
         accountId: currentAccount.id,
         apiKey: currentAccount.whopKey || "",
         companyId: currentAccount.whopCompanyId || "",
+        userId: session?.userId ?? undefined,
+        accessToken: supabaseSession?.access_token ?? null,
       })
 
       if (result?.error) {
@@ -233,10 +251,17 @@ export default function WhopPage() {
     ])
 
     void (async () => {
+      const session = await getCurrentAppSession()
+      const {
+        data: { session: supabaseSession },
+      } = await supabase.auth.getSession()
+
       const result = await validateWhopAccount({
         accountId: currentAccount.id,
         apiKey: currentAccount.whopKey || "",
         companyId: currentAccount.whopCompanyId || "",
+        userId: session?.userId ?? undefined,
+        accessToken: supabaseSession?.access_token ?? null,
       })
 
       if (result?.error) {
