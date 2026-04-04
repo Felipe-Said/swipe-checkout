@@ -1136,7 +1136,11 @@ export async function loadShopifyStoresForSession(input: {
   }
 }
 
-export async function loadShopifyStoreOptionsForSession(input: { accountId: string; userId: string }) {
+export async function loadShopifyStoreOptionsForSession(input: {
+  accountId: string
+  userId: string
+  accessToken?: string | null
+}) {
   const result = await loadShopifyStoresForSession(input)
   if (result.error) {
     return result

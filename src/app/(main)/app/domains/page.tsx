@@ -19,6 +19,7 @@ import { useI18n } from "@/lib/i18n"
 import { Input } from "@/components/ui/input"
 import { Card, CardTitle, CardDescription } from "@/components/ui/card"
 import { toast } from "sonner"
+import { supabase } from "@/lib/supabase"
 
 export default function DomainsPage() {
   const { t } = useI18n()
@@ -57,7 +58,11 @@ export default function DomainsPage() {
   }, [])
 
   const loadDomains = React.useCallback(async (userId: string, accountId: string) => {
-    const result = await loadDomainsForSession({ userId, accountId })
+    const result = await loadDomainsForSession({
+      userId,
+      accountId,
+      accessToken: (await supabase.auth.getSession()).data.session?.access_token ?? null,
+    })
     if (result.error) {
       toast.error(result.error)
       return
@@ -128,6 +133,7 @@ export default function DomainsPage() {
       host: formattedHost,
       checkoutId,
       isPrimary,
+      accessToken: (await supabase.auth.getSession()).data.session?.access_token ?? null,
     })
 
     if (result.error) {
@@ -163,6 +169,7 @@ export default function DomainsPage() {
       userId: sessionUserId,
       accountId: activeAccountId,
       domainId: id,
+      accessToken: (await supabase.auth.getSession()).data.session?.access_token ?? null,
     })
 
     if (result.error) {
@@ -181,6 +188,7 @@ export default function DomainsPage() {
       userId: sessionUserId,
       accountId: activeAccountId,
       domainId: id,
+      accessToken: (await supabase.auth.getSession()).data.session?.access_token ?? null,
     })
 
     if (result.error) {
@@ -199,6 +207,7 @@ export default function DomainsPage() {
       userId: sessionUserId,
       accountId: activeAccountId,
       domainId: id,
+      accessToken: (await supabase.auth.getSession()).data.session?.access_token ?? null,
     })
 
     if (result.error) {

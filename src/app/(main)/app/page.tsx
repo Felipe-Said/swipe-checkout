@@ -16,6 +16,7 @@ import { loadDashboardForSession } from "@/app/actions/dashboard"
 import { DashboardCustomerFunnel } from "@/components/dashboard/dashboard-customer-funnel"
 import { DashboardRevenueChart } from "@/components/dashboard/dashboard-revenue-chart"
 import { getCurrentAppSession } from "@/lib/app-session"
+import { supabase } from "@/lib/supabase"
 import { useI18n } from "@/lib/i18n"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -111,6 +112,7 @@ export default function DashboardPage() {
         accountId,
         period,
         referenceDate: date,
+        accessToken: (await supabase.auth.getSession()).data.session?.access_token ?? null,
       })
 
       if ("error" in result) {

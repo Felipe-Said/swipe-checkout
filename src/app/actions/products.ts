@@ -3,7 +3,7 @@
 import crypto from "crypto"
 
 import { getSupabaseAdmin } from "@/lib/supabase"
-import { requireServerAppSession } from "@/lib/server-app-session"
+import { requireServerAppSessionOrAccessToken } from "@/lib/server-app-session"
 import type {
   CatalogProduct,
   CatalogProductCurrency,
@@ -16,6 +16,7 @@ type ProductInput = {
   id?: string
   accountId: string
   userId: string
+  accessToken?: string | null
   name: string
   optionName?: string
   variantLabel?: string
@@ -90,8 +91,12 @@ function resolveCatalogProductVariants(row: any): CatalogProductVariant[] {
   ]
 }
 
-async function assertProductAccountAccess(accountId: string, userId: string) {
-  const actor = await requireServerAppSession(userId)
+async function assertProductAccountAccess(input: {
+  accountId: string
+  userId: string
+  accessToken?: string | null
+}) {
+  const actor = await requireServerAppSessionOrAccessToken(input)
   const supabaseAdmin = getSupabaseAdmin()
   const { data: profile } = await supabaseAdmin
     .from("profiles")
@@ -104,7 +109,7 @@ async function assertProductAccountAccess(accountId: string, userId: string) {
   let query = supabaseAdmin
     .from("managed_accounts")
     .select("id, profile_id")
-    .eq("id", accountId)
+    .eq("id", input.accountId)
 
   if (!isAdmin) {
     query = query.eq("profile_id", actor.userId)
@@ -165,17 +170,29 @@ async function loadManualProductsFromDb(accountId: string) {
   }
 }
 
-export async function loadManualProductsForSession(input: { accountId: string; userId: string }) {
-  await assertProductAccountAccess(input.accountId, input.userId)
+export async function loadManualProductsForSession(input: {
+  accountId: string
+  userId: string
+  accessToken?: string | null
+}) {
+  await assertProductAccountAccess(input)
   return loadManualProductsFromDb(input.accountId)
 }
 
-export async function loadProductsHubData(input: { accountId: string; userId: string }) {
-  await assertProductAccountAccess(input.accountId, input.userId)
+export async function loadProductsHubData(input: {
+  accountId: string
+  userId: string
+  accessToken?: string | null
+}) {
+  await assertProductAccountAccess(input)
 
   const [manualProductsResult, storesResult, checkoutsResult] = await Promise.all([
     loadManualProductsFromDb(input.accountId),
-    loadShopifyStoresForSession({ accountId: input.accountId, userId: input.userId }),
+    loadShopifyStoresForSession({
+      accountId: input.accountId,
+      userId: input.userId,
+      accessToken: input.accessToken,
+    }),
     getSupabaseAdmin()
       .from("checkouts")
       .select("id, account_id, status, config")
@@ -195,6 +212,7 @@ export async function loadProductsHubData(input: { accountId: string; userId: st
         accountId: input.accountId,
         userId: input.userId,
         limit: 12,
+        accessToken: input.accessToken,
       })
 
       return {
@@ -267,7 +285,7 @@ export async function loadProductsHubData(input: { accountId: string; userId: st
 }
 
 export async function saveManualProductForSession(input: ProductInput) {
-  await assertProductAccountAccess(input.accountId, input.userId)
+  await assertProductAccountAccess(input)
 
   const cleanName = input.name.trim()
   if (!cleanName) {
@@ -394,8 +412,9 @@ export async function deleteManualProductForSession(input: {
   id: string
   accountId: string
   userId: string
+  accessToken?: string | null
 }) {
-  await assertProductAccountAccess(input.accountId, input.userId)
+  await assertProductAccountAccess(input)
 
   const supabaseAdmin = getSupabaseAdmin()
   const { error } = await supabaseAdmin

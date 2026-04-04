@@ -67,6 +67,7 @@ export default function SettingsPage() {
       const result = await loadSettingsForSession({
         userId: appSession.userId,
         accountId: appSession.accountId,
+        accessToken: (await supabase.auth.getSession()).data.session?.access_token ?? null,
       })
 
       if (result.error || !result.profile) {
@@ -91,6 +92,7 @@ export default function SettingsPage() {
         const gatewayResult = await loadGatewayPageForSession({
           userId: appSession.userId,
           accountId: appSession.accountId,
+          accessToken: (await supabase.auth.getSession()).data.session?.access_token ?? null,
         })
 
         if (!("error" in gatewayResult)) {
@@ -118,6 +120,7 @@ export default function SettingsPage() {
       name: nextName,
       email: nextEmail,
       photoUrl: profileImage || null,
+      accessToken: (await supabase.auth.getSession()).data.session?.access_token ?? null,
     })
 
     if (profileResult.error) {
@@ -211,6 +214,7 @@ export default function SettingsPage() {
     const result = await saveGatewayModeEnabled({
       userId: session.appSession.userId,
       enabled: nextChecked,
+      accessToken: (await supabase.auth.getSession()).data.session?.access_token ?? null,
     })
 
     if (result.error) {

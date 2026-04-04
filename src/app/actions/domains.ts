@@ -1,7 +1,7 @@
 "use server"
 
 import { getSupabaseAdmin } from "@/lib/supabase"
-import { requireServerAppSession } from "@/lib/server-app-session"
+import { requireServerAppSessionOrAccessToken } from "@/lib/server-app-session"
 import type { ConnectedDomain, DomainMode, DomainStatus } from "@/lib/domain-data"
 
 type DomainConfigResponse = {
@@ -228,8 +228,12 @@ async function syncDomainRecord(input: {
   }
 }
 
-async function assertDomainAccess(input: { userId: string; accountId: string }) {
-  const actor = await requireServerAppSession(input.userId)
+async function assertDomainAccess(input: {
+  userId: string
+  accountId: string
+  accessToken?: string | null
+}) {
+  const actor = await requireServerAppSessionOrAccessToken(input)
   const supabaseAdmin = getSupabaseAdmin()
   const { data: profile } = await supabaseAdmin
     .from("profiles")
@@ -258,6 +262,7 @@ async function assertDomainAccess(input: { userId: string; accountId: string }) 
 export async function loadDomainsForSession(input: {
   userId: string
   accountId: string
+  accessToken?: string | null
 }) {
   try {
     const { supabaseAdmin } = await assertDomainAccess(input)
@@ -349,6 +354,7 @@ export async function loadDomainsForSession(input: {
 export async function loadCheckoutOptionsForDomainSession(input: {
   userId: string
   accountId: string
+  accessToken?: string | null
 }) {
   try {
     const { supabaseAdmin } = await assertDomainAccess(input)
@@ -383,6 +389,7 @@ export async function addDomainForSession(input: {
   host: string
   checkoutId: string
   isPrimary: boolean
+  accessToken?: string | null
 }) {
   try {
     const { supabaseAdmin } = await assertDomainAccess(input)
@@ -456,6 +463,7 @@ export async function refreshDomainForSession(input: {
   userId: string
   accountId: string
   domainId: string
+  accessToken?: string | null
 }) {
   try {
     const { supabaseAdmin } = await assertDomainAccess(input)
@@ -506,6 +514,7 @@ export async function deleteDomainForSession(input: {
   userId: string
   accountId: string
   domainId: string
+  accessToken?: string | null
 }) {
   try {
     const { supabaseAdmin } = await assertDomainAccess(input)
@@ -549,6 +558,7 @@ export async function setPrimaryDomainForSession(input: {
   userId: string
   accountId: string
   domainId: string
+  accessToken?: string | null
 }) {
   try {
     const { supabaseAdmin } = await assertDomainAccess(input)

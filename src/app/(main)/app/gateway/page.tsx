@@ -10,6 +10,7 @@ import {
   type GatewayPayoutMethod,
 } from "@/app/actions/gateway"
 import { getCurrentAppSession, writeAppSession } from "@/lib/app-session"
+import { supabase } from "@/lib/supabase"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -45,6 +46,7 @@ export default function GatewayPage() {
     const result = await loadGatewayPageForSession({
       userId,
       accountId: nextAccountId,
+      accessToken: (await supabase.auth.getSession()).data.session?.access_token ?? null,
     })
 
     if ("error" in result) {
@@ -105,6 +107,7 @@ export default function GatewayPage() {
       whopCompanyId: adminCompanyId,
       feeRate: Number(adminFeeRate || 0),
       platformCoversFees,
+      accessToken: (await supabase.auth.getSession()).data.session?.access_token ?? null,
     })
 
     if (result.error) {
@@ -123,7 +126,10 @@ export default function GatewayPage() {
     }
 
     setAdminValidating(true)
-    const result = await validateGatewayAdminConfig({ userId: sessionUserId })
+    const result = await validateGatewayAdminConfig({
+      userId: sessionUserId,
+      accessToken: (await supabase.auth.getSession()).data.session?.access_token ?? null,
+    })
     if (result.error) {
       setWarnings([result.error])
       setAdminValidating(false)
@@ -148,6 +154,7 @@ export default function GatewayPage() {
       payoutMethodId: userPayoutMethodId,
       payoutMethodLabel: selected?.label || userPayoutMethodLabel,
       autoPayoutEnabled: userAutoPayoutEnabled,
+      accessToken: (await supabase.auth.getSession()).data.session?.access_token ?? null,
     })
 
     if (result.error) {

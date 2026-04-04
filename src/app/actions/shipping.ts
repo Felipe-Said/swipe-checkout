@@ -1,7 +1,7 @@
 "use server"
 
 import { getSupabaseAdmin } from "@/lib/supabase"
-import { requireServerAppSession } from "@/lib/server-app-session"
+import { requireServerAppSessionOrAccessToken } from "@/lib/server-app-session"
 import { type ShippingMethod } from "@/lib/shipping-data"
 
 type ShippingMethodRow = {
@@ -27,8 +27,12 @@ function mapShippingMethod(row: ShippingMethodRow): ShippingMethod {
   }
 }
 
-async function resolveAuthorizedAccount(accountId: string, userId: string) {
-  const actor = await requireServerAppSession(userId)
+async function resolveAuthorizedAccount(input: {
+  accountId: string
+  userId: string
+  accessToken?: string | null
+}) {
+  const actor = await requireServerAppSessionOrAccessToken(input)
   const supabaseAdmin = getSupabaseAdmin()
 
   const { data: profile } = await supabaseAdmin
@@ -40,7 +44,7 @@ async function resolveAuthorizedAccount(accountId: string, userId: string) {
   let accountQuery = supabaseAdmin
     .from("managed_accounts")
     .select("id")
-    .eq("id", accountId)
+    .eq("id", input.accountId)
 
   if (profile?.role !== "admin") {
     accountQuery = accountQuery.eq("profile_id", actor.userId)
@@ -58,12 +62,17 @@ async function resolveAuthorizedAccount(accountId: string, userId: string) {
 export async function loadShippingMethodsForSession(input: {
   accountId?: string | null
   userId?: string | null
+  accessToken?: string | null
 }) {
   if (!input.accountId || !input.userId) {
     return { methods: [] as ShippingMethod[] }
   }
 
-  const authorizedAccountId = await resolveAuthorizedAccount(input.accountId, input.userId)
+  const authorizedAccountId = await resolveAuthorizedAccount({
+    accountId: input.accountId,
+    userId: input.userId,
+    accessToken: input.accessToken,
+  })
   if (!authorizedAccountId) {
     return { methods: [] as ShippingMethod[] }
   }
@@ -87,6 +96,7 @@ export async function loadShippingMethodsForSession(input: {
 export async function createShippingMethodForSession(input: {
   accountId?: string | null
   userId?: string | null
+  accessToken?: string | null
   name: string
   description: string
   price: number
@@ -105,7 +115,11 @@ export async function createShippingMethodForSession(input: {
     return { error: "Preencha nome, descricao, valor e prazo corretamente." }
   }
 
-  const authorizedAccountId = await resolveAuthorizedAccount(input.accountId, input.userId)
+  const authorizedAccountId = await resolveAuthorizedAccount({
+    accountId: input.accountId,
+    userId: input.userId,
+    accessToken: input.accessToken,
+  })
   if (!authorizedAccountId) {
     return { error: "Conta operacional nao encontrada." }
   }
@@ -136,6 +150,7 @@ export async function createShippingMethodForSession(input: {
 export async function updateShippingMethodStatusForSession(input: {
   accountId?: string | null
   userId?: string | null
+  accessToken?: string | null
   shippingId: string
   active: boolean
 }) {
@@ -143,7 +158,11 @@ export async function updateShippingMethodStatusForSession(input: {
     return { error: "Frete invalido." }
   }
 
-  const authorizedAccountId = await resolveAuthorizedAccount(input.accountId, input.userId)
+  const authorizedAccountId = await resolveAuthorizedAccount({
+    accountId: input.accountId,
+    userId: input.userId,
+    accessToken: input.accessToken,
+  })
   if (!authorizedAccountId) {
     return { error: "Conta operacional nao encontrada." }
   }

@@ -1,7 +1,7 @@
 "use server"
 
 import { getSupabaseAdmin } from "@/lib/supabase"
-import { requireServerAppSession } from "@/lib/server-app-session"
+import { requireServerAppSessionOrAccessToken } from "@/lib/server-app-session"
 
 type SessionRole = "admin" | "user"
 type SupportedCurrency = "BRL" | "USD" | "EUR" | "GBP"
@@ -370,8 +370,9 @@ export async function loadDashboardForSession(input: {
   accountId?: string | null
   period: DashboardPeriod
   referenceDate: string
+  accessToken?: string | null
 }) {
-  const actor = await requireServerAppSession(input.userId)
+  const actor = await requireServerAppSessionOrAccessToken(input)
   const supabaseAdmin = getSupabaseAdmin()
   const { start, end } = getWindowBounds(input.referenceDate, input.period)
 

@@ -462,6 +462,10 @@ export function EditorShell() {
   React.useEffect(() => {
     async function loadEditorData() {
       const session = await getCurrentAppSession()
+      const {
+        data: { session: supabaseSession },
+      } = await supabase.auth.getSession()
+      const accessToken = supabaseSession?.access_token ?? null
       setSessionAccountId(session?.accountId ?? "")
       setSessionUserId(session?.userId ?? "")
 
@@ -469,6 +473,7 @@ export function EditorShell() {
         const availableShippingMethods = await loadShippingMethodsForSession({
           accountId: session.accountId,
           userId: session.userId,
+          accessToken,
         })
         setShippingMethods(availableShippingMethods.methods ?? [])
       } else {
@@ -480,6 +485,7 @@ export function EditorShell() {
         ? await loadWhopAccountForSession({
             accountId: session.accountId,
             userId: session.userId,
+            accessToken,
           })
         : { account: null }
       const currentAccount =
@@ -491,6 +497,7 @@ export function EditorShell() {
         ? await loadDomainsForSession({
             accountId: session.accountId,
             userId: session.userId,
+            accessToken,
           })
         : { domains: [] as ConnectedDomain[] }
       const availableDomains = availableDomainsResult.domains ?? []
@@ -498,12 +505,14 @@ export function EditorShell() {
         ? await loadShopifyStoreOptionsForSession({
             accountId: session.accountId,
             userId: session.userId,
+            accessToken,
           })
         : { stores: [] as ConnectedShopifyStore[] }
       const availableManualProductsResult = session?.accountId && session?.userId
         ? await loadManualProductsForSession({
             accountId: session.accountId,
             userId: session.userId,
+            accessToken,
           })
         : { products: [] as CatalogProduct[] }
       const availableStores = availableStoresResult.stores ?? []
@@ -542,13 +551,10 @@ export function EditorShell() {
       }
 
       if (session?.accountId && params?.id && params.id !== "new") {
-        const {
-          data: { session: supabaseSession },
-        } = await supabase.auth.getSession()
         const result = await loadCheckoutForEditor({
           checkoutId: params.id,
           accountId: session.accountId,
-          accessToken: supabaseSession?.access_token || "",
+          accessToken,
         })
 
         if (result.checkout) {
@@ -598,6 +604,7 @@ export function EditorShell() {
         storeId: config.selectedStoreId,
         accountId: sessionAccountId,
         userId: sessionUserId,
+        accessToken: (await supabase.auth.getSession()).data.session?.access_token ?? null,
       })
 
       if (result.preview) {

@@ -64,6 +64,7 @@ export default function MessengerPage() {
       const result = await loadSupportMessagesForSession({
         userId: session.userId,
         accountId: session.accountId,
+        accessToken: (await supabase.auth.getSession()).data.session?.access_token ?? null,
       })
       setMessages((result.messages ?? []) as SupportChatMessage[])
     }
@@ -163,6 +164,7 @@ export default function MessengerPage() {
       accountId,
       text: draft.trim(),
       imageSrc: imageDraft,
+      accessToken: (await supabase.auth.getSession()).data.session?.access_token ?? null,
     })
 
     if (result.error) return
@@ -170,6 +172,7 @@ export default function MessengerPage() {
     const nextMessages = await loadSupportMessagesForSession({
       userId: session.userId,
       accountId,
+      accessToken: (await supabase.auth.getSession()).data.session?.access_token ?? null,
     })
     setMessages((nextMessages.messages ?? []) as SupportChatMessage[])
     setDraft("")

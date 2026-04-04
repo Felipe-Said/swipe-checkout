@@ -3,7 +3,7 @@
 import Whop from "@whop/sdk"
 
 import { getSupabaseAdmin } from "@/lib/supabase"
-import { requireServerAppSession } from "@/lib/server-app-session"
+import { requireServerAppSessionOrAccessToken } from "@/lib/server-app-session"
 import type {
   BankAccountDetails,
   SupportedWithdrawalCurrency,
@@ -141,8 +141,8 @@ async function calculateAvailableByCurrency(input: AvailableBalanceInput) {
   return { availableByCurrency }
 }
 
-async function resolveSession(input: { userId: string }) {
-  const actor = await requireServerAppSession(input.userId)
+async function resolveSession(input: { userId: string; accessToken?: string | null }) {
+  const actor = await requireServerAppSessionOrAccessToken(input)
   const supabaseAdmin = getSupabaseAdmin()
   const { data: profile } = await supabaseAdmin
     .from("profiles")
@@ -164,9 +164,13 @@ async function resolveSession(input: { userId: string }) {
 async function resolveAccountForUser(input: {
   userId: string
   accountId?: string | null
+  accessToken?: string | null
 }) {
-  const actor = await requireServerAppSession(input.userId)
-  const { supabaseAdmin, role } = await resolveSession({ userId: actor.userId })
+  const actor = await requireServerAppSessionOrAccessToken(input)
+  const { supabaseAdmin, role } = await resolveSession({
+    userId: actor.userId,
+    accessToken: input.accessToken,
+  })
 
   if (role === "admin") {
     if (!input.accountId) {
@@ -198,9 +202,10 @@ async function resolveAccountForUser(input: {
 export async function loadWithdrawalsForSession(input: {
   userId: string
   accountId?: string | null
+  accessToken?: string | null
 }): Promise<WithdrawalPageData | { error: string }> {
   try {
-    const { supabaseAdmin, role } = await resolveSession({ userId: input.userId })
+    const { supabaseAdmin, role } = await resolveSession(input)
 
     const accountsResult = await supabaseAdmin
       .from("managed_accounts")
@@ -433,13 +438,11 @@ export async function saveBankAccountForSession(input: {
   accountId?: string | null
   currency: SupportedWithdrawalCurrency
   details: BankAccountDetails
+  accessToken?: string | null
 }) {
   try {
-    const { supabaseAdmin } = await resolveSession({ userId: input.userId })
-    const account = await resolveAccountForUser({
-      userId: input.userId,
-      accountId: input.accountId,
-    })
+    const { supabaseAdmin } = await resolveSession(input)
+    const account = await resolveAccountForUser(input)
 
     if (!account) {
       return { error: "Conta nao encontrada." }
@@ -489,17 +492,15 @@ export async function createWithdrawalForSession(input: {
   accountId?: string | null
   currency: SupportedWithdrawalCurrency
   amount: number
+  accessToken?: string | null
 }) {
   try {
-    const { supabaseAdmin, role } = await resolveSession({ userId: input.userId })
+    const { supabaseAdmin, role } = await resolveSession(input)
     if (role === "admin") {
       return { error: "Admins nao solicitam saques por esta tela." }
     }
 
-    const account = await resolveAccountForUser({
-      userId: input.userId,
-      accountId: input.accountId,
-    })
+    const account = await resolveAccountForUser(input)
 
     if (!account) {
       return { error: "Conta nao encontrada." }

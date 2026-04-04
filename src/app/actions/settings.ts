@@ -1,7 +1,7 @@
 "use server"
 
 import { getSupabaseAdmin } from "@/lib/supabase"
-import { requireServerAppSession } from "@/lib/server-app-session"
+import { requireServerAppSessionOrAccessToken } from "@/lib/server-app-session"
 
 type LoginEventRow = {
   id: string
@@ -26,14 +26,15 @@ async function resolveLoginEventActor(input: { userId: string; accessToken?: str
     return { userId: user.id }
   }
 
-  return requireServerAppSession(input.userId)
+  return requireServerAppSessionOrAccessToken(input)
 }
 
 export async function loadSettingsForSession(input: {
   userId: string
   accountId?: string | null
+  accessToken?: string | null
 }) {
-  const actor = await requireServerAppSession(input.userId)
+  const actor = await requireServerAppSessionOrAccessToken(input)
   const supabaseAdmin = getSupabaseAdmin()
 
   const { data: profile, error: profileError } = await supabaseAdmin
@@ -92,8 +93,9 @@ export async function saveSettingsProfile(input: {
   name: string
   email: string
   photoUrl?: string | null
+  accessToken?: string | null
 }) {
-  const actor = await requireServerAppSession(input.userId)
+  const actor = await requireServerAppSessionOrAccessToken(input)
   const supabaseAdmin = getSupabaseAdmin()
   const nextName = input.name.trim()
   const nextEmail = input.email.trim()
@@ -165,8 +167,11 @@ export async function recordLoginEvent(input: {
   return { success: true }
 }
 
-export async function loadProfilePhoto(input: { userId: string }) {
-  const actor = await requireServerAppSession(input.userId)
+export async function loadProfilePhoto(input: {
+  userId: string
+  accessToken?: string | null
+}) {
+  const actor = await requireServerAppSessionOrAccessToken(input)
   const supabaseAdmin = getSupabaseAdmin()
   const { data, error } = await supabaseAdmin
     .from("profiles")

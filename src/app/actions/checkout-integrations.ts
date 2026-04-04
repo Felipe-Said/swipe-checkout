@@ -2,7 +2,7 @@
 
 import { sendPushcutNotificationsForCheckout } from "@/lib/pushcut"
 import { getSupabaseAdmin } from "@/lib/supabase"
-import { requireServerAppSession } from "@/lib/server-app-session"
+import { requireServerAppSessionOrAccessToken } from "@/lib/server-app-session"
 import type { CheckoutPixelConfig } from "@/lib/pixels-data"
 import type { PushcutCheckoutConfig } from "@/lib/pushcut-data"
 
@@ -20,8 +20,12 @@ function normalizePixelIds(value: unknown, fallback?: unknown) {
   return [] as string[]
 }
 
-async function assertCheckoutIntegrationAccess(input: { accountId: string; userId: string }) {
-  const actor = await requireServerAppSession(input.userId)
+async function assertCheckoutIntegrationAccess(input: {
+  accountId: string
+  userId: string
+  accessToken?: string | null
+}) {
+  const actor = await requireServerAppSessionOrAccessToken(input)
   const supabaseAdmin = getSupabaseAdmin()
 
   const { data: profile } = await supabaseAdmin
@@ -50,6 +54,7 @@ async function assertCheckoutIntegrationAccess(input: { accountId: string; userI
 export async function loadCheckoutPushcutConfigsForSession(input: {
   accountId: string
   userId: string
+  accessToken?: string | null
 }) {
   await assertCheckoutIntegrationAccess(input)
 
@@ -84,6 +89,7 @@ export async function saveCheckoutPushcutConfigForSession(input: {
   userId: string
   checkoutId: string
   webhookUrls: string[]
+  accessToken?: string | null
 }) {
   await assertCheckoutIntegrationAccess(input)
 
@@ -129,6 +135,7 @@ export async function testCheckoutPushcutConfigForSession(input: {
   userId: string
   checkoutId: string
   webhookUrls: string[]
+  accessToken?: string | null
 }) {
   await assertCheckoutIntegrationAccess(input)
 
@@ -197,6 +204,7 @@ export async function testCheckoutPushcutConfigForSession(input: {
 export async function loadCheckoutPixelConfigsForSession(input: {
   accountId: string
   userId: string
+  accessToken?: string | null
 }) {
   await assertCheckoutIntegrationAccess(input)
 
@@ -239,6 +247,7 @@ export async function saveCheckoutPixelConfigForSession(input: {
   googleAdsIds: string[]
   tiktokPixelIds: string[]
   trackCampaignSource: boolean
+  accessToken?: string | null
 }) {
   await assertCheckoutIntegrationAccess(input)
 

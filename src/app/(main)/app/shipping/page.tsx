@@ -14,6 +14,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { getCurrentAppSession } from "@/lib/app-session"
+import { supabase } from "@/lib/supabase"
 import { type ShippingMethod } from "@/lib/shipping-data"
 
 const initialForm = {
@@ -44,6 +45,7 @@ export default function ShippingPage() {
       const result = await loadShippingMethodsForSession({
         accountId: session.accountId,
         userId: session.userId,
+        accessToken: (await supabase.auth.getSession()).data.session?.access_token ?? null,
       })
 
       if (result.error) {
@@ -72,6 +74,7 @@ export default function ShippingPage() {
     const result = await createShippingMethodForSession({
       accountId,
       userId,
+      accessToken: (await supabase.auth.getSession()).data.session?.access_token ?? null,
       name: form.name,
       description: form.description,
       price: Number(form.price),
@@ -98,6 +101,7 @@ export default function ShippingPage() {
     const result = await updateShippingMethodStatusForSession({
       accountId,
       userId,
+      accessToken: (await supabase.auth.getSession()).data.session?.access_token ?? null,
       shippingId: id,
       active: !currentMethod.active,
     })

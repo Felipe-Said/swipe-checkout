@@ -109,22 +109,30 @@ export default function CheckoutsPage() {
         return
       }
 
+      const {
+        data: { session: supabaseSession },
+      } = await supabase.auth.getSession()
+
       const [domainsResult, storesResult, pushcutResult, pixelsResult] = await Promise.all([
         loadDomainsForSession({
           accountId: session.accountId,
           userId: session.userId,
+          accessToken: supabaseSession?.access_token ?? null,
         }),
         loadShopifyStoresForSession({
           accountId: session.accountId,
           userId: session.userId,
+          accessToken: supabaseSession?.access_token ?? null,
         }),
         loadCheckoutPushcutConfigsForSession({
           accountId: session.accountId,
           userId: session.userId,
+          accessToken: supabaseSession?.access_token ?? null,
         }),
         loadCheckoutPixelConfigsForSession({
           accountId: session.accountId,
           userId: session.userId,
+          accessToken: supabaseSession?.access_token ?? null,
         }),
       ])
 
@@ -145,10 +153,6 @@ export default function CheckoutsPage() {
         .from("orders")
         .select("checkout_id,total,paid")
         .eq("account_id", session.accountId)
-
-      const {
-        data: { session: supabaseSession },
-      } = await supabase.auth.getSession()
 
       const result = await loadCheckoutsForAccount({
         accountId: session.accountId,
@@ -234,6 +238,7 @@ export default function CheckoutsPage() {
       userId,
       checkoutId: selectedCheckout.id,
       webhookUrls,
+      accessToken: (await supabase.auth.getSession()).data.session?.access_token ?? null,
     })
 
     if (result.error || !result.config) {
@@ -272,6 +277,7 @@ export default function CheckoutsPage() {
       userId,
       checkoutId: selectedCheckout.id,
       webhookUrls,
+      accessToken: (await supabase.auth.getSession()).data.session?.access_token ?? null,
     })
 
     if (result.error) {
@@ -318,6 +324,7 @@ export default function CheckoutsPage() {
       googleAdsIds: parseMultiValueField(googleAdsIdsValue),
       tiktokPixelIds: parseMultiValueField(tiktokPixelIdsValue),
       trackCampaignSource,
+      accessToken: (await supabase.auth.getSession()).data.session?.access_token ?? null,
     })
 
     if (result.error || !result.config) {

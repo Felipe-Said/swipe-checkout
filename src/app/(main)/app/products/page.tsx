@@ -25,6 +25,7 @@ import type {
 } from "@/lib/catalog-products"
 import { SWIPE_MANUAL_STORE_ID } from "@/lib/catalog-products"
 import { getCurrentAppSession } from "@/lib/app-session"
+import { supabase } from "@/lib/supabase"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -185,9 +186,13 @@ export default function ProductsPage() {
   const [origin, setOrigin] = React.useState("")
 
   const loadData = React.useCallback(async (nextAccountId: string, nextUserId: string) => {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession()
     const result = await loadProductsHubData({
       accountId: nextAccountId,
       userId: nextUserId,
+      accessToken: session?.access_token ?? null,
     })
 
     setManualProducts(result.manualProducts ?? [])
@@ -312,6 +317,7 @@ export default function ProductsPage() {
         id: editingProductId || undefined,
         accountId,
         userId,
+        accessToken: (await supabase.auth.getSession()).data.session?.access_token ?? null,
         name: form.name,
         optionName: form.optionName,
         description: form.description,
@@ -360,6 +366,7 @@ export default function ProductsPage() {
       id: productId,
       accountId,
       userId,
+      accessToken: (await supabase.auth.getSession()).data.session?.access_token ?? null,
     })
 
     if (result.error) {

@@ -1,7 +1,10 @@
 "use server"
 
 import { getSupabaseAdmin } from "@/lib/supabase"
-import { requireServerAppSession } from "@/lib/server-app-session"
+import {
+  requireServerAppSession,
+  requireServerAppSessionOrAccessToken,
+} from "@/lib/server-app-session"
 
 type AdminCustomerAccount = {
   id: string
@@ -352,8 +355,9 @@ export async function adminHandleSignup(input: {
 export async function loadSupportMessagesForSession(input: {
   userId: string
   accountId: string
+  accessToken?: string | null
 }) {
-  const actor = await requireServerAppSession(input.userId)
+  const actor = await requireServerAppSessionOrAccessToken(input)
   const supabaseAdmin = getSupabaseAdmin()
 
   const { data: account } = await supabaseAdmin
@@ -397,8 +401,9 @@ export async function sendSupportMessageForSession(input: {
   accountId: string
   text: string
   imageSrc: string
+  accessToken?: string | null
 }) {
-  const actor = await requireServerAppSession(input.userId)
+  const actor = await requireServerAppSessionOrAccessToken(input)
   const supabaseAdmin = getSupabaseAdmin()
 
   const { data: account } = await supabaseAdmin

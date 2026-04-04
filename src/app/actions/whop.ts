@@ -378,6 +378,7 @@ export async function loadWhopAccountForSession(input: {
   const { account: authorizedAccount } = await assertWhopAccountAccess({
     accountId: resolvedAccountId,
     userId: actor.userId,
+    accessToken: input.accessToken,
   })
 
   const { data: account, error: accountError } = await supabaseAdmin

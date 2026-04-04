@@ -4,6 +4,7 @@ import * as React from "react"
 
 import { loadOrdersForSession } from "@/app/actions/orders"
 import { getCurrentAppSession } from "@/lib/app-session"
+import { supabase } from "@/lib/supabase"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 
@@ -30,6 +31,7 @@ export default function OrdersPage() {
       const result = await loadOrdersForSession({
         userId: session.userId,
         accountId: session.accountId,
+        accessToken: (await supabase.auth.getSession()).data.session?.access_token ?? null,
       })
 
       if (result.error) {

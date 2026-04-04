@@ -4,6 +4,7 @@ import { createHmac, timingSafeEqual } from "node:crypto"
 import { cookies } from "next/headers"
 
 import type { AppSession } from "@/lib/app-session"
+import { getSupabaseAdmin } from "@/lib/supabase"
 
 const APP_SESSION_COOKIE_NAME = "swipe-server-session"
 const APP_SESSION_COOKIE_MAX_AGE = 60 * 60 * 24 * 30
@@ -119,4 +120,30 @@ export async function requireServerAppSession(expectedUserId?: string) {
   }
 
   return session
+}
+
+export async function requireServerAppSessionOrAccessToken(input: {
+  userId?: string | null
+  accessToken?: string | null
+}) {
+  const accessToken = input.accessToken?.trim()
+  if (accessToken) {
+    const supabaseAdmin = getSupabaseAdmin()
+    const {
+      data: { user },
+      error,
+    } = await supabaseAdmin.auth.getUser(accessToken)
+
+    if (error || !user) {
+      throw new Error("Sessao invalida.")
+    }
+
+    if (input.userId && user.id !== input.userId) {
+      throw new Error("Sessao invalida.")
+    }
+
+    return { userId: user.id }
+  }
+
+  return requireServerAppSession(input.userId ?? undefined)
 }

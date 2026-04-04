@@ -1,7 +1,7 @@
 "use server"
 
 import { getSupabaseAdmin } from "@/lib/supabase"
-import { requireServerAppSession } from "@/lib/server-app-session"
+import { requireServerAppSessionOrAccessToken } from "@/lib/server-app-session"
 
 type RealOrderRow = {
   id: string
@@ -15,8 +15,9 @@ type RealOrderRow = {
 export async function loadOrdersForSession(input: {
   userId: string
   accountId?: string | null
+  accessToken?: string | null
 }) {
-  const actor = await requireServerAppSession(input.userId)
+  const actor = await requireServerAppSessionOrAccessToken(input)
   const supabaseAdmin = getSupabaseAdmin()
 
   const { data: profile } = await supabaseAdmin

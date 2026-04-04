@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { getCurrentAppSession } from "@/lib/app-session"
+import { supabase } from "@/lib/supabase"
 import {
   getBankFieldDefinitions,
   type BankAccountDetails,
@@ -85,6 +86,7 @@ export default function WithdrawalsPage() {
       const result = await loadWithdrawalsForSession({
         userId,
         accountId: nextAccountId,
+        accessToken: (await supabase.auth.getSession()).data.session?.access_token ?? null,
       })
 
       if ("error" in result) {
@@ -148,6 +150,7 @@ export default function WithdrawalsPage() {
       accountId,
       currency,
       details: bankAccount,
+      accessToken: (await supabase.auth.getSession()).data.session?.access_token ?? null,
     })
 
     await loadData(sessionUserId, accountId)
@@ -168,6 +171,7 @@ export default function WithdrawalsPage() {
       accountId,
       currency,
       amount,
+      accessToken: (await supabase.auth.getSession()).data.session?.access_token ?? null,
     })
 
     await loadData(sessionUserId, accountId)

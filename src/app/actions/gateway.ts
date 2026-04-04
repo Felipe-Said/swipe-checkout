@@ -3,7 +3,7 @@
 import Whop from "@whop/sdk"
 
 import { getSupabaseAdmin } from "@/lib/supabase"
-import { requireServerAppSession } from "@/lib/server-app-session"
+import { requireServerAppSessionOrAccessToken } from "@/lib/server-app-session"
 
 type SessionRole = "admin" | "user"
 
@@ -82,8 +82,8 @@ function normalizeFeeRate(value: number | string | null | undefined) {
   return Math.min(numeric, 100)
 }
 
-async function resolveSession(input: { userId: string }) {
-  const actor = await requireServerAppSession(input.userId)
+async function resolveSession(input: { userId: string; accessToken?: string | null }) {
+  const actor = await requireServerAppSessionOrAccessToken(input)
   const supabaseAdmin = getSupabaseAdmin()
   const { data: profile } = await supabaseAdmin
     .from("profiles")
@@ -101,8 +101,8 @@ async function resolveSession(input: { userId: string }) {
   }
 }
 
-async function assertAdmin(userId: string) {
-  const { role } = await resolveSession({ userId })
+async function assertAdmin(input: { userId: string; accessToken?: string | null }) {
+  const { role } = await resolveSession(input)
   if (role !== "admin") {
     throw new Error("Apenas admins podem alterar o modo gateway.")
   }
@@ -182,9 +182,10 @@ async function listPayoutMethodsForCompany(input: { apiKey: string; companyId: s
 export async function loadGatewayPageForSession(input: {
   userId: string
   accountId?: string | null
+  accessToken?: string | null
 }): Promise<GatewayPageData | { error: string }> {
   try {
-    const { supabaseAdmin, role } = await resolveSession({ userId: input.userId })
+    const { supabaseAdmin, role } = await resolveSession(input)
     const platform = await readPlatformGatewaySettings()
     const warnings: string[] = []
 
@@ -275,9 +276,13 @@ export async function loadGatewayPageForSession(input: {
   }
 }
 
-export async function saveGatewayModeEnabled(input: { userId: string; enabled: boolean }) {
+export async function saveGatewayModeEnabled(input: {
+  userId: string
+  enabled: boolean
+  accessToken?: string | null
+}) {
   try {
-    await assertAdmin(input.userId)
+    await assertAdmin(input)
     const supabaseAdmin = getSupabaseAdmin()
     const { error } = await supabaseAdmin.from("platform_gateway_settings").upsert(
       {
@@ -306,9 +311,10 @@ export async function saveGatewayAdminConfig(input: {
   whopCompanyId: string
   feeRate: number
   platformCoversFees: boolean
+  accessToken?: string | null
 }) {
   try {
-    await assertAdmin(input.userId)
+    await assertAdmin(input)
     const supabaseAdmin = getSupabaseAdmin()
     const { error } = await supabaseAdmin.from("platform_gateway_settings").upsert(
       {
@@ -334,9 +340,12 @@ export async function saveGatewayAdminConfig(input: {
   }
 }
 
-export async function validateGatewayAdminConfig(input: { userId: string }) {
+export async function validateGatewayAdminConfig(input: {
+  userId: string
+  accessToken?: string | null
+}) {
   try {
-    await assertAdmin(input.userId)
+    await assertAdmin(input)
     const platform = await readPlatformGatewaySettings()
 
     if (!platform.settings.whopApiKey.trim() || !platform.settings.whopCompanyId.trim()) {
@@ -369,9 +378,10 @@ export async function saveGatewayUserConfig(input: {
   payoutMethodId: string
   payoutMethodLabel: string
   autoPayoutEnabled: boolean
+  accessToken?: string | null
 }) {
   try {
-    const { supabaseAdmin, role } = await resolveSession({ userId: input.userId })
+    const { supabaseAdmin, role } = await resolveSession(input)
     if (role !== "user") {
       return { error: "A configuracao de destino de saque e exclusiva do usuario." }
     }
