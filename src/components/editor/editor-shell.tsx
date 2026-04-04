@@ -990,16 +990,17 @@ export function EditorShell() {
         return
       }
 
+      if (result.whop) {
+        updateConfig((prev) => ({ ...prev, whop: result.whop ?? undefined }), {
+          trackHistory: false,
+        })
+      }
+
       if (result?.checkoutId && result.checkoutId !== params?.id) {
         router.replace(withEmbeddedContext(`/app/checkouts/${result.checkoutId}/editor`))
       }
 
-      if (result?.purchaseUrl) {
-        if (result.whop) {
-          updateConfig((prev) => ({ ...prev, whop: result.whop ?? undefined }), {
-            trackHistory: false,
-          })
-        }
+      if (result?.whop || result?.purchaseUrl) {
         toast.success("Checkout publicado na Whop com link real gerado.")
         return
       }

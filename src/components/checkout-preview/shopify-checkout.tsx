@@ -711,6 +711,7 @@ interface CheckoutConfig {
     companyId?: string | null
     publishedAt?: string
     amount?: number
+    redirectUrl?: string | null
   }
 }
 
@@ -3136,7 +3137,9 @@ function PaymentSection({
   hideTitle?: boolean
   variant?: "default" | "daniel"
 }) {
-  const hasRealWhopCheckout = Boolean(config.whop?.purchaseUrl)
+  const hasRealWhopCheckout = Boolean(
+    config.whop?.checkoutConfigurationId || config.whop?.planId || config.whop?.purchaseUrl
+  )
   const hasSelectedWhopAccount = Boolean(config.selectedWhopAccountId)
   const hasEmbeddedSession = Boolean(config.whop?.checkoutConfigurationId || config.whop?.planId)
   const embedControls = useCheckoutEmbedControls()
@@ -3178,7 +3181,7 @@ function PaymentSection({
       locale,
     ]
   )
-  const embedReturnUrl = config.whop?.purchaseUrl ?? undefined
+  const embedReturnUrl = config.whop?.redirectUrl ?? undefined
   const embedThemeOptions = React.useMemo(
     () => ({
       accentColor: config.whopAccentColor,
