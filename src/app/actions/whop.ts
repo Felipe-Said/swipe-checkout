@@ -546,6 +546,52 @@ export async function saveWhopAccountCredentials(input: {
   return { success: true }
 }
 
+export async function clearWhopAccountCredentials(input: {
+  accountId: string
+  userId?: string | null
+  accessToken?: string | null
+}) {
+  if (!input.accountId) {
+    return { error: "Conta operacional nao encontrada." }
+  }
+
+  const { supabaseAdmin } = await assertWhopAccountAccess({
+    accountId: input.accountId,
+    userId: input.userId,
+    accessToken: input.accessToken,
+  })
+
+  const { data: account, error: accountError } = await supabaseAdmin
+    .from("managed_accounts")
+    .select("id")
+    .eq("id", input.accountId)
+    .single()
+
+  if (accountError || !account) {
+    return { error: "Conta operacional nao encontrada." }
+  }
+
+  const { error: updateError } = await supabaseAdmin
+    .from("managed_accounts")
+    .update({
+      whop_key: null,
+      whop_company_id: null,
+      whop_integration_status: "Pendente",
+      whop_last_validation: null,
+      whop_permissions_valid: false,
+      whop_checkout_ready: false,
+      whop_webhook_active: false,
+      whop_environment: null,
+    })
+    .eq("id", input.accountId)
+
+  if (updateError) {
+    return { error: updateError.message }
+  }
+
+  return { success: true }
+}
+
 export async function loadCheckoutsForAccount(input: {
   accountId: string
   userId?: string | null

@@ -4,6 +4,7 @@ import * as React from "react"
 import { useSearchParams } from "next/navigation"
 
 import {
+  clearWhopAccountCredentials,
   loadWhopAccountForSession,
   saveWhopAccountCredentials,
   validateWhopAccount,
@@ -237,6 +238,63 @@ export default function WhopPage() {
     }
   }
 
+  const handleClear = async () => {
+    if (!currentAccount?.whopKey) return
+
+    try {
+      const session = await getCurrentAppSession()
+      const {
+        data: { session: supabaseSession },
+      } = await supabase.auth.getSession()
+
+      const result = await clearWhopAccountCredentials({
+        accountId: currentAccount.id,
+        userId: session?.userId ?? undefined,
+        accessToken: supabaseSession?.access_token ?? null,
+      })
+
+      if (result?.error) {
+        toast.error(result.error)
+        return
+      }
+
+      setAccounts((current) =>
+        current.map((account) =>
+          account.id === currentAccount.id
+            ? {
+                ...account,
+                whopKey: undefined,
+                whopCompanyId: undefined,
+                whopIntegrationStatus: PENDING_STATUS,
+                whopLastValidation: undefined,
+                whopPermissionsValid: false,
+                whopCheckoutReady: false,
+                whopWebhookActive: false,
+                whopEnvironment: SANDBOX_ENV,
+              }
+            : account
+        )
+      )
+
+      setEvents([
+        {
+          id: "clear",
+          timestamp: new Date().toLocaleTimeString(),
+          type: "warning",
+          message: "Chave removida da conta",
+          description:
+            "A credencial atual foi apagada. Salve uma nova chave e valide novamente para reativar a integracao.",
+        },
+      ])
+
+      toast.success("Chave da Whop apagada com sucesso.")
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Nao foi possivel apagar a chave da Whop."
+      toast.error(message)
+    }
+  }
+
   const handleValidate = () => {
     if (isValidating || !currentAccount) return
 
@@ -430,6 +488,7 @@ export default function WhopPage() {
             apiKey={currentAccount.whopKey || ""}
             onKeyChange={handleKeyChange}
             onSave={handleSave}
+            onClear={handleClear}
             isAdmin={sessionRole === "admin"}
             isSaved={!!currentAccount.whopKey}
             isLoading={isValidating}

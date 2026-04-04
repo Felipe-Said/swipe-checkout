@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { KeyRound, ShieldCheck, Mail, User, CheckCircle2, Save } from "lucide-react"
+import { KeyRound, ShieldCheck, Mail, User, Save, Trash2 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -18,6 +18,7 @@ interface WhopCredentialsCardProps {
   apiKey: string
   onKeyChange: (value: string) => void
   onSave: () => void
+  onClear?: () => void
   isLoading?: boolean
   isAdmin?: boolean
   isSaved?: boolean
@@ -30,6 +31,7 @@ export function WhopCredentialsCard({
   apiKey,
   onKeyChange,
   onSave,
+  onClear,
   isLoading = false,
   isAdmin = false,
   isSaved = false
@@ -108,17 +110,32 @@ export function WhopCredentialsCard({
               </div>
            </div>
 
-           <Button 
-             className="w-full h-12 text-lg font-black tracking-tight rounded-xl shadow-lg shadow-primary/20 group relative overflow-hidden" 
-             onClick={onSave}
-             disabled={isLoading || !apiKey}
-           >
-              <span className="relative z-10 flex items-center gap-2">
-                 {isLoading ? "Salvando..." : "Salvar Chave na Conta"}
-                 {!isLoading && <Save className="h-5 w-5 transition-transform group-hover:scale-110" />}
-              </span>
-              <div className="absolute inset-0 bg-gradient-to-r from-primary-foreground/0 via-primary-foreground/10 to-primary-foreground/0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
-           </Button>
+           <div className="grid gap-3 sm:grid-cols-2">
+             <Button 
+               className="h-12 text-lg font-black tracking-tight rounded-xl shadow-lg shadow-primary/20 group relative overflow-hidden" 
+               onClick={onSave}
+               disabled={isLoading || !apiKey}
+             >
+                <span className="relative z-10 flex items-center gap-2">
+                   {isLoading ? "Salvando..." : "Salvar Chave na Conta"}
+                   {!isLoading && <Save className="h-5 w-5 transition-transform group-hover:scale-110" />}
+                </span>
+                <div className="absolute inset-0 bg-gradient-to-r from-primary-foreground/0 via-primary-foreground/10 to-primary-foreground/0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
+             </Button>
+
+             <Button
+               type="button"
+               variant="outline"
+               className="h-12 rounded-xl border-destructive/30 text-destructive hover:bg-destructive/5 hover:text-destructive"
+               onClick={onClear}
+               disabled={isLoading || !apiKey || !onClear}
+             >
+                <span className="flex items-center gap-2">
+                   <Trash2 className="h-4 w-4" />
+                   Apagar Chave Atual
+                </span>
+             </Button>
+           </div>
         </div>
 
         <div className="bg-muted/30 p-4 rounded-2xl border border-dashed border-primary/10 flex items-start gap-4">
