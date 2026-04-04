@@ -83,8 +83,30 @@ async function assertAdmin(userId: string) {
   }
 }
 
-export async function loadAdminCustomersData(input: { userId: string }) {
-  await assertAdmin(input.userId)
+async function assertAdminWithToken(input: {
+  userId: string
+  accessToken?: string | null
+}) {
+  const actor = await requireServerAppSessionOrAccessToken(input)
+  const supabaseAdmin = getSupabaseAdmin()
+  const { data: profile } = await supabaseAdmin
+    .from("profiles")
+    .select("role")
+    .eq("id", actor.userId)
+    .maybeSingle()
+
+  if (profile?.role !== "admin") {
+    throw new Error("Acesso restrito ao admin.")
+  }
+
+  return actor
+}
+
+export async function loadAdminCustomersData(input: {
+  userId: string
+  accessToken?: string | null
+}) {
+  await assertAdminWithToken(input)
 
   const supabaseAdmin = getSupabaseAdmin()
 
@@ -225,6 +247,7 @@ export async function loadAdminCustomersData(input: { userId: string }) {
 
 export async function adminUpdateCustomerAccount(input: {
   userId: string
+  accessToken?: string | null
   accountId: string
     patch: {
       feeRate?: number
@@ -237,7 +260,7 @@ export async function adminUpdateCustomerAccount(input: {
     status?: "Ativa" | "Bloqueada"
   }
 }) {
-  await assertAdmin(input.userId)
+  await assertAdminWithToken(input)
 
   const supabaseAdmin = getSupabaseAdmin()
 
@@ -289,11 +312,12 @@ export async function adminUpdateCustomerAccount(input: {
 
 export async function adminSendSupportMessage(input: {
   userId: string
+  accessToken?: string | null
   accountId: string
   text: string
   imageSrc: string
 }) {
-  await assertAdmin(input.userId)
+  await assertAdminWithToken(input)
 
   const supabaseAdmin = getSupabaseAdmin()
   const { error } = await supabaseAdmin.from("support_messages").insert({
@@ -312,9 +336,10 @@ export async function adminSendSupportMessage(input: {
 
 export async function adminMarkWithdrawalPaid(input: {
   userId: string
+  accessToken?: string | null
   withdrawalId: string
 }) {
-  await assertAdmin(input.userId)
+  await assertAdminWithToken(input)
 
   const supabaseAdmin = getSupabaseAdmin()
   const { error } = await supabaseAdmin
@@ -334,10 +359,11 @@ export async function adminMarkWithdrawalPaid(input: {
 
 export async function adminHandleSignup(input: {
   userId: string
+  accessToken?: string | null
   profileId: string
   nextStatus: "approved" | "rejected"
 }) {
-  await assertAdmin(input.userId)
+  await assertAdminWithToken(input)
 
   const supabaseAdmin = getSupabaseAdmin()
   const { error } = await supabaseAdmin

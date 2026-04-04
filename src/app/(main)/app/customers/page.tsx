@@ -120,7 +120,14 @@ export default function CustomersAdminPage() {
   }, [])
 
   const loadData = React.useCallback(async (userId: string) => {
-    const result = await loadAdminCustomersData({ userId })
+    const {
+      data: { session },
+    } = await supabase.auth.getSession()
+
+    const result = await loadAdminCustomersData({
+      userId,
+      accessToken: session?.access_token ?? null,
+    })
     if (result.error) {
       setLoaded(true)
       return
@@ -270,6 +277,7 @@ export default function CustomersAdminPage() {
 
     await adminUpdateCustomerAccount({
       userId: sessionUserId,
+      accessToken: (await supabase.auth.getSession()).data.session?.access_token ?? null,
       accountId: selectedAccount.id,
       patch,
     })
@@ -317,6 +325,7 @@ export default function CustomersAdminPage() {
 
     await adminSendSupportMessage({
       userId: sessionUserId,
+      accessToken: (await supabase.auth.getSession()).data.session?.access_token ?? null,
       accountId: selectedAccount.id,
       text: chatDraft.trim(),
       imageSrc: chatImage,
@@ -332,6 +341,7 @@ export default function CustomersAdminPage() {
 
     await adminMarkWithdrawalPaid({
       userId: sessionUserId,
+      accessToken: (await supabase.auth.getSession()).data.session?.access_token ?? null,
       withdrawalId,
     })
 
@@ -343,6 +353,7 @@ export default function CustomersAdminPage() {
 
     await adminHandleSignup({
       userId: sessionUserId,
+      accessToken: (await supabase.auth.getSession()).data.session?.access_token ?? null,
       profileId,
       nextStatus,
     })
