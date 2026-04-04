@@ -117,7 +117,7 @@ export function WhopCredentialsCard({
                disabled={isLoading || !apiKey}
              >
                 <span className="relative z-10 flex items-center gap-2">
-                   {isLoading ? "Salvando..." : "Salvar Chave na Conta"}
+                   {isLoading ? "Salvando..." : "Salvar Chave"}
                    {!isLoading && <Save className="h-5 w-5 transition-transform group-hover:scale-110" />}
                 </span>
                 <div className="absolute inset-0 bg-gradient-to-r from-primary-foreground/0 via-primary-foreground/10 to-primary-foreground/0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
