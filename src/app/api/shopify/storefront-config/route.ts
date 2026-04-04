@@ -95,21 +95,52 @@ export async function GET(request: Request) {
   }
 
   const supabaseAdmin = getSupabaseAdmin()
-  const { data: store } = await supabaseAdmin
+  const { data: stores } = await supabaseAdmin
     .from("shopify_stores")
-    .select("id, default_checkout_id, skip_cart_redirect")
+    .select("id, default_checkout_id, skip_cart_redirect, updated_at")
     .eq("shop_domain", shop)
     .in("status", ["Pronta", "Conectada"])
-    .maybeSingle()
+    .order("updated_at", { ascending: false })
+
+  const candidateStores = Array.isArray(stores) ? stores : []
+  const activeCheckoutIds = candidateStores
+    .map((store) => String(store.default_checkout_id || "").trim())
+    .filter(Boolean)
+
+  const { data: activeCheckouts } = activeCheckoutIds.length
+    ? await supabaseAdmin
+        .from("checkouts")
+        .select("id, config")
+        .in("id", activeCheckoutIds)
+        .eq("status", "Ativo")
+    : { data: [] as Array<{ id: string; config: unknown }> }
+
+  const activeCheckoutById = new Map(
+    (activeCheckouts ?? []).map((checkout) => [checkout.id, checkout])
+  )
+
+  const store =
+    candidateStores.find((candidate) =>
+      candidate.default_checkout_id &&
+      activeCheckoutById.has(String(candidate.default_checkout_id))
+    ) ??
+    candidateStores.find((candidate) => Boolean(candidate.default_checkout_id)) ??
+    candidateStores[0] ??
+    null
 
   let checkoutBaseUrl = getAppBaseUrl(request)
 
   if (store?.default_checkout_id) {
-    const { data: checkout } = await supabaseAdmin
-      .from("checkouts")
-      .select("id, config")
-      .eq("id", store.default_checkout_id)
-      .maybeSingle()
+    const checkout =
+      activeCheckoutById.get(String(store.default_checkout_id)) ??
+      (await (async () => {
+        const { data } = await supabaseAdmin
+          .from("checkouts")
+          .select("id, config")
+          .eq("id", store.default_checkout_id)
+          .maybeSingle()
+        return data
+      })())
 
     const selectedDomainId =
       checkout?.config && typeof checkout.config === "object" && !Array.isArray(checkout.config)

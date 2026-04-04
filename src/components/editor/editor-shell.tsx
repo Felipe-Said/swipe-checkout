@@ -27,8 +27,10 @@ import { loadDomainsForSession } from "@/app/actions/domains"
 import { loadManualProductsForSession } from "@/app/actions/products"
 import { loadShippingMethodsForSession } from "@/app/actions/shipping"
 import {
+  loadShopifyProductPreviewForSession,
   loadShopifyStoreOptionsForSession,
   loadShopifyStorePreviewForSession,
+  loadShopifyVariantPreviewForSession,
 } from "@/app/actions/shopify"
 import { cn } from "@/lib/utils"
 import { Input } from "@/components/ui/input"
@@ -600,12 +602,31 @@ export function EditorShell() {
         return
       }
 
-      const result = await loadShopifyStorePreviewForSession({
-        storeId: config.selectedStoreId,
-        accountId: sessionAccountId,
-        userId: sessionUserId,
-        accessToken: (await supabase.auth.getSession()).data.session?.access_token ?? null,
-      })
+      const accessToken = (await supabase.auth.getSession()).data.session?.access_token ?? null
+      const result = config.selectedVariantId
+        ? await loadShopifyVariantPreviewForSession({
+            storeId: config.selectedStoreId,
+            accountId: sessionAccountId,
+            userId: sessionUserId,
+            variantId: config.selectedVariantId,
+            productId: config.selectedProductId || undefined,
+            accessToken,
+          })
+        : config.selectedProductId
+          ? await loadShopifyProductPreviewForSession({
+              storeId: config.selectedStoreId,
+              accountId: sessionAccountId,
+              userId: sessionUserId,
+              productId: config.selectedProductId,
+              variantId: config.selectedVariantId || undefined,
+              accessToken,
+            })
+          : await loadShopifyStorePreviewForSession({
+              storeId: config.selectedStoreId,
+              accountId: sessionAccountId,
+              userId: sessionUserId,
+              accessToken,
+            })
 
       if (result.preview) {
         const selectedStore = stores.find((store) => store.id === config.selectedStoreId)
@@ -628,7 +649,7 @@ export function EditorShell() {
     }
 
     loadStorePreview()
-  }, [config.selectedStoreId, sessionAccountId, sessionUserId, stores, updateConfig])
+  }, [config.selectedProductId, config.selectedStoreId, config.selectedVariantId, sessionAccountId, sessionUserId, stores, updateConfig])
 
   React.useEffect(() => {
     if (!isSwipeManualStore || config.selectedProductId || manualProducts.length === 0) {

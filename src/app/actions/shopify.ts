@@ -997,6 +997,30 @@ export async function loadShopifyStorePreviewForSession(input: {
   return fetchShopifyStorePreview(input)
 }
 
+export async function loadShopifyProductPreviewForSession(input: {
+  storeId: string
+  accountId: string
+  userId: string
+  productId: string
+  variantId?: string
+  accessToken?: string | null
+}) {
+  await assertAccountAccess(input)
+  return fetchShopifyProductPreview(input)
+}
+
+export async function loadShopifyVariantPreviewForSession(input: {
+  storeId: string
+  accountId: string
+  userId: string
+  variantId: string
+  productId?: string
+  accessToken?: string | null
+}) {
+  await assertAccountAccess(input)
+  return fetchShopifyVariantPreview(input)
+}
+
 export async function loadShopifyStoreCatalogForSession(input: {
   storeId: string
   accountId: string

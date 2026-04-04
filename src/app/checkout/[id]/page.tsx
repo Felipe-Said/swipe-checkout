@@ -205,14 +205,15 @@ export default async function PublicCheckoutPage({
           ? await loadShopifyVariantPreviewForPublishing({
               storeId: configuredStoreId,
               accountId: checkout.account_id,
-              variantId,
-              productId,
+              variantId: variantId || configuredVariantId,
+              productId: productId || configuredProductId,
             })
-          : productId
+          : productId || configuredProductId
           ? await loadShopifyProductPreviewForPublishing({
               storeId: configuredStoreId,
               accountId: checkout.account_id,
-              productId,
+              productId: productId || configuredProductId,
+              variantId: variantId || configuredVariantId || undefined,
             })
           : await loadShopifyStorePreviewForPublishing({
               storeId: configuredStoreId,
