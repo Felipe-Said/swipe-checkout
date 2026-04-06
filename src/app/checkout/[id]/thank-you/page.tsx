@@ -1,6 +1,11 @@
 import { headers } from "next/headers"
 import { notFound } from "next/navigation"
 
+import {
+  loadShopifyProductPreviewForPublicCheckout,
+  loadShopifyStorePreviewForPublicCheckout,
+  loadShopifyVariantPreviewForPublicCheckout,
+} from "@/app/actions/shopify"
 import { CheckoutPixelTracker } from "@/components/checkout-preview/checkout-pixel-tracker"
 import { ShopifyCheckout } from "@/components/checkout-preview/shopify-checkout"
 import { getSupabaseAdmin } from "@/lib/supabase"
@@ -67,6 +72,14 @@ export default async function PublicCheckoutThankYouPage({
       : ""
   const shopParam =
     typeof resolvedSearchParams.shop === "string" ? resolvedSearchParams.shop : ""
+  const productId =
+    typeof resolvedSearchParams.product === "string" ? resolvedSearchParams.product : null
+  const variantId =
+    typeof resolvedSearchParams.variant === "string" ? resolvedSearchParams.variant : null
+  const resolvedStoreId =
+    typeof resolvedSearchParams.store === "string" && resolvedSearchParams.store
+      ? resolvedSearchParams.store
+      : selectedStoreId
   const { data: selectedStore } =
     selectedStoreId || shopParam
       ? await supabaseAdmin
@@ -82,20 +95,41 @@ export default async function PublicCheckoutThankYouPage({
           )
           .maybeSingle()
       : { data: null }
+  const resolvedShopifyPreview =
+    resolvedStoreId && variantId
+      ? (await loadShopifyVariantPreviewForPublicCheckout({
+          storeId: resolvedStoreId,
+          variantId,
+          productId: productId ?? undefined,
+        })).preview
+      : resolvedStoreId && productId
+        ? (await loadShopifyProductPreviewForPublicCheckout({
+            storeId: resolvedStoreId,
+            productId,
+            variantId: variantId ?? undefined,
+          })).preview
+        : resolvedStoreId
+          ? (await loadShopifyStorePreviewForPublicCheckout({
+              storeId: resolvedStoreId,
+            })).preview
+          : null
 
   const productName =
-    typeof resolvedSearchParams.product_name === "string"
+    resolvedShopifyPreview?.productName ||
+    (typeof resolvedSearchParams.product_name === "string" &&
+    resolvedSearchParams.product_name !== "Embed acess"
       ? resolvedSearchParams.product_name
       : (typeof (checkout.config as any)?.productName === "string" &&
           (checkout.config as any).productName.trim()) ||
         checkout.name ||
-        "Produto"
+        "Produto")
   const variantLabel =
-    typeof resolvedSearchParams.variant_label === "string"
+    resolvedShopifyPreview?.variantLabel ||
+    (typeof resolvedSearchParams.variant_label === "string"
       ? resolvedSearchParams.variant_label
       : (typeof (checkout.config as any)?.productVariantLabel === "string" &&
           (checkout.config as any).productVariantLabel.trim()) ||
-        "Variante padrao"
+        "Variante padrao")
   const rawAmount =
     typeof resolvedSearchParams.amount === "string"
       ? Number.parseFloat(resolvedSearchParams.amount)
@@ -103,20 +137,21 @@ export default async function PublicCheckoutThankYouPage({
         ? Number((checkout.config as any).productPrice)
         : Number.isFinite((checkout.config as any)?.whop?.amount)
           ? Number((checkout.config as any).whop.amount)
-          : 0
+          : Number.isFinite(resolvedShopifyPreview?.amount)
+            ? Number(resolvedShopifyPreview?.amount)
+            : 0
   const amount = Number.isFinite(rawAmount) ? rawAmount : 0
   const currency =
     typeof resolvedSearchParams.currency === "string"
       ? resolvedSearchParams.currency
+      : resolvedShopifyPreview?.currency
+        ? resolvedShopifyPreview.currency
       : (typeof (checkout.config as any)?.currency === "string"
           ? (checkout.config as any).currency
           : "BRL")
   const imageSrc =
-    typeof resolvedSearchParams.image === "string" ? resolvedSearchParams.image : undefined
-  const productId =
-    typeof resolvedSearchParams.product === "string" ? resolvedSearchParams.product : null
-  const variantId =
-    typeof resolvedSearchParams.variant === "string" ? resolvedSearchParams.variant : null
+    resolvedShopifyPreview?.imageSrc ||
+    (typeof resolvedSearchParams.image === "string" ? resolvedSearchParams.image : undefined)
   const orderId =
     typeof resolvedSearchParams.order_id === "string"
       ? resolvedSearchParams.order_id

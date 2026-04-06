@@ -993,7 +993,7 @@ export async function createPublicWhopCheckoutSession(input: {
       shopifyProductId: input.shopifyProductId,
       shopifyVariantId: input.shopifyVariantId,
       shopDomain: input.shopDomain,
-      productName: input.productName || input.storePreview?.productName || checkoutTitle,
+      productName: checkoutTitle,
       variantLabel:
         input.variantLabel ||
         input.storePreview?.variantLabel ||
