@@ -4,7 +4,7 @@ export type SafePageMember = {
   accessEmail: string
   deliveredAt: string
   status: "delivered"
-  source: "sale" | "demo"
+  source: "members_access"
   logoUrl?: string
 }
 
@@ -37,6 +37,103 @@ function resolveMemberEmailDomain(domainHost?: string | null) {
   return normalized || "safepage.members"
 }
 
+const SAFE_PAGE_FIRST_NAMES = [
+  "Oliver",
+  "George",
+  "Harry",
+  "Jack",
+  "Noah",
+  "Charlie",
+  "Theo",
+  "Arthur",
+  "Henry",
+  "Freddie",
+  "Amelia",
+  "Olivia",
+  "Isla",
+  "Sophia",
+  "Lily",
+  "Emily",
+  "Grace",
+  "Ella",
+  "Ava",
+  "Chloe",
+  "James",
+  "William",
+  "Benjamin",
+  "Lucas",
+  "Mason",
+  "Logan",
+  "Ethan",
+  "Daniel",
+  "Samuel",
+  "Alexander",
+  "Charlotte",
+  "Mia",
+  "Harper",
+  "Evelyn",
+  "Abigail",
+  "Scarlett",
+  "Hannah",
+  "Victoria",
+  "Sophie",
+  "Lucy",
+]
+
+const SAFE_PAGE_LAST_NAMES = [
+  "Bennett",
+  "Thompson",
+  "Carter",
+  "Reed",
+  "Foster",
+  "Morgan",
+  "Parker",
+  "Turner",
+  "Brooks",
+  "Hayes",
+  "Collins",
+  "Walker",
+  "Murphy",
+  "Sullivan",
+  "Cooper",
+  "Mitchell",
+  "Campbell",
+  "Roberts",
+  "Howard",
+  "Bailey",
+  "Ward",
+  "Peterson",
+  "Richardson",
+  "Bell",
+  "Gray",
+  "Powell",
+  "Watson",
+  "Hughes",
+  "Price",
+  "Long",
+]
+
+function buildDemoMemberName(index: number) {
+  const firstName = SAFE_PAGE_FIRST_NAMES[index % SAFE_PAGE_FIRST_NAMES.length]
+  const lastName =
+    SAFE_PAGE_LAST_NAMES[(index * 3 + 7) % SAFE_PAGE_LAST_NAMES.length]
+
+  return `${firstName} ${lastName}`
+}
+
+function buildDemoDeliveredAt(index: number) {
+  const now = new Date()
+  const daysAgo = index % 7
+  const hoursAgo = (index * 5) % 24
+  const minutesAgo = (index * 17) % 60
+  const deliveredDate = new Date(now)
+
+  deliveredDate.setDate(now.getDate() - daysAgo)
+  deliveredDate.setHours(Math.max(8, 20 - hoursAgo), minutesAgo, 0, 0)
+
+  return formatDeliveredAt(deliveredDate.toISOString())
+}
+
 function formatDeliveredAt(value?: string | null) {
   const date = value ? new Date(value) : new Date()
   return new Intl.DateTimeFormat("pt-BR", {
@@ -65,7 +162,7 @@ export function buildSafePageMembers(input: {
         accessEmail: `${localPart}@${emailDomain}`,
         deliveredAt: formatDeliveredAt(order.date),
         status: "delivered" as const,
-        source: "sale" as const,
+        source: "members_access" as const,
         logoUrl: input.logoUrl ?? undefined,
       }
     })
@@ -76,13 +173,16 @@ export function buildSafePageMembers(input: {
 
   return Array.from({ length: total }, (_, index) => {
     const position = index + 1
+    const displayName = buildDemoMemberName(index)
+    const localPart = slugifySegment(displayName) || `${businessSlug}-${position.toString().padStart(3, "0")}`
+
     return {
       id: `demo-${position}`,
-      name: `Cliente ${position.toString().padStart(3, "0")}`,
-      accessEmail: `${businessSlug}-${position.toString().padStart(3, "0")}@${emailDomain}`,
-      deliveredAt: formatDeliveredAt(new Date().toISOString()),
+      name: displayName,
+      accessEmail: `${localPart}@${emailDomain}`,
+      deliveredAt: buildDemoDeliveredAt(index),
       status: "delivered" as const,
-      source: "demo" as const,
+      source: "members_access" as const,
       logoUrl: input.logoUrl ?? undefined,
     }
   })
