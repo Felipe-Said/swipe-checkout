@@ -87,6 +87,8 @@ type WhopManagedAccount = {
   fee_rate: number | null
 }
 
+const WHOP_EMBED_TITLE = "Embed acess"
+
 function getAppBaseUrl() {
   const explicit =
     process.env.NEXT_PUBLIC_APP_URL ||
@@ -132,10 +134,6 @@ function resolveConfiguredCheckoutAmount(config: EditorCheckoutConfig) {
   }
 
   return 0
-}
-
-function resolveConfiguredCheckoutTitle(config: EditorCheckoutConfig, fallback: string) {
-  return (config.productName?.trim() || fallback).slice(0, 30)
 }
 
 function buildThankYouRedirectUrl(
@@ -808,9 +806,7 @@ export async function saveCheckoutFromEditor(input: {
         }
       }
       const checkoutCurrency = storePreview?.currency ?? input.config.currency
-      const checkoutTitle = storePreview?.productName
-        ? storePreview.productName.slice(0, 30)
-        : resolveConfiguredCheckoutTitle(input.config, cleanName)
+      const checkoutTitle = WHOP_EMBED_TITLE
 
       const redirectUrl = buildThankYouRedirectUrl(checkoutId, selectedDomain?.host)
       const sourceUrl = selectedDomain?.host
@@ -952,9 +948,7 @@ export async function createPublicWhopCheckoutSession(input: {
       }
     }
     const checkoutCurrency = input.storePreview?.currency ?? input.config.currency
-    const checkoutTitle = input.storePreview?.productName
-      ? input.storePreview.productName.slice(0, 30)
-      : resolveConfiguredCheckoutTitle(input.config, input.config.companyName?.trim() || "Checkout Swipe")
+    const checkoutTitle = WHOP_EMBED_TITLE
     const returnToken = createWhopReturnToken()
     const redirectUrl = buildThankYouRedirectUrl(input.checkoutId, selectedDomain?.host, {
       return_token: returnToken,
