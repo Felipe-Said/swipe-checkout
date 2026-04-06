@@ -17,6 +17,7 @@ import {
   ChevronRight,
   Truck,
   Package,
+  Shield,
 } from "lucide-react"
 import type { AppSession } from "@/lib/app-session"
 import { useI18n } from "@/lib/i18n"
@@ -215,6 +216,11 @@ export function MainSidebar({
             title: t("nav.whop"),
             url: "/app/whop",
             icon: KeyRound,
+          },
+          {
+            title: t("nav.safe_page"),
+            url: "/app/safe-page",
+            icon: Shield,
           },
         ]
       : []),
