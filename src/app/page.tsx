@@ -16,6 +16,7 @@ export default async function LandingPage() {
         businessName={safePageResult.safePage.businessName}
         logoUrl={safePageResult.safePage.logoUrl || undefined}
         members={safePageResult.safePage.membersPreview}
+        pathname="/"
       />
     )
   }

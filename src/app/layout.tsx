@@ -86,6 +86,7 @@ export default async function RootLayout({
               businessName={safePageResult.safePage?.businessName || "Atelier do Sabor"}
               logoUrl={safePageResult.safePage?.logoUrl || undefined}
               members={safePageResult.safePage?.membersPreview || []}
+              pathname={pathname}
             />
           ) : (
             children
