@@ -819,7 +819,7 @@ export async function saveCheckoutFromEditor(input: {
         metadata: {
           swipeCheckoutId: checkoutId,
           swipeAccountId: input.accountId,
-          swipeCheckoutName: cleanName,
+          swipeCheckoutName: checkoutTitle,
         },
         plan: {
           company_id: whopAccount.whop_company_id,
@@ -960,7 +960,7 @@ export async function createPublicWhopCheckoutSession(input: {
           : input.config.selectedStoreId || null),
       product: input.shopifyProductId || input.config.selectedProductId || null,
       variant: input.shopifyVariantId || input.config.selectedVariantId || null,
-      product_name: input.productName || input.storePreview?.productName || checkoutTitle,
+      product_name: checkoutTitle,
       variant_label:
         input.variantLabel || input.storePreview?.variantLabel || input.config.productVariantLabel || "Variante padrao",
       image: input.imageSrc || input.storePreview?.imageSrc || null,
@@ -1022,8 +1022,7 @@ export async function createPublicWhopCheckoutSession(input: {
         swipeProductId: input.shopifyProductId || input.config.selectedProductId || null,
         swipeVariantId: input.shopifyVariantId || input.config.selectedVariantId || null,
         swipeShopDomain: input.shopDomain || null,
-        swipeProductName:
-          input.productName || input.storePreview?.productName || input.config.productName || checkoutTitle,
+        swipeProductName: checkoutTitle,
         swipeVariantLabel:
           input.variantLabel || input.storePreview?.variantLabel || input.config.productVariantLabel || "Variante padrao",
         swipeProductImage: input.imageSrc || input.storePreview?.imageSrc || null,
