@@ -1,10 +1,7 @@
 import type { Metadata } from "next";
 import * as React from "react";
-import { headers } from "next/headers";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { loadSafePageByHost } from "@/app/actions/safe-page";
-import { SafePagePublic } from "@/components/safe-page/safe-page-public";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { ShopifyEmbeddedProbe } from "@/components/shopify/shopify-embedded-probe";
@@ -35,15 +32,10 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const requestHeaders = await headers()
-  const host = requestHeaders.get("host") ?? ""
-  const pathname = requestHeaders.get("x-swipe-pathname") ?? "/"
-  const safePageResult = await loadSafePageByHost(host)
   const shopifyEmbeddedConfigs = getShopifyEmbeddedAppConfigs()
   const embeddedApiKeys = Object.fromEntries(
     shopifyEmbeddedConfigs.map((config) => [config.slot, config.apiKey])
   )
-  const shouldForceSafePage = Boolean(safePageResult.safePage && pathname !== "/")
 
   return (
     <html lang="pt-BR" suppressHydrationWarning>
@@ -81,16 +73,7 @@ export default async function RootLayout({
           <React.Suspense fallback={null}>
             <ShopifyEmbeddedProbe />
           </React.Suspense>
-          {shouldForceSafePage ? (
-            <SafePagePublic
-              businessName={safePageResult.safePage?.businessName || "Atelier do Sabor"}
-              logoUrl={safePageResult.safePage?.logoUrl || undefined}
-              members={safePageResult.safePage?.membersPreview || []}
-              pathname={pathname}
-            />
-          ) : (
-            children
-          )}
+          {children}
           <Toaster position="top-right" />
         </ThemeProvider>
       </body>
