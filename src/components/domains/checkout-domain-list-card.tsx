@@ -147,6 +147,15 @@ export function DomainListCard({
                 <RefreshCcw className="h-4 w-4" />
               </Button>
 
+              <Button
+                size="icon"
+                variant="outline"
+                className="h-10 w-10 rounded-xl border-destructive/20 text-destructive hover:bg-destructive/5 hover:text-destructive"
+                onClick={() => onDelete(domain.id)}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button size="icon" variant="outline" className="h-10 w-10 rounded-xl border-primary/10">
