@@ -82,6 +82,77 @@
     return normalizeResourceId(selectedVariantId);
   }
 
+  function getComposedPath(event) {
+    if (!event || typeof event.composedPath !== "function") {
+      return [];
+    }
+
+    try {
+      return event.composedPath();
+    } catch (_error) {
+      return [];
+    }
+  }
+
+  function findClosestAddToCartForm(node) {
+    if (!node || typeof node.closest !== "function") {
+      return null;
+    }
+
+    return node.closest('form[action*="/cart/add"]');
+  }
+
+  function findFormFromEvent(event) {
+    if (event && event.target) {
+      var directForm = findClosestAddToCartForm(event.target);
+      if (directForm) return directForm;
+    }
+
+    var eventPath = getComposedPath(event);
+    for (var i = 0; i < eventPath.length; i += 1) {
+      var current = eventPath[i];
+      var matchedForm = findClosestAddToCartForm(current);
+      if (matchedForm) {
+        return matchedForm;
+      }
+    }
+
+    return null;
+  }
+
+  function isDynamicCheckoutTrigger(node) {
+    if (!node || typeof node.matches !== "function") {
+      return false;
+    }
+
+    return node.matches(
+      [
+        "shopify-buy-it-now-button",
+        ".shopify-payment-button__button",
+        ".shopify-payment-button button",
+        "button[class*='shopify-payment-button']",
+        "[data-shopify='payment-button']",
+        "[data-testid='ShopifyPay-button']",
+        "[data-testid='BuyItNow-button']"
+      ].join(",")
+    );
+  }
+
+  function isDynamicCheckoutEvent(event) {
+    if (isDynamicCheckoutTrigger(event && event.target)) {
+      return true;
+    }
+
+    var eventPath = getComposedPath(event);
+    for (var i = 0; i < eventPath.length; i += 1) {
+      if (isDynamicCheckoutTrigger(eventPath[i])) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
   function resolveProductPayload(variantId, currentProductId) {
     var normalizedProductId = normalizeResourceId(currentProductId || productId);
     var normalizedVariantId = normalizeResourceId(variantId);
@@ -204,12 +275,12 @@
       button.addEventListener(
         "click",
         function (event) {
-          var form = button.closest('form[action*="/cart/add"]');
-          if (!form) return;
+          var form = findFormFromEvent(event) || findClosestAddToCartForm(button);
+          if (!form && !isDynamicCheckoutEvent(event)) return;
           redirectToSwipe(
             checkoutUrl,
             event,
-            resolveVariantId(form),
+            resolveVariantId(form || null),
             storeId,
             normalizeResourceId(productId)
           );
