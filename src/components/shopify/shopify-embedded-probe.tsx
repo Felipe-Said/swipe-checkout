@@ -30,6 +30,10 @@ export function ShopifyEmbeddedProbe() {
   const searchParams = useSearchParams()
 
   React.useEffect(() => {
+    if (pathname?.startsWith("/checkout/")) {
+      return
+    }
+
     const isEmbedded =
       hasShopifyEmbeddedParams(searchParams) ||
       (typeof window !== "undefined" && window.top !== window.self)

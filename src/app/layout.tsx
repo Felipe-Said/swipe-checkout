@@ -46,7 +46,27 @@ export default async function RootLayout({
               dangerouslySetInnerHTML={{
                 __html: `
                   (function () {
+                    var pathname = window.location.pathname || "/";
                     var params = new URLSearchParams(window.location.search);
+                    var shouldLoadEmbedded =
+                      pathname === "/login" ||
+                      pathname === "/signup" ||
+                      pathname === "/forgot-password" ||
+                      pathname === "/" ||
+                      pathname === "/app" ||
+                      pathname.indexOf("/app/") === 0 ||
+                      params.get("embedded") === "1" ||
+                      Boolean(params.get("host")) ||
+                      Boolean(params.get("shopify_app"));
+
+                    if (pathname.indexOf("/checkout/") === 0) {
+                      shouldLoadEmbedded = false;
+                    }
+
+                    if (!shouldLoadEmbedded) {
+                      return;
+                    }
+
                     var slot = params.get("shopify_app") === "2" ? "2" : "1";
                     var apiKeys = ${JSON.stringify(embeddedApiKeys)};
                     var apiKey = apiKeys[slot] || apiKeys["1"] || "";
@@ -55,11 +75,17 @@ export default async function RootLayout({
                     meta.name = "shopify-api-key";
                     meta.content = apiKey;
                     document.head.appendChild(meta);
+
+                    if (!document.querySelector('script[data-shopify-app-bridge="true"]')) {
+                      var script = document.createElement("script");
+                      script.src = "https://cdn.shopify.com/shopifycloud/app-bridge.js";
+                      script.setAttribute("data-shopify-app-bridge", "true");
+                      document.head.appendChild(script);
+                    }
                   })();
                 `,
               }}
             />
-            <script src="https://cdn.shopify.com/shopifycloud/app-bridge.js" />
           </>
         ) : null}
       </head>
