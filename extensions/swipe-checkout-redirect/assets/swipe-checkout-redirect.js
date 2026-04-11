@@ -2,7 +2,7 @@
   var configNode = document.getElementById("swipe-checkout-redirect-config");
   if (!configNode) return;
 
-  var appUrl = (configNode.getAttribute("data-app-url") || "").replace(/\/$/, "");
+  var rawAppUrl = configNode.getAttribute("data-app-url") || "";
   var shopDomain = configNode.getAttribute("data-shop-domain") || "";
   var productId = configNode.getAttribute("data-product-id") || "";
   var selectedVariantId = configNode.getAttribute("data-selected-variant-id") || "";
@@ -11,6 +11,23 @@
   var enabled = configNode.getAttribute("data-enabled") !== "false";
   var productDataNode = document.getElementById("swipe-checkout-redirect-product");
   var productData = null;
+
+  function resolveAppBaseUrl(value) {
+    if (!value) return "";
+
+    try {
+      var parsed = new URL(value, window.location.origin);
+      if (!shopifyAppSlot) {
+        shopifyAppSlot = parsed.searchParams.get("shopify_app") || "";
+      }
+
+      return (parsed.origin + parsed.pathname).replace(/\/$/, "");
+    } catch (_error) {
+      return String(value).replace(/[?#].*$/, "").replace(/\/$/, "");
+    }
+  }
+
+  var appUrl = resolveAppBaseUrl(rawAppUrl);
 
   if (productDataNode) {
     try {
