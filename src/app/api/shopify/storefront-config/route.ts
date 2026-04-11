@@ -17,14 +17,27 @@ function buildCorsHeaders(request: Request) {
     : undefined
 }
 
-function getAppBaseUrl(request: Request) {
+function normalizeHost(value: string) {
+  return value.trim().replace(/:\d+$/, "").toLowerCase()
+}
+
+function getAppBaseUrl(request: Request, disallowedHost?: string) {
   const explicit =
     process.env.NEXT_PUBLIC_APP_URL ||
     process.env.NEXT_PUBLIC_SITE_URL ||
     process.env.SITE_URL
 
   if (explicit) {
-    return explicit.replace(/\/$/, "")
+    try {
+      const parsed = new URL(explicit)
+      const explicitHost = normalizeHost(parsed.host)
+
+      if (!disallowedHost || explicitHost !== disallowedHost) {
+        return explicit.replace(/\/$/, "")
+      }
+    } catch {
+      return explicit.replace(/\/$/, "")
+    }
   }
 
   return new URL(request.url).origin
@@ -169,7 +182,7 @@ export async function GET(request: Request) {
     candidateStores[0] ??
     null
 
-  let checkoutBaseUrl = getAppBaseUrl(request)
+  let checkoutBaseUrl = getAppBaseUrl(request, originHost || undefined)
 
   if (store?.default_checkout_id) {
     const checkout =
@@ -218,7 +231,7 @@ export async function GET(request: Request) {
       }
     }
 
-    const normalizedConnectedDomainHost = connectedDomainHost.trim().toLowerCase()
+    const normalizedConnectedDomainHost = normalizeHost(connectedDomainHost)
 
     if (
       normalizedConnectedDomainHost &&
