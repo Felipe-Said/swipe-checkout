@@ -575,6 +575,10 @@ export function EditorShell() {
           const nextConfig: EditorConfig = {
             ...initialConfig,
             ...result.checkout.config,
+            selectedWhopAccountId:
+              (typeof result.checkout.config?.selectedWhopAccountId === "string" &&
+              result.checkout.config.selectedWhopAccountId.trim()) ||
+              (result.checkout.type === "Whop Hosted" ? result.checkout.account_id : ""),
             layoutStyle: resolvedLayoutStyle,
             thankYouLayoutStyle: resolvedThankYouLayoutStyle,
           }

@@ -77,7 +77,7 @@ export default async function PublicCheckoutPage({
 
   const { data: checkout } = await supabaseAdmin
     .from("checkouts")
-    .select("id, account_id, name, status, config")
+    .select("id, account_id, name, status, type, config")
     .eq("id", id)
     .maybeSingle()
 
@@ -119,6 +119,24 @@ export default async function PublicCheckoutPage({
     checkout.config && typeof checkout.config === "object" && !Array.isArray(checkout.config)
       ? checkout.config
       : {}
+  const configuredWhopAccountId =
+    typeof (config as any).selectedWhopAccountId === "string"
+      ? (config as any).selectedWhopAccountId.trim()
+      : ""
+  const savedWhopConfig =
+    (config as any).whop && typeof (config as any).whop === "object" && !Array.isArray((config as any).whop)
+      ? ((config as any).whop as Record<string, unknown>)
+      : null
+  const shouldUseHostedWhop =
+    checkout.type === "Whop Hosted" ||
+    Boolean(
+      configuredWhopAccountId ||
+        savedWhopConfig?.companyId ||
+        savedWhopConfig?.checkoutConfigurationId ||
+        savedWhopConfig?.planId ||
+        savedWhopConfig?.purchaseUrl
+    )
+  const resolvedWhopAccountId = configuredWhopAccountId || (shouldUseHostedWhop ? checkout.account_id : "")
   const configuredStoreId =
     typeof (config as any).selectedStoreId === "string" ? (config as any).selectedStoreId : ""
   const configuredProductId =
@@ -239,6 +257,7 @@ export default async function PublicCheckoutPage({
     accountId: checkout.account_id,
     config: {
       ...(config as any),
+      selectedWhopAccountId: resolvedWhopAccountId,
       selectedStoreId: configuredStoreId || storeIdFromRedirect,
       selectedProductId: configuredProductId || productId,
       selectedVariantId: configuredVariantId || variantId,
@@ -258,8 +277,10 @@ export default async function PublicCheckoutPage({
     currency: currencyFromRedirect ?? null,
   })
 
-  const hasSelectedWhopAccount = Boolean((config as any).selectedWhopAccountId)
-  const liveWhopConfig = hasSelectedWhopAccount ? whopSessionResult.whop ?? null : (config as any).whop
+  const hasSelectedWhopAccount = Boolean(resolvedWhopAccountId)
+  const liveWhopConfig =
+    whopSessionResult.whop ??
+    ((config as any).whop && typeof (config as any).whop === "object" ? (config as any).whop : null)
 
   if (hasSelectedWhopAccount && (!liveWhopConfig?.purchaseUrl || whopSessionResult.error)) {
     return (
@@ -286,6 +307,7 @@ export default async function PublicCheckoutPage({
 
   const checkoutConfigWithLiveWhop = {
     ...(config as any),
+    selectedWhopAccountId: resolvedWhopAccountId,
     selectedStoreId: configuredStoreId || storeIdFromRedirect,
     selectedProductId: configuredProductId || productId,
     selectedVariantId: configuredVariantId || variantId,
