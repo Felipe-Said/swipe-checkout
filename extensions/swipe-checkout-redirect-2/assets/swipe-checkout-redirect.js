@@ -216,7 +216,6 @@
     }
     var resolvedPayload = resolveProductPayload(variantId, currentProductId);
     var nextUrl = new URL(url, window.location.origin);
-    nextUrl.searchParams.set("shop", shopDomain);
     if (storeId) {
       nextUrl.searchParams.set("store", String(storeId));
     }

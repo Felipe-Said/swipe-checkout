@@ -952,7 +952,6 @@ export async function createPublicWhopCheckoutSession(input: {
     const returnToken = createWhopReturnToken()
     const redirectUrl = buildThankYouRedirectUrl(input.checkoutId, selectedDomain?.host, {
       return_token: returnToken,
-      shop: input.shopDomain || null,
       store:
         input.shopifyStoreId ||
         (hasRealShopifyStoreId(input.config.selectedStoreId)

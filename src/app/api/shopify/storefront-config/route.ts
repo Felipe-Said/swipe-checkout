@@ -243,7 +243,7 @@ export async function GET(request: Request) {
   }
 
   const checkoutUrl = store?.default_checkout_id
-    ? `${checkoutBaseUrl}/checkout/${store.default_checkout_id}?shop=${encodeURIComponent(shop)}&store=${encodeURIComponent(store.id)}`
+    ? `${checkoutBaseUrl}/checkout/${store.default_checkout_id}?store=${encodeURIComponent(store.id)}`
     : ""
 
   return NextResponse.json(
