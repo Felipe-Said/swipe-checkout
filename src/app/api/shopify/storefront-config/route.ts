@@ -30,6 +30,19 @@ function getAppBaseUrl(request: Request) {
   return new URL(request.url).origin
 }
 
+function getOriginHost(request: Request) {
+  const originHeader = request.headers.get("origin")?.trim()
+  if (!originHeader) {
+    return ""
+  }
+
+  try {
+    return new URL(originHeader).host.replace(/:\d+$/, "").toLowerCase()
+  } catch {
+    return ""
+  }
+}
+
 function resolveShopifyAppClientId(slot: string | null) {
   if (slot === "2") {
     return (
@@ -100,6 +113,7 @@ export async function GET(request: Request) {
   const shop = searchParams.get("shop")?.trim().toLowerCase()
   const shopifyAppSlot = searchParams.get("shopify_app")?.trim() || null
   const corsHeaders = buildCorsHeaders(request)
+  const originHost = getOriginHost(request)
 
   if (!shop) {
     return NextResponse.json(
@@ -204,8 +218,14 @@ export async function GET(request: Request) {
       }
     }
 
-    if (connectedDomainHost && (await isVercelDomainVerified(connectedDomainHost))) {
-      checkoutBaseUrl = `https://${connectedDomainHost}`
+    const normalizedConnectedDomainHost = connectedDomainHost.trim().toLowerCase()
+
+    if (
+      normalizedConnectedDomainHost &&
+      normalizedConnectedDomainHost !== originHost &&
+      (await isVercelDomainVerified(normalizedConnectedDomainHost))
+    ) {
+      checkoutBaseUrl = `https://${normalizedConnectedDomainHost}`
     }
   }
 
