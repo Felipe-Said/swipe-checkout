@@ -56,6 +56,24 @@ function getOriginHost(request: Request) {
   }
 }
 
+function getSourceStorefrontHost(request: Request) {
+  const originHost = getOriginHost(request)
+  if (originHost) {
+    return originHost
+  }
+
+  const refererHeader = request.headers.get("referer")?.trim()
+  if (!refererHeader) {
+    return ""
+  }
+
+  try {
+    return new URL(refererHeader).host.replace(/:\d+$/, "").toLowerCase()
+  } catch {
+    return ""
+  }
+}
+
 function resolveShopifyAppClientId(slot: string | null) {
   if (slot === "2") {
     return (
@@ -126,7 +144,7 @@ export async function GET(request: Request) {
   const shop = searchParams.get("shop")?.trim().toLowerCase()
   const shopifyAppSlot = searchParams.get("shopify_app")?.trim() || null
   const corsHeaders = buildCorsHeaders(request)
-  const originHost = getOriginHost(request)
+  const sourceStorefrontHost = getSourceStorefrontHost(request)
 
   if (!shop) {
     return NextResponse.json(
@@ -182,7 +200,7 @@ export async function GET(request: Request) {
     candidateStores[0] ??
     null
 
-  let checkoutBaseUrl = getAppBaseUrl(request, originHost || undefined)
+  let checkoutBaseUrl = getAppBaseUrl(request, sourceStorefrontHost || undefined)
 
   if (store?.default_checkout_id) {
     const checkout =
@@ -235,7 +253,7 @@ export async function GET(request: Request) {
 
     if (
       normalizedConnectedDomainHost &&
-      normalizedConnectedDomainHost !== originHost &&
+      normalizedConnectedDomainHost !== sourceStorefrontHost &&
       (await isVercelDomainVerified(normalizedConnectedDomainHost))
     ) {
       checkoutBaseUrl = `https://${normalizedConnectedDomainHost}`
