@@ -127,16 +127,32 @@ export default async function PublicCheckoutPage({
     (config as any).whop && typeof (config as any).whop === "object" && !Array.isArray((config as any).whop)
       ? ((config as any).whop as Record<string, unknown>)
       : null
+  const savedWhopCompanyId =
+    typeof savedWhopConfig?.companyId === "string" ? savedWhopConfig.companyId.trim() : ""
+  const inferredWhopAccountId =
+    !configuredWhopAccountId && savedWhopCompanyId
+      ? (
+          await supabaseAdmin
+            .from("managed_accounts")
+            .select("id")
+            .eq("whop_company_id", savedWhopCompanyId)
+            .maybeSingle()
+        ).data?.id ?? ""
+      : ""
   const shouldUseHostedWhop =
     checkout.type === "Whop Hosted" ||
     Boolean(
       configuredWhopAccountId ||
+        inferredWhopAccountId ||
         savedWhopConfig?.companyId ||
         savedWhopConfig?.checkoutConfigurationId ||
         savedWhopConfig?.planId ||
         savedWhopConfig?.purchaseUrl
     )
-  const resolvedWhopAccountId = configuredWhopAccountId || (shouldUseHostedWhop ? checkout.account_id : "")
+  const resolvedWhopAccountId =
+    configuredWhopAccountId ||
+    inferredWhopAccountId ||
+    (shouldUseHostedWhop ? checkout.account_id : "")
   const configuredStoreId =
     typeof (config as any).selectedStoreId === "string" ? (config as any).selectedStoreId : ""
   const configuredProductId =

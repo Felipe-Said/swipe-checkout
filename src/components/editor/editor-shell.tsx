@@ -560,25 +560,32 @@ export function EditorShell() {
         })
 
         if (result.checkout) {
-          setCheckoutName(result.checkout.name)
+          const loadedCheckout = result.checkout
+          setCheckoutName(loadedCheckout.name)
           const resolvedLayoutStyle =
-            result.checkout.config?.layoutStyle === "daniel" ||
-            result.checkout.config?.layoutStyle === "classic"
-              ? result.checkout.config.layoutStyle
+            loadedCheckout.config?.layoutStyle === "daniel" ||
+            loadedCheckout.config?.layoutStyle === "classic"
+              ? loadedCheckout.config.layoutStyle
               : "classic"
           const resolvedThankYouLayoutStyle =
-            result.checkout.config?.thankYouLayoutStyle === "shopsfi" ||
-            result.checkout.config?.thankYouLayoutStyle === "default"
-              ? result.checkout.config.thankYouLayoutStyle
+            loadedCheckout.config?.thankYouLayoutStyle === "shopsfi" ||
+            loadedCheckout.config?.thankYouLayoutStyle === "default"
+              ? loadedCheckout.config.thankYouLayoutStyle
               : "default"
 
+          const resolvedWhopAccountId =
+            (typeof loadedCheckout.config?.selectedWhopAccountId === "string" &&
+              loadedCheckout.config.selectedWhopAccountId.trim()) ||
+            availableWhopAccounts.find(
+              (account) =>
+                account.whopCompanyId &&
+                account.whopCompanyId === loadedCheckout.config?.whop?.companyId
+            )?.id ||
+            (loadedCheckout.type === "Whop Hosted" ? loadedCheckout.account_id : "")
           const nextConfig: EditorConfig = {
             ...initialConfig,
-            ...result.checkout.config,
-            selectedWhopAccountId:
-              (typeof result.checkout.config?.selectedWhopAccountId === "string" &&
-              result.checkout.config.selectedWhopAccountId.trim()) ||
-              (result.checkout.type === "Whop Hosted" ? result.checkout.account_id : ""),
+            ...loadedCheckout.config,
+            selectedWhopAccountId: resolvedWhopAccountId,
             layoutStyle: resolvedLayoutStyle,
             thankYouLayoutStyle: resolvedThankYouLayoutStyle,
           }
