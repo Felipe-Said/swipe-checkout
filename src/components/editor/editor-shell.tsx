@@ -581,7 +581,9 @@ export function EditorShell() {
                 account.whopCompanyId &&
                 account.whopCompanyId === loadedCheckout.config?.whop?.companyId
             )?.id ||
-            (loadedCheckout.type === "Whop Hosted" ? loadedCheckout.account_id : "")
+            (loadedCheckout.type === "Whop Hosted" ? loadedCheckout.account_id : "") ||
+            availableWhopAccounts[0]?.id ||
+            ""
           const nextConfig: EditorConfig = {
             ...initialConfig,
             ...loadedCheckout.config,
@@ -600,6 +602,28 @@ export function EditorShell() {
     loadEditorData()
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params?.id])
+
+  React.useEffect(() => {
+    if (whopAccounts.length === 0) {
+      return
+    }
+
+    const hasCurrentWhopAccount = whopAccounts.some(
+      (account) => account.id === config.selectedWhopAccountId
+    )
+
+    if (hasCurrentWhopAccount) {
+      return
+    }
+
+    updateConfig(
+      (prev) => ({
+        ...prev,
+        selectedWhopAccountId: whopAccounts[0]?.id ?? "",
+      }),
+      { trackHistory: false }
+    )
+  }, [config.selectedWhopAccountId, updateConfig, whopAccounts])
 
   React.useEffect(() => {
     async function loadStorePreview() {
@@ -1863,6 +1887,7 @@ export function EditorShell() {
                       onChange={(e) => handleUpdate("selectedWhopAccountId", e.target.value)}
                       className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                     >
+                      <option value="">Selecione uma conta Whop</option>
                       {whopAccounts.map((account) => (
                         <option key={account.id} value={account.id}>
                           {account.name} ({account.email})
