@@ -597,6 +597,12 @@ export function EditorShell() {
             ? availableWhopAccounts.find((account) => account.id === savedWhopAccountId) ?? null
             : null
           const resolvedWhopAccountId =
+            (explicitlySelectedWhopAccount &&
+            (!savedWhopCompanyId ||
+              normalizeOptionalText(explicitlySelectedWhopAccount.whopCompanyId) ===
+                savedWhopCompanyId)
+              ? explicitlySelectedWhopAccount.id
+              : "") ||
             companyMatchedWhopAccount?.id ||
             explicitlySelectedWhopAccount?.id ||
             (loadedCheckout.type === "Whop Hosted" ? loadedCheckout.account_id : "") ||
@@ -641,8 +647,13 @@ export function EditorShell() {
         ) ?? null
       : null
 
+    const hasCurrentWhopAccount = whopAccounts.some(
+      (account) => account.id === config.selectedWhopAccountId
+    )
+
     if (
       companyMatchedWhopAccount &&
+      (!config.selectedWhopAccountId || !hasCurrentWhopAccount) &&
       companyMatchedWhopAccount.id !== config.selectedWhopAccountId
     ) {
       updateConfig(
@@ -660,10 +671,6 @@ export function EditorShell() {
       )
       return
     }
-
-    const hasCurrentWhopAccount = whopAccounts.some(
-      (account) => account.id === config.selectedWhopAccountId
-    )
 
     if (hasCurrentWhopAccount) {
       return
@@ -853,6 +860,37 @@ export function EditorShell() {
         ...prev,
         selectedVariantId: String(value),
         selectedStoreId: prev.selectedProductId ? SWIPE_MANUAL_STORE_ID : prev.selectedStoreId,
+      }))
+      return
+    }
+
+    if (key === "selectedWhopAccountId") {
+      const nextAccountId = String(value)
+      const nextWhopAccount =
+        whopAccounts.find((account) => account.id === nextAccountId) ?? null
+
+      updateConfig((prev) => ({
+        ...prev,
+        selectedWhopAccountId: nextAccountId,
+        whop: prev.whop
+          ? {
+              ...prev.whop,
+              companyId: nextWhopAccount?.whopCompanyId ?? null,
+              checkoutConfigurationId: null,
+              planId: null,
+              purchaseUrl: null,
+              publishedAt: undefined,
+              amount: undefined,
+              returnToken: null,
+              publicSessionSignature: null,
+              redirectUrl: null,
+              sourceUrl: null,
+            }
+          : nextWhopAccount?.whopCompanyId
+            ? {
+                companyId: nextWhopAccount.whopCompanyId,
+              }
+            : undefined,
       }))
       return
     }

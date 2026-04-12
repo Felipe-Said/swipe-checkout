@@ -183,11 +183,13 @@ async function resolvePublishingWhopAccount(
     selectedWhopAccountId?: string | null
     checkoutAccountId?: string | null
     savedCompanyId?: string | null
+    preferSelectedAccount?: boolean
   }
 ) {
   const selectedWhopAccountId = normalizeOptionalText(input.selectedWhopAccountId)
   const checkoutAccountId = normalizeOptionalText(input.checkoutAccountId)
   const savedCompanyId = normalizeOptionalText(input.savedCompanyId)
+  const preferSelectedAccount = input.preferSelectedAccount === true
   const candidateIds = Array.from(
     new Set([selectedWhopAccountId, checkoutAccountId].filter(Boolean))
   )
@@ -227,16 +229,22 @@ async function resolvePublishingWhopAccount(
   const checkoutAccount =
     candidateAccounts.find((account) => account.id === checkoutAccountId) ?? null
 
-  const resolvedAccount =
-    companyMatchedAccount ??
-    selectedAccount ??
-    checkoutAccount ??
+  const fallbackCandidate =
     candidateAccounts.find(
       (account) =>
         normalizeOptionalText(account.whop_key) &&
         normalizeOptionalText(account.whop_company_id)
-    ) ??
-    null
+    ) ?? null
+
+  const resolvedAccount = preferSelectedAccount
+    ? selectedAccount ??
+      companyMatchedAccount ??
+      checkoutAccount ??
+      fallbackCandidate
+    : companyMatchedAccount ??
+      selectedAccount ??
+      checkoutAccount ??
+      fallbackCandidate
 
   if (!resolvedAccount) {
     return {
@@ -858,6 +866,7 @@ export async function saveCheckoutFromEditor(input: {
       selectedWhopAccountId: input.config.selectedWhopAccountId,
       checkoutAccountId: input.accountId,
       savedCompanyId: input.config.whop?.companyId ?? null,
+      preferSelectedAccount: true,
     })
     const whopAccount = resolvedWhopAccountResult.account
 
