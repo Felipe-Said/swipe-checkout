@@ -384,6 +384,14 @@ const upsellSelections = {
   ],
 } as const
 
+function normalizeOptionalText(value?: string | null) {
+  if (typeof value !== "string") {
+    return ""
+  }
+
+  return value.trim()
+}
+
 export function EditorShell() {
   const params = useParams<{ id: string }>()
   const router = useRouter()
@@ -573,14 +581,24 @@ export function EditorShell() {
               ? loadedCheckout.config.thankYouLayoutStyle
               : "default"
 
+          const savedWhopCompanyId = normalizeOptionalText(
+            loadedCheckout.config?.whop?.companyId
+          )
+          const savedWhopAccountId = normalizeOptionalText(
+            loadedCheckout.config?.selectedWhopAccountId
+          )
+          const companyMatchedWhopAccount = savedWhopCompanyId
+            ? availableWhopAccounts.find(
+                (account) =>
+                  normalizeOptionalText(account.whopCompanyId) === savedWhopCompanyId
+              ) ?? null
+            : null
+          const explicitlySelectedWhopAccount = savedWhopAccountId
+            ? availableWhopAccounts.find((account) => account.id === savedWhopAccountId) ?? null
+            : null
           const resolvedWhopAccountId =
-            (typeof loadedCheckout.config?.selectedWhopAccountId === "string" &&
-              loadedCheckout.config.selectedWhopAccountId.trim()) ||
-            availableWhopAccounts.find(
-              (account) =>
-                account.whopCompanyId &&
-                account.whopCompanyId === loadedCheckout.config?.whop?.companyId
-            )?.id ||
+            companyMatchedWhopAccount?.id ||
+            explicitlySelectedWhopAccount?.id ||
             (loadedCheckout.type === "Whop Hosted" ? loadedCheckout.account_id : "") ||
             availableWhopAccounts[0]?.id ||
             ""
@@ -588,6 +606,14 @@ export function EditorShell() {
             ...initialConfig,
             ...loadedCheckout.config,
             selectedWhopAccountId: resolvedWhopAccountId,
+            whop: loadedCheckout.config?.whop
+              ? {
+                  ...loadedCheckout.config.whop,
+                  companyId:
+                    companyMatchedWhopAccount?.whopCompanyId ||
+                    loadedCheckout.config.whop.companyId,
+                }
+              : loadedCheckout.config?.whop,
             layoutStyle: resolvedLayoutStyle,
             thankYouLayoutStyle: resolvedThankYouLayoutStyle,
           }
@@ -605,6 +631,33 @@ export function EditorShell() {
 
   React.useEffect(() => {
     if (whopAccounts.length === 0) {
+      return
+    }
+
+    const savedWhopCompanyId = normalizeOptionalText(config.whop?.companyId)
+    const companyMatchedWhopAccount = savedWhopCompanyId
+      ? whopAccounts.find(
+          (account) => normalizeOptionalText(account.whopCompanyId) === savedWhopCompanyId
+        ) ?? null
+      : null
+
+    if (
+      companyMatchedWhopAccount &&
+      companyMatchedWhopAccount.id !== config.selectedWhopAccountId
+    ) {
+      updateConfig(
+        (prev) => ({
+          ...prev,
+          selectedWhopAccountId: companyMatchedWhopAccount.id,
+          whop: prev.whop
+            ? {
+                ...prev.whop,
+                companyId: companyMatchedWhopAccount.whopCompanyId ?? prev.whop.companyId,
+              }
+            : prev.whop,
+        }),
+        { trackHistory: false }
+      )
       return
     }
 
@@ -1016,7 +1069,18 @@ export function EditorShell() {
         checkoutId: typeof params?.id === "string" ? params.id : "new",
         accountId: sessionAccountId,
         name: checkoutName,
-        config,
+        config: {
+          ...config,
+          selectedWhopAccountId:
+            config.selectedWhopAccountId ||
+            (normalizeOptionalText(config.whop?.companyId)
+              ? whopAccounts.find(
+                  (account) =>
+                    normalizeOptionalText(account.whopCompanyId) ===
+                    normalizeOptionalText(config.whop?.companyId)
+                )?.id ?? config.selectedWhopAccountId
+              : config.selectedWhopAccountId),
+        },
         accessToken: supabaseSession?.access_token || "",
       })
 

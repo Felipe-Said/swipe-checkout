@@ -87,6 +87,16 @@ type WhopManagedAccount = {
   fee_rate: number | null
 }
 
+type PublishingWhopAccount = Pick<
+  WhopManagedAccount,
+  | "id"
+  | "whop_key"
+  | "whop_company_id"
+  | "whop_permissions_valid"
+  | "whop_checkout_ready"
+  | "whop_integration_status"
+>
+
 const WHOP_EMBED_TITLE = "Embed acess"
 
 function getAppBaseUrl() {
@@ -157,6 +167,110 @@ function buildThankYouRedirectUrl(
 
 function createWhopReturnToken() {
   return crypto.randomUUID()
+}
+
+function normalizeOptionalText(value?: string | null) {
+  if (typeof value !== "string") {
+    return ""
+  }
+
+  return value.trim()
+}
+
+async function resolvePublishingWhopAccount(
+  supabaseAdmin: ReturnType<typeof getSupabaseAdmin>,
+  input: {
+    selectedWhopAccountId?: string | null
+    checkoutAccountId?: string | null
+    savedCompanyId?: string | null
+  }
+) {
+  const selectedWhopAccountId = normalizeOptionalText(input.selectedWhopAccountId)
+  const checkoutAccountId = normalizeOptionalText(input.checkoutAccountId)
+  const savedCompanyId = normalizeOptionalText(input.savedCompanyId)
+  const candidateIds = Array.from(
+    new Set([selectedWhopAccountId, checkoutAccountId].filter(Boolean))
+  )
+
+  let companyMatchedAccount: PublishingWhopAccount | null = null
+  if (savedCompanyId) {
+    const { data: companyMatches } = await supabaseAdmin
+      .from("managed_accounts")
+      .select(
+        "id, whop_key, whop_company_id, whop_permissions_valid, whop_checkout_ready, whop_integration_status"
+      )
+      .eq("whop_company_id", savedCompanyId)
+      .limit(5)
+
+    companyMatchedAccount =
+      ((companyMatches ?? []) as PublishingWhopAccount[]).find(
+        (account) =>
+          normalizeOptionalText(account.whop_key) &&
+          normalizeOptionalText(account.whop_company_id) === savedCompanyId
+      ) ?? null
+  }
+
+  let candidateAccounts: PublishingWhopAccount[] = []
+  if (candidateIds.length > 0) {
+    const { data: candidates } = await supabaseAdmin
+      .from("managed_accounts")
+      .select(
+        "id, whop_key, whop_company_id, whop_permissions_valid, whop_checkout_ready, whop_integration_status"
+      )
+      .in("id", candidateIds)
+
+    candidateAccounts = (candidates ?? []) as PublishingWhopAccount[]
+  }
+
+  const selectedAccount =
+    candidateAccounts.find((account) => account.id === selectedWhopAccountId) ?? null
+  const checkoutAccount =
+    candidateAccounts.find((account) => account.id === checkoutAccountId) ?? null
+
+  const resolvedAccount =
+    companyMatchedAccount ??
+    selectedAccount ??
+    checkoutAccount ??
+    candidateAccounts.find(
+      (account) =>
+        normalizeOptionalText(account.whop_key) &&
+        normalizeOptionalText(account.whop_company_id)
+    ) ??
+    null
+
+  if (!resolvedAccount) {
+    return {
+      account: null,
+      error: "A conta Whop selecionada ainda nao esta validada.",
+    }
+  }
+
+  if (
+    !normalizeOptionalText(resolvedAccount.whop_key) ||
+    !normalizeOptionalText(resolvedAccount.whop_company_id)
+  ) {
+    return {
+      account: null,
+      error: "A conta Whop selecionada ainda nao esta validada.",
+    }
+  }
+
+  const integrationStatus = normalizeOptionalText(resolvedAccount.whop_integration_status)
+  const isValidated =
+    resolvedAccount.whop_permissions_valid === true || integrationStatus === "Pronto"
+
+  if (!isValidated) {
+    return {
+      account: null,
+      error:
+        "A conta Whop selecionada precisa ser validada novamente antes de abrir este checkout.",
+    }
+  }
+
+  return {
+    account: resolvedAccount,
+    error: null,
+  }
 }
 
 function buildPublicWhopSessionSignature(input: {
@@ -740,18 +854,32 @@ export async function saveCheckoutFromEditor(input: {
   let publishedWhopConfig: EditorCheckoutConfig["whop"] | null = null
 
   if (input.config.selectedWhopAccountId) {
-    const { data: whopAccount, error: whopAccountError } = await supabaseAdmin
-      .from("managed_accounts")
-      .select("id, whop_key, whop_company_id, whop_checkout_ready")
-      .eq("id", input.config.selectedWhopAccountId)
-      .single()
+    const resolvedWhopAccountResult = await resolvePublishingWhopAccount(supabaseAdmin, {
+      selectedWhopAccountId: input.config.selectedWhopAccountId,
+      checkoutAccountId: input.accountId,
+      savedCompanyId: input.config.whop?.companyId ?? null,
+    })
+    const whopAccount = resolvedWhopAccountResult.account
 
-    if (whopAccountError || !whopAccount?.whop_key || !whopAccount?.whop_company_id) {
+    if (!whopAccount) {
       return {
-        error: "A conta Whop selecionada ainda nao esta validada.",
+        error:
+          resolvedWhopAccountResult.error ||
+          "A conta Whop selecionada ainda nao esta validada.",
         checkoutId,
       }
     }
+
+    currentConfig = {
+      ...currentConfig,
+      selectedWhopAccountId: whopAccount.id,
+      whop: {
+        ...currentConfig.whop,
+        companyId: whopAccount.whop_company_id,
+      },
+    }
+    const whopApiKey = normalizeOptionalText(whopAccount.whop_key)
+    const whopCompanyId = normalizeOptionalText(whopAccount.whop_company_id)
 
     try {
       const { data: selectedDomain } = input.config.selectedDomainId
@@ -812,7 +940,7 @@ export async function saveCheckoutFromEditor(input: {
       const sourceUrl = selectedDomain?.host
         ? `https://${selectedDomain.host.replace(/^https?:\/\//, "")}`
         : `${getAppBaseUrl()}/app/checkouts/${checkoutId}/editor`
-      const client = new Whop({ apiKey: whopAccount.whop_key })
+      const client = new Whop({ apiKey: whopApiKey })
       const checkoutConfiguration = await client.checkoutConfigurations.create({
         redirect_url: redirectUrl,
         source_url: sourceUrl,
@@ -822,7 +950,7 @@ export async function saveCheckoutFromEditor(input: {
           swipeCheckoutName: checkoutTitle,
         },
         plan: {
-          company_id: whopAccount.whop_company_id,
+          company_id: whopCompanyId,
           currency: normalizeWhopCurrency(checkoutCurrency),
           plan_type: "one_time",
           initial_price: checkoutAmount,
@@ -835,7 +963,7 @@ export async function saveCheckoutFromEditor(input: {
         checkoutConfigurationId: checkoutConfiguration.id,
         planId: checkoutConfiguration.plan?.id ?? null,
         purchaseUrl: checkoutConfiguration.purchase_url,
-        companyId: checkoutConfiguration.company_id ?? whopAccount.whop_company_id,
+        companyId: checkoutConfiguration.company_id ?? whopCompanyId,
         publishedAt: new Date().toISOString(),
         amount: checkoutAmount,
         returnToken: null,
@@ -867,7 +995,7 @@ export async function saveCheckoutFromEditor(input: {
         .update({
           whop_checkout_ready: true,
         })
-        .eq("id", input.config.selectedWhopAccountId)
+        .eq("id", whopAccount.id)
     } catch (error) {
       return {
         error:
@@ -904,7 +1032,15 @@ export async function createPublicWhopCheckoutSession(input: {
   currency?: string | null
   amount?: number | null
 }) {
-  if (!input.config.selectedWhopAccountId) {
+  const shouldResolveHostedWhop = Boolean(
+    normalizeOptionalText(input.config.selectedWhopAccountId) ||
+      normalizeOptionalText(input.config.whop?.companyId) ||
+      normalizeOptionalText(input.config.whop?.checkoutConfigurationId) ||
+      normalizeOptionalText(input.config.whop?.planId) ||
+      normalizeOptionalText(input.config.whop?.purchaseUrl)
+  )
+
+  if (!shouldResolveHostedWhop) {
     return { whop: input.config.whop ?? null }
   }
 
@@ -919,15 +1055,22 @@ export async function createPublicWhopCheckoutSession(input: {
   }
 
   const supabaseAdmin = getSupabaseAdmin()
-  const { data: whopAccount, error: whopAccountError } = await supabaseAdmin
-    .from("managed_accounts")
-    .select("id, whop_key, whop_company_id")
-    .eq("id", input.config.selectedWhopAccountId)
-    .single()
+  const resolvedWhopAccountResult = await resolvePublishingWhopAccount(supabaseAdmin, {
+    selectedWhopAccountId: input.config.selectedWhopAccountId,
+    checkoutAccountId: input.accountId,
+    savedCompanyId: input.config.whop?.companyId ?? null,
+  })
+  const whopAccount = resolvedWhopAccountResult.account
 
-  if (whopAccountError || !whopAccount?.whop_key || !whopAccount?.whop_company_id) {
-    return { error: "A conta Whop selecionada ainda nao esta validada." }
+  if (!whopAccount) {
+    return {
+      error:
+        resolvedWhopAccountResult.error ||
+        "A conta Whop selecionada ainda nao esta validada.",
+    }
   }
+  const whopApiKey = normalizeOptionalText(whopAccount.whop_key)
+  const whopCompanyId = normalizeOptionalText(whopAccount.whop_company_id)
 
   try {
     const { data: selectedDomain } = input.config.selectedDomainId
@@ -983,7 +1126,7 @@ export async function createPublicWhopCheckoutSession(input: {
       : `${getAppBaseUrl()}/checkout/${input.checkoutId}`
     const sessionSignature = buildPublicWhopSessionSignature({
       checkoutId: input.checkoutId,
-      selectedWhopAccountId: input.config.selectedWhopAccountId,
+      selectedWhopAccountId: whopAccount.id,
       selectedDomainId: input.config.selectedDomainId,
       selectedStoreId: input.config.selectedStoreId,
       selectedProductId: input.config.selectedProductId,
@@ -1005,7 +1148,7 @@ export async function createPublicWhopCheckoutSession(input: {
       attribution: input.attribution,
     })
 
-    const client = new Whop({ apiKey: whopAccount.whop_key })
+    const client = new Whop({ apiKey: whopApiKey })
     const checkoutConfiguration = await client.checkoutConfigurations.create({
       redirect_url: redirectUrl,
       source_url: sourceUrl,
@@ -1040,7 +1183,7 @@ export async function createPublicWhopCheckoutSession(input: {
         landingUrl: sourceUrl,
       },
       plan: {
-        company_id: whopAccount.whop_company_id,
+        company_id: whopCompanyId,
         currency: normalizeWhopCurrency(checkoutCurrency),
         plan_type: "one_time",
         initial_price: checkoutAmount,
@@ -1052,7 +1195,7 @@ export async function createPublicWhopCheckoutSession(input: {
         checkoutConfigurationId: checkoutConfiguration.id,
         planId: checkoutConfiguration.plan?.id ?? null,
         purchaseUrl: checkoutConfiguration.purchase_url,
-        companyId: checkoutConfiguration.company_id ?? whopAccount.whop_company_id,
+        companyId: checkoutConfiguration.company_id ?? whopCompanyId,
         publishedAt: new Date().toISOString(),
         amount: checkoutAmount,
         returnToken,
@@ -1061,11 +1204,12 @@ export async function createPublicWhopCheckoutSession(input: {
         sourceUrl,
       }
 
-    await supabaseAdmin
+      await supabaseAdmin
       .from("checkouts")
       .update({
         config: {
           ...input.config,
+          selectedWhopAccountId: whopAccount.id,
           whop: nextWhopConfig,
         },
       })
@@ -1077,7 +1221,7 @@ export async function createPublicWhopCheckoutSession(input: {
       .update({
         whop_checkout_ready: true,
       })
-      .eq("id", input.config.selectedWhopAccountId)
+      .eq("id", whopAccount.id)
 
     return {
       whop: nextWhopConfig,

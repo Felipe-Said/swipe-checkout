@@ -129,8 +129,20 @@ export default async function PublicCheckoutPage({
       : null
   const savedWhopCompanyId =
     typeof savedWhopConfig?.companyId === "string" ? savedWhopConfig.companyId.trim() : ""
+  const configuredWhopAccount =
+    configuredWhopAccountId
+      ? (
+          await supabaseAdmin
+            .from("managed_accounts")
+            .select("id, whop_company_id")
+            .eq("id", configuredWhopAccountId)
+            .maybeSingle()
+        ).data
+      : null
   const inferredWhopAccountId =
-    !configuredWhopAccountId && savedWhopCompanyId
+    savedWhopCompanyId &&
+    (!configuredWhopAccountId ||
+      configuredWhopAccount?.whop_company_id !== savedWhopCompanyId)
       ? (
           await supabaseAdmin
             .from("managed_accounts")
